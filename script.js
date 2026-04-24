@@ -155,7 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (marginNumber >= 80) {
       return {
-        label: "🟢 Add Value",
+        label: "Add Value",
         className: "confirmed",
         insight: "Very high margin. This event is highly profitable, but the food value may look too low if the menu is too simple.",
         recommendation: "Consider adding one premium side, dessert, or beverage station while keeping the strong margin."
@@ -164,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (marginNumber >= 55) {
       return {
-        label: "🟢 High Profit",
+        label: "High Profit",
         className: "confirmed",
         insight: "Strong profit event. This menu has a healthy margin.",
         recommendation: guestNumber >= 300
@@ -175,7 +175,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (marginNumber >= 35) {
       return {
-        label: "🟡 Review Cost",
+        label: "Review Cost",
         className: "upcoming",
         insight: "Medium profit event. The margin is acceptable but should be reviewed before confirmation.",
         recommendation: "Check food cost, labor needs, and consider increasing price slightly if service complexity is high."
@@ -183,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     return {
-      label: "🔴 Adjust Price",
+      label: "Adjust Price",
       className: "issue",
       insight: estimatedProfit < 0
         ? "This event is projected to lose money."
@@ -275,7 +275,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (issues.length > 0) {
       return {
-        label: "❌ Not Enough",
+        label: "Not Enough",
         className: "issue",
         details: issues.join("\n"),
         purchaseRecommendations: purchaseRecommendations.join("\n")
@@ -284,7 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (warnings.length > 0) {
       return {
-        label: "⚠️ Low Stock",
+        label: "Low Stock",
         className: "upcoming",
         details: warnings.join("\n"),
         purchaseRecommendations: "Inventory is technically enough, but stock will be low after this event. Consider ordering backup stock."
@@ -292,7 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     return {
-      label: "✅ Ready",
+      label: "Ready",
       className: "confirmed",
       details: readyItems.join("\n") || "Inventory looks ready for this event.",
       purchaseRecommendations: "No urgent purchase needed for this event."
