@@ -641,7 +641,8 @@ ${staffSuggestion}
     }
 
     const inventory = getInventory();
-    selectedIngredientsList.innerHTML = currentRecipeIngredients.map((ingredient) => {
+
+    selectedIngredientsList.innerHTML = currentRecipeIngredients.map((ingredient, index) => {
       const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
       const itemName = item ? item.name : "Unknown item";
       const itemUnit = item ? item.unit : "unit";
@@ -651,10 +652,39 @@ ${staffSuggestion}
 
       return `
         <div class="selected-ingredient-pill">
-          ${itemName}: ${displayQty} / portion · ${convertedQty} ${itemUnit} converted · $${ingredientCost.toFixed(2)}
+          <span>
+            ${itemName}: ${displayQty} / portion · ${convertedQty} ${itemUnit} converted · $${ingredientCost.toFixed(2)}
+          </span>
+
+          <div class="icon-actions">
+            <button type="button" class="icon-btn edit ingredient-edit-btn" data-index="${index}" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete ingredient-delete-btn" data-index="${index}" title="Delete">🗑️</button>
+          </div>
         </div>
       `;
     }).join("");
+
+    selectedIngredientsList.querySelectorAll(".ingredient-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = Number(btn.dataset.index);
+        currentRecipeIngredients.splice(index, 1);
+        renderSelectedIngredients();
+      });
+    });
+
+    selectedIngredientsList.querySelectorAll(".ingredient-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = Number(btn.dataset.index);
+        const ingredient = currentRecipeIngredients[index];
+
+        if (recipeIngredientItemInput) recipeIngredientItemInput.value = ingredient.inventoryItemId;
+        if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
+        if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
+
+        currentRecipeIngredients.splice(index, 1);
+        renderSelectedIngredients();
+      });
+    });
   };
 
   const populateRecipeIngredientOptions = () => {
