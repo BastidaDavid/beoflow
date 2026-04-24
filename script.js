@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const menuCostInput = document.getElementById("menuCost");
   const menuPriceInput = document.getElementById("menuPrice");
   const menuRecipesInput = document.getElementById("menuRecipes");
+  let editingMenuId = null;
   const addRecipeBtn = document.getElementById("add-recipe-btn");
   const recipesTableBody = document.getElementById("recipes-table-body");
   const recipeNameInput = document.getElementById("recipeName");
@@ -750,10 +751,27 @@ ${staffSuggestion}
 
     const selectedValue = eventMenuInput.value;
     const menus = getMenus();
+    const recipes = getRecipes();
 
     eventMenuInput.innerHTML = `<option value="">Select a menu</option>`;
 
-    menus.forEach((menu) => {
+    const sortedMenus = [...menus].sort((a, b) => {
+      const getMenuMargin = (menu) => {
+        const recipeCost = (menu.recipeIds || []).reduce((total, recipeId) => {
+          const recipe = recipes.find((item) => item.id === recipeId);
+          return total + Number(recipe?.cost || 0);
+        }, 0);
+
+        const cost = recipeCost > 0 ? recipeCost : Number(menu.cost || 0);
+        const price = Number(menu.price || 0);
+
+        return price > 0 ? ((price - cost) / price) * 100 : 0;
+      };
+
+      return getMenuMargin(b) - getMenuMargin(a);
+    });
+
+    sortedMenus.forEach((menu) => {
       const option = document.createElement("option");
       option.value = menu.id;
       option.textContent = `${menu.name} - $${Number(menu.price || 0).toFixed(2)} / person`;
@@ -798,7 +816,7 @@ ${staffSuggestion}
     if (menus.length === 0) {
       const emptyRow = document.createElement("tr");
       emptyRow.innerHTML = `
-        <td colspan="6" style="color:#64748b; text-align:center; padding:20px;">
+        <td colspan="7" style="color:#64748b; text-align:center; padding:20px;">
           No menus yet. Create your first menu.
         </td>
       `;
@@ -806,7 +824,23 @@ ${staffSuggestion}
       return;
     }
 
-    menus.forEach((menu) => {
+    const sortedMenus = [...menus].sort((a, b) => {
+      const getMenuMargin = (menu) => {
+        const recipeCost = (menu.recipeIds || []).reduce((total, recipeId) => {
+          const recipe = recipes.find((item) => item.id === recipeId);
+          return total + Number(recipe?.cost || 0);
+        }, 0);
+
+        const cost = recipeCost > 0 ? recipeCost : Number(menu.cost || 0);
+        const price = Number(menu.price || 0);
+
+        return price > 0 ? ((price - cost) / price) * 100 : 0;
+      };
+
+      return getMenuMargin(b) - getMenuMargin(a);
+    });
+
+    sortedMenus.forEach((menu) => {
       const recipeNames = (menu.recipeIds || [])
         .map((recipeId) => recipes.find((recipe) => recipe.id === recipeId)?.name)
         .filter(Boolean);
@@ -828,8 +862,76 @@ ${staffSuggestion}
         <td>${recipeNames.length ? recipeNames.join(", ") : "No recipes"}</td>
         <td>$${displayCost.toFixed(2)}</td>
         <td>$${Number(menu.price || 0).toFixed(2)}</td>
-        <td>${margin}%</td>
+        <td>
+          <span class="status ${
+            Number(margin) >= 23
+              ? "confirmed"
+              : Number(margin) >= 15
+              ? "upcoming"
+              : "issue"
+          }">
+            ${margin}%
+          </span>
+        </td>
+        <td>
+          <div class="icon-actions">
+            <button type="button" class="icon-btn edit menu-edit-btn" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete menu-delete-btn" title="Delete">🗑️</button>
+          </div>
+        </td>
       `;
+
+      const editBtn = newRow.querySelector(".menu-edit-btn");
+      const deleteBtn = newRow.querySelector(".menu-delete-btn");
+
+      if (editBtn) {
+        editBtn.addEventListener("click", () => {
+          if (menuNameInput) menuNameInput.value = menu.name || "";
+          if (menuTypeInput) menuTypeInput.value = menu.type || "Buffet";
+          if (menuCostInput) menuCostInput.value = menu.cost || "";
+          if (menuPriceInput) menuPriceInput.value = menu.price || "";
+
+          populateMenuRecipeOptions();
+
+          if (menuRecipesInput) {
+            Array.from(menuRecipesInput.options).forEach((option) => {
+              option.selected = (menu.recipeIds || []).includes(option.value);
+            });
+          }
+
+          editingMenuId = menu.id;
+          if (addMenuBtn) addMenuBtn.textContent = "Update Menu";
+          menusSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+          const confirmDelete = confirm(`Delete ${menu.name || "this menu"}?`);
+          if (!confirmDelete) return;
+
+          const updatedMenus = getMenus().filter((menuItem) => menuItem.id !== menu.id);
+          saveMenus(updatedMenus);
+
+          if (editingMenuId === menu.id) {
+            editingMenuId = null;
+            if (addMenuBtn) addMenuBtn.textContent = "Add Menu";
+            if (menuNameInput) menuNameInput.value = "";
+            if (menuCostInput) menuCostInput.value = "";
+            if (menuPriceInput) menuPriceInput.value = "";
+            if (menuRecipesInput) {
+              Array.from(menuRecipesInput.options).forEach((option) => {
+                option.selected = false;
+              });
+            }
+          }
+
+          renderMenus();
+          populateEventMenuOptions();
+          renderEvents();
+        });
+      }
+
       menusTableBody.appendChild(newRow);
     });
   };
@@ -857,17 +959,37 @@ ${staffSuggestion}
     }
 
     const menus = getMenus();
-    menus.push({
-      id: Date.now().toString(),
-      name,
-      type,
-      cost,
-      price,
-      recipeIds: selectedRecipeIds
-    });
-    saveMenus(menus);
+
+    if (editingMenuId) {
+      const updatedMenus = menus.map((menu) => {
+        if (menu.id !== editingMenuId) return menu;
+        return {
+          ...menu,
+          name,
+          type,
+          cost,
+          price,
+          recipeIds: selectedRecipeIds
+        };
+      });
+      saveMenus(updatedMenus);
+      editingMenuId = null;
+      if (addMenuBtn) addMenuBtn.textContent = "Add Menu";
+    } else {
+      menus.push({
+        id: Date.now().toString(),
+        name,
+        type,
+        cost,
+        price,
+        recipeIds: selectedRecipeIds
+      });
+      saveMenus(menus);
+    }
+
     renderMenus();
     populateEventMenuOptions();
+    renderEvents();
 
     if (menuNameInput) menuNameInput.value = "";
     if (menuCostInput) menuCostInput.value = "";
