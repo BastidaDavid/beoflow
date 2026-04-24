@@ -190,7 +190,7 @@
 
           <div class="form-group">
             <label for="recipeYield">Waste %</label>
-            <input type="number" id="recipeYield" value="100" min="1" max="100" step="1" />
+            <input type="number" id="recipeYield" value="0" min="0" max="99" step="1" />
             <small class="field-hint">0% = no waste. 10% = 10% loss.</small>
           </div>
 
@@ -387,6 +387,17 @@
     </main>
   </div>
 
+  <div id="ingredients-modal" class="modal-overlay" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="ingredients-modal-title">Recipe Ingredients</h3>
+        <button type="button" id="close-ingredients-modal" class="icon-btn delete" title="Close">×</button>
+      </div>
+      <div id="ingredients-modal-body" class="modal-body">
+        No ingredients added.
+      </div>
+    </div>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>

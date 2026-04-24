@@ -440,44 +440,6 @@ tbody tr:hover {
   background: var(--danger-bg);
 }
 
-/* Inline icon actions (edit/delete) */
-.icon-actions {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: #ffffff;
-  color: var(--text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.icon-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow);
-}
-
-.icon-btn.edit:hover {
-  background: #dbeafe;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-}
-
-.icon-btn.delete:hover {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fecaca;
-}
-
 
 /* Topbar buttons layout */
 .topbar-actions {
@@ -566,4 +528,114 @@ tbody tr:hover {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* Inline icon actions (edit/delete/analyze) */
+.icon-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.icon-btn.edit:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.icon-btn.delete:hover {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.icon-btn.analyze:hover {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+/* Ingredients modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 999;
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.22);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.modal-body {
+  max-height: 360px;
+  overflow-y: auto;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.modal-body .ingredient-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-body .ingredient-row:last-child {
+  border-bottom: none;
+}
+
+.selected-ingredient-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }

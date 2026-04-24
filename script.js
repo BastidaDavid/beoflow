@@ -48,6 +48,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const recipeIngredientUnitInput = document.getElementById("recipeIngredientUnit");
   const addRecipeIngredientBtn = document.getElementById("add-recipe-ingredient-btn");
   const selectedIngredientsList = document.getElementById("selected-ingredients-list");
+  const ingredientsModal = document.getElementById("ingredients-modal");
+  const ingredientsModalTitle = document.getElementById("ingredients-modal-title");
+  const ingredientsModalBody = document.getElementById("ingredients-modal-body");
+  const closeIngredientsModalBtn = document.getElementById("close-ingredients-modal");
   let currentRecipeIngredients = [];
   let editingRecipeId = null;
   const navInventory = document.getElementById("nav-inventory");
@@ -707,6 +711,38 @@ ${staffSuggestion}
     });
   };
 
+  const openIngredientsModal = (recipe) => {
+    if (!ingredientsModal || !ingredientsModalTitle || !ingredientsModalBody) return;
+
+    const inventory = getInventory();
+    ingredientsModalTitle.textContent = `${recipe.name || "Recipe"} Ingredients`;
+
+    if (!recipe.ingredients || recipe.ingredients.length === 0) {
+      ingredientsModalBody.innerHTML = `<div class="ingredient-row">No ingredients added.</div>`;
+    } else {
+      ingredientsModalBody.innerHTML = recipe.ingredients.map((ingredient) => {
+        const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+        const itemName = item ? item.name : "Unknown item";
+        const ingredientCost = Number(ingredient.qty || 0) * Number(item?.cost || 0);
+        const displayQty = getIngredientDisplayQty(ingredient, item);
+
+        return `
+          <div class="ingredient-row">
+            <span>${itemName}</span>
+            <strong>${displayQty} / portion · $${ingredientCost.toFixed(2)}</strong>
+          </div>
+        `;
+      }).join("");
+    }
+
+    ingredientsModal.hidden = false;
+  };
+
+  const closeIngredientsModal = () => {
+    if (!ingredientsModal) return;
+    ingredientsModal.hidden = true;
+  };
+
   const populateRecipeIngredientOptions = () => {
     if (!recipeIngredientItemInput) return;
 
@@ -1036,16 +1072,17 @@ ${staffSuggestion}
       const cost = applyWasteToCost(baseCost, recipe.wastePercent || 0);
       const portions = Number(recipe.portions || 0);
       const totalBatchCost = cost * portions;
-      const ingredientNames = (recipe.ingredients || []).map((ingredient) => {
-        const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
-        return item ? `${item.name} (${getIngredientDisplayQty(ingredient, item)} / portion)` : "Unknown item";
-      });
+      const ingredientCount = (recipe.ingredients || []).length;
 
       const newRow = document.createElement("tr");
       newRow.innerHTML = `
         <td>${recipe.name || "-"}</td>
         <td>${recipe.category || "-"}</td>
-        <td>${ingredientNames.length ? ingredientNames.join(", ") : "No ingredients"}</td>
+        <td>
+          <button type="button" class="secondary-btn view-ingredients-btn">
+            View Ingredients (${ingredientCount})
+          </button>
+        </td>
         <td>$${cost.toFixed(2)}</td>
         <td>${portions || "-"}</td>
         <td>$${totalBatchCost.toFixed(2)}</td>
@@ -1060,6 +1097,13 @@ ${staffSuggestion}
 
       const editBtn = newRow.querySelector(".recipe-edit-btn");
       const deleteBtn = newRow.querySelector(".recipe-delete-btn");
+      const viewIngredientsBtn = newRow.querySelector(".view-ingredients-btn");
+
+      if (viewIngredientsBtn) {
+        viewIngredientsBtn.addEventListener("click", () => {
+          openIngredientsModal(recipe);
+        });
+      }
 
       if (editBtn) {
         editBtn.addEventListener("click", () => {
@@ -1381,6 +1425,18 @@ ${staffSuggestion}
 
   if (addRecipeIngredientBtn) {
     addRecipeIngredientBtn.addEventListener("click", addRecipeIngredient);
+  }
+
+  if (closeIngredientsModalBtn) {
+    closeIngredientsModalBtn.addEventListener("click", closeIngredientsModal);
+  }
+
+  if (ingredientsModal) {
+    ingredientsModal.addEventListener("click", (e) => {
+      if (e.target === ingredientsModal) {
+        closeIngredientsModal();
+      }
+    });
   }
 
   if (addInventoryBtn) {
