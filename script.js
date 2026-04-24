@@ -644,10 +644,14 @@ ${staffSuggestion}
     }, 0);
   };
 
-  const applyYieldToCost = (cost, yieldPercent) => {
-    const safeYield = Number(yieldPercent || 100);
-    if (safeYield <= 0 || safeYield >= 100) return Number(cost || 0);
-    return Number(cost || 0) / (safeYield / 100);
+  const applyWasteToCost = (cost, wastePercent) => {
+    const waste = Number(wastePercent || 0);
+    const usablePercent = 100 - waste;
+
+    if (waste <= 0) return Number(cost || 0);
+    if (usablePercent <= 0) return Number(cost || 0);
+
+    return Number(cost || 0) / (usablePercent / 100);
   };
 
   const renderSelectedIngredients = () => {
@@ -1028,8 +1032,8 @@ ${staffSuggestion}
 
     recipes.forEach((recipe) => {
       const ingredientCost = calculateRecipeIngredientCost(recipe.ingredients || []);
-      const baseCost = ingredientCost > 0 ? ingredientCost : Number(recipe.cost || 0);
-      const cost = applyYieldToCost(baseCost, recipe.yieldPercent || 100);
+      const baseCost = ingredientCost > 0 ? ingredientCost : Number(recipe.baseCost || recipe.cost || 0);
+      const cost = applyWasteToCost(baseCost, recipe.wastePercent || 0);
       const portions = Number(recipe.portions || 0);
       const totalBatchCost = cost * portions;
       const ingredientNames = (recipe.ingredients || []).map((ingredient) => {
@@ -1063,7 +1067,7 @@ ${staffSuggestion}
           if (recipeCategoryInput) recipeCategoryInput.value = recipe.category || "Entree";
           if (recipeCostInput) recipeCostInput.value = recipe.baseCost || recipe.cost || "";
           if (recipePortionsInput) recipePortionsInput.value = recipe.portions || "";
-          if (recipeYieldInput) recipeYieldInput.value = recipe.yieldPercent || 100;
+          if (recipeYieldInput) recipeYieldInput.value = recipe.wastePercent || 0;
           if (recipeNotesInput) recipeNotesInput.value = recipe.notes || "";
           currentRecipeIngredients = [...(recipe.ingredients || [])];
           editingRecipeId = recipe.id;
@@ -1089,7 +1093,7 @@ ${staffSuggestion}
             if (recipeNameInput) recipeNameInput.value = "";
             if (recipeCostInput) recipeCostInput.value = "";
             if (recipePortionsInput) recipePortionsInput.value = "";
-            if (recipeYieldInput) recipeYieldInput.value = "100";
+            if (recipeYieldInput) recipeYieldInput.value = "0";
             if (recipeNotesInput) recipeNotesInput.value = "";
           }
 
@@ -1110,8 +1114,8 @@ ${staffSuggestion}
     const ingredientCost = calculateRecipeIngredientCost(currentRecipeIngredients);
     const manualCost = recipeCostInput ? Number(recipeCostInput.value) : 0;
     const baseCost = ingredientCost > 0 ? ingredientCost : manualCost;
-    const yieldPercent = recipeYieldInput ? Number(recipeYieldInput.value || 100) : 100;
-    const cost = applyYieldToCost(baseCost, yieldPercent);
+    const wastePercent = recipeYieldInput ? Number(recipeYieldInput.value || 0) : 0;
+    const cost = applyWasteToCost(baseCost, wastePercent);
     const portions = recipePortionsInput ? Number(recipePortionsInput.value) : 0;
     const notes = recipeNotesInput ? recipeNotesInput.value.trim() : "";
 
@@ -1131,7 +1135,7 @@ ${staffSuggestion}
           category,
           baseCost,
           cost,
-          yieldPercent,
+          wastePercent,
           portions,
           notes,
           ingredients: [...currentRecipeIngredients]
@@ -1147,7 +1151,7 @@ ${staffSuggestion}
         category,
         baseCost,
         cost,
-        yieldPercent,
+        wastePercent,
         portions,
         notes,
         ingredients: [...currentRecipeIngredients]
@@ -1163,7 +1167,7 @@ ${staffSuggestion}
     if (recipeNameInput) recipeNameInput.value = "";
     if (recipeCostInput) recipeCostInput.value = "";
     if (recipePortionsInput) recipePortionsInput.value = "";
-    if (recipeYieldInput) recipeYieldInput.value = "100";
+    if (recipeYieldInput) recipeYieldInput.value = "0";
     if (recipeNotesInput) recipeNotesInput.value = "";
     currentRecipeIngredients = [];
     renderSelectedIngredients();
