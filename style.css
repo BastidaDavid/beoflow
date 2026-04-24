@@ -527,142 +527,18 @@ tbody tr:hover {
 }
 
 @media (max-width: 640px) {
-  body {
-    background: var(--bg);
-  }
-
-  .app-container {
-    display: block;
-    min-height: 100vh;
-  }
-
-  .sidebar {
-    width: 100%;
-    padding: 18px 16px;
-    border-radius: 0 0 24px 24px;
-  }
-
-  .logo-area {
-    margin-bottom: 20px;
-  }
-
-  .logo-img {
-    width: 48px;
-    height: 48px;
-  }
-
-  .logo-text h2 {
-    font-size: 1.25rem;
-  }
-
-  .nav-menu {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .nav-menu a {
-    text-align: center;
-    padding: 11px 10px;
-    font-size: 0.88rem;
-  }
-
-  .main-content {
-    padding: 18px 14px;
-  }
-
-  .topbar {
-    gap: 14px;
-    margin-bottom: 20px;
-  }
-
-  .topbar h1 {
-    font-size: 1.55rem;
-  }
-
-  .topbar p {
-    font-size: 0.92rem;
-  }
-
   .topbar-actions {
     width: 100%;
     flex-direction: column;
     align-items: stretch;
   }
 
-  .primary-btn,
-  .secondary-btn {
-    width: 100%;
-    min-height: 46px;
-    padding: 12px 16px;
-    font-size: 0.95rem;
-  }
-
-  .kpi-grid {
-    grid-template-columns: 1fr;
-    gap: 14px;
-  }
-
-  .kpi-card {
-    padding: 20px;
-    border-radius: 18px;
-  }
-
-  .table-section {
-    padding: 18px;
-    border-radius: 18px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .section-header h2 {
-    font-size: 1.1rem;
-  }
-
-  table {
-    min-width: 850px;
-  }
-
-  thead th,
-  tbody td {
-    padding: 12px 10px;
-    font-size: 0.86rem;
-  }
-
-  .status {
-    padding: 6px 10px;
-    font-size: 0.76rem;
-    white-space: nowrap;
-  }
-
   .form-grid {
     grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .form-group input,
-  .form-group select {
-    min-height: 46px;
-    font-size: 16px;
   }
 
   .form-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .ingredient-builder {
-    grid-template-columns: 1fr;
-  }
-
-  .action-menu-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 1.1rem;
-  }
-
-  .action-menu-dropdown {
-    right: 0;
-    min-width: 150px;
   }
 }
