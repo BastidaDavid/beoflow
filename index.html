@@ -204,7 +204,18 @@
 
               <div class="form-group">
                 <label for="recipeIngredientQty">Qty Per Portion</label>
-                <input type="number" id="recipeIngredientQty" placeholder="Example: 0.25" step="0.01" />
+                <input type="number" id="recipeIngredientQty" placeholder="Example: 5" step="0.01" />
+              </div>
+
+              <div class="form-group">
+                <label for="recipeIngredientUnit">Recipe Unit</label>
+                <select id="recipeIngredientUnit">
+                  <option value="lb">lb</option>
+                  <option value="oz">oz</option>
+                  <option value="units">units</option>
+                  <option value="gallons">gallons</option>
+                  <option value="quarts">quarts</option>
+                </select>
               </div>
 
               <button type="button" id="add-recipe-ingredient-btn" class="secondary-btn">Add Ingredient</button>
@@ -213,7 +224,7 @@
             <div id="selected-ingredients-list" class="selected-ingredients-list">
               No ingredients added yet.
             </div>
-            <small class="field-hint">Example: Chicken Breast 0.25 lb per portion. Inventory units come from your Inventory module.</small>
+            <small class="field-hint">Example: Inventory has Romaine Lettuce in lb, but the recipe can use 5 oz per portion. BEOFlow converts it automatically.</small>
           </div>
         </div>
 

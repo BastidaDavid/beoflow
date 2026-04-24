@@ -43,6 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const recipeNotesInput = document.getElementById("recipeNotes");
   const recipeIngredientItemInput = document.getElementById("recipeIngredientItem");
   const recipeIngredientQtyInput = document.getElementById("recipeIngredientQty");
+  const recipeIngredientUnitInput = document.getElementById("recipeIngredientUnit");
   const addRecipeIngredientBtn = document.getElementById("add-recipe-ingredient-btn");
   const selectedIngredientsList = document.getElementById("selected-ingredients-list");
   let currentRecipeIngredients = [];
@@ -617,6 +618,26 @@ ${staffSuggestion}
     });
   };
 
+  const convertQuantity = (qty, fromUnit, toUnit) => {
+    const amount = Number(qty || 0);
+    if (!fromUnit || !toUnit || fromUnit === toUnit) return amount;
+
+    const conversions = {
+      lb: { oz: 16 },
+      oz: { lb: 1 / 16 },
+      gallons: { quarts: 4 },
+      quarts: { gallons: 1 / 4 }
+    };
+
+    return conversions[fromUnit]?.[toUnit] ? amount * conversions[fromUnit][toUnit] : amount;
+  };
+
+  const getIngredientDisplayQty = (ingredient, item) => {
+    const displayQty = ingredient.originalQty ?? ingredient.qty;
+    const displayUnit = ingredient.originalUnit || item?.unit || "unit";
+    return `${Number(displayQty || 0).toFixed(2)} ${displayUnit}`;
+  };
+
   const calculateRecipeIngredientCost = (ingredients = []) => {
     const inventory = getInventory();
 
@@ -640,10 +661,12 @@ ${staffSuggestion}
       const itemName = item ? item.name : "Unknown item";
       const itemUnit = item ? item.unit : "unit";
       const ingredientCost = Number(ingredient.qty || 0) * Number(item?.cost || 0);
+      const displayQty = getIngredientDisplayQty(ingredient, item);
+      const convertedQty = Number(ingredient.qty || 0).toFixed(4);
 
       return `
         <div class="selected-ingredient-pill">
-          ${itemName}: ${Number(ingredient.qty || 0).toFixed(2)} ${itemUnit} / portion · $${ingredientCost.toFixed(2)}
+          ${itemName}: ${displayQty} / portion · ${convertedQty} ${itemUnit} converted · $${ingredientCost.toFixed(2)}
         </div>
       `;
     }).join("");
@@ -678,13 +701,22 @@ ${staffSuggestion}
   const addRecipeIngredient = () => {
     const inventoryItemId = recipeIngredientItemInput ? recipeIngredientItemInput.value : "";
     const qty = recipeIngredientQtyInput ? Number(recipeIngredientQtyInput.value) : 0;
+    const recipeUnit = recipeIngredientUnitInput ? recipeIngredientUnitInput.value : "lb";
+    const inventoryItem = getInventory().find((item) => item.id === inventoryItemId);
+    const inventoryUnit = inventoryItem?.unit || recipeUnit;
+    const convertedQty = convertQuantity(qty, recipeUnit, inventoryUnit);
 
     if (!inventoryItemId || qty <= 0) {
       alert("Please select an inventory item and enter quantity per portion.");
       return;
     }
 
-    currentRecipeIngredients.push({ inventoryItemId, qty });
+    currentRecipeIngredients.push({
+      inventoryItemId,
+      qty: convertedQty,
+      originalQty: qty,
+      originalUnit: recipeUnit
+    });
     renderSelectedIngredients();
 
     if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
@@ -849,7 +881,7 @@ ${staffSuggestion}
       const totalBatchCost = cost * portions;
       const ingredientNames = (recipe.ingredients || []).map((ingredient) => {
         const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
-        return item ? `${item.name} (${Number(ingredient.qty || 0).toFixed(2)} ${item.unit})` : "Unknown item";
+        return item ? `${item.name} (${getIngredientDisplayQty(ingredient, item)} / portion)` : "Unknown item";
       });
 
       const newRow = document.createElement("tr");
