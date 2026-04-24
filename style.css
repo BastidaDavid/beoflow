@@ -343,19 +343,6 @@ tbody tr:hover {
   }
 }
 
-@media (max-width: 640px) {
-  .kpi-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .table-section {
-    overflow-x: auto;
-  }
-
-  table {
-    min-width: 700px;
-  }
-}
 
 /* Actions menu styles */
 .secondary-btn {
@@ -496,6 +483,21 @@ tbody tr:hover {
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+#menuRecipes {
+  min-height: 120px;
+  padding: 12px 14px;
 }
 
 .form-group input:focus,
