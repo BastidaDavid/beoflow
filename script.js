@@ -894,30 +894,15 @@ ${staffSuggestion}
         <td>$${totalBatchCost.toFixed(2)}</td>
         <td>${recipe.notes || "-"}</td>
         <td>
-          <div class="action-menu">
-            <button type="button" class="action-menu-btn" aria-label="Open recipe actions menu">☰</button>
-            <div class="action-menu-dropdown">
-              <button type="button" class="action-item recipe-edit-btn">Edit</button>
-              <button type="button" class="action-item recipe-delete-btn danger">Delete</button>
-            </div>
+          <div class="icon-actions">
+            <button type="button" class="icon-btn edit recipe-edit-btn" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete recipe-delete-btn" title="Delete">🗑️</button>
           </div>
         </td>
       `;
 
-      const actionMenuBtn = newRow.querySelector(".action-menu-btn");
-      const actionMenu = newRow.querySelector(".action-menu");
       const editBtn = newRow.querySelector(".recipe-edit-btn");
       const deleteBtn = newRow.querySelector(".recipe-delete-btn");
-
-      if (actionMenuBtn && actionMenu) {
-        actionMenuBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          document.querySelectorAll(".action-menu.open").forEach((menu) => {
-            if (menu !== actionMenu) menu.classList.remove("open");
-          });
-          actionMenu.classList.toggle("open");
-        });
-      }
 
       if (editBtn) {
         editBtn.addEventListener("click", () => {
@@ -1065,30 +1050,15 @@ ${staffSuggestion}
         <td>$${stockValue.toFixed(2)}</td>
         <td><span class="status ${status.className}">${status.label}</span></td>
         <td>
-          <div class="action-menu">
-            <button type="button" class="action-menu-btn" aria-label="Open inventory actions menu">☰</button>
-            <div class="action-menu-dropdown">
-              <button type="button" class="action-item inventory-edit-btn">Edit</button>
-              <button type="button" class="action-item inventory-delete-btn danger">Delete</button>
-            </div>
+          <div class="icon-actions">
+            <button type="button" class="icon-btn edit inventory-edit-btn" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete inventory-delete-btn" title="Delete">🗑️</button>
           </div>
         </td>
       `;
 
-      const actionMenuBtn = newRow.querySelector(".action-menu-btn");
-      const actionMenu = newRow.querySelector(".action-menu");
       const editBtn = newRow.querySelector(".inventory-edit-btn");
       const deleteBtn = newRow.querySelector(".inventory-delete-btn");
-
-      if (actionMenuBtn && actionMenu) {
-        actionMenuBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          document.querySelectorAll(".action-menu.open").forEach((menu) => {
-            if (menu !== actionMenu) menu.classList.remove("open");
-          });
-          actionMenu.classList.toggle("open");
-        });
-      }
 
       if (editBtn) {
         editBtn.addEventListener("click", () => {
