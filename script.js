@@ -54,6 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const inventoryQuantityInput = document.getElementById("inventoryQuantity");
   const inventoryUnitInput = document.getElementById("inventoryUnit");
   const inventoryCostInput = document.getElementById("inventoryCost");
+  let editingInventoryItemId = null;
 
   const kpiEventsToday = document.getElementById("kpi-events-today");
   const kpiUpcomingEvents = document.getElementById("kpi-upcoming-events");
@@ -920,7 +921,7 @@ ${staffSuggestion}
     if (inventory.length === 0) {
       const emptyRow = document.createElement("tr");
       emptyRow.innerHTML = `
-        <td colspan="6" style="color:#64748b; text-align:center; padding:20px;">
+        <td colspan="7" style="color:#64748b; text-align:center; padding:20px;">
           No inventory items yet. Add your first item.
         </td>
       `;
@@ -942,7 +943,68 @@ ${staffSuggestion}
         <td>$${cost.toFixed(2)}</td>
         <td>$${stockValue.toFixed(2)}</td>
         <td><span class="status ${status.className}">${status.label}</span></td>
+        <td>
+          <div class="action-menu">
+            <button type="button" class="action-menu-btn" aria-label="Open inventory actions menu">☰</button>
+            <div class="action-menu-dropdown">
+              <button type="button" class="action-item inventory-edit-btn">Edit</button>
+              <button type="button" class="action-item inventory-delete-btn danger">Delete</button>
+            </div>
+          </div>
+        </td>
       `;
+
+      const actionMenuBtn = newRow.querySelector(".action-menu-btn");
+      const actionMenu = newRow.querySelector(".action-menu");
+      const editBtn = newRow.querySelector(".inventory-edit-btn");
+      const deleteBtn = newRow.querySelector(".inventory-delete-btn");
+
+      if (actionMenuBtn && actionMenu) {
+        actionMenuBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.querySelectorAll(".action-menu.open").forEach((menu) => {
+            if (menu !== actionMenu) menu.classList.remove("open");
+          });
+          actionMenu.classList.toggle("open");
+        });
+      }
+
+      if (editBtn) {
+        editBtn.addEventListener("click", () => {
+          if (inventoryItemNameInput) inventoryItemNameInput.value = item.name || "";
+          if (inventoryQuantityInput) inventoryQuantityInput.value = item.quantity || "";
+          if (inventoryUnitInput) inventoryUnitInput.value = item.unit || "lb";
+          if (inventoryCostInput) inventoryCostInput.value = item.cost || "";
+          editingInventoryItemId = item.id;
+          if (addInventoryBtn) addInventoryBtn.textContent = "Update Inventory Item";
+          inventorySection.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+          const confirmDelete = confirm(`Delete ${item.name || "this inventory item"}?`);
+          if (!confirmDelete) return;
+
+          const updatedInventory = getInventory().filter((inventoryItem) => inventoryItem.id !== item.id);
+          saveInventory(updatedInventory);
+
+          if (editingInventoryItemId === item.id) {
+            editingInventoryItemId = null;
+            if (addInventoryBtn) addInventoryBtn.textContent = "Add Inventory Item";
+            if (inventoryItemNameInput) inventoryItemNameInput.value = "";
+            if (inventoryQuantityInput) inventoryQuantityInput.value = "";
+            if (inventoryCostInput) inventoryCostInput.value = "";
+          }
+
+          renderInventory();
+          populateRecipeIngredientOptions();
+          renderRecipes();
+          renderMenus();
+          renderEvents();
+        });
+      }
+
       inventoryTableBody.appendChild(newRow);
     });
   };
@@ -959,16 +1021,37 @@ ${staffSuggestion}
     }
 
     const inventory = getInventory();
-    inventory.push({
-      id: Date.now().toString(),
-      name,
-      quantity,
-      unit,
-      cost
-    });
-    saveInventory(inventory);
+
+    if (editingInventoryItemId) {
+      const updatedInventory = inventory.map((item) => {
+        if (item.id !== editingInventoryItemId) return item;
+        return {
+          ...item,
+          name,
+          quantity,
+          unit,
+          cost
+        };
+      });
+      saveInventory(updatedInventory);
+      editingInventoryItemId = null;
+      if (addInventoryBtn) addInventoryBtn.textContent = "Add Inventory Item";
+    } else {
+      inventory.push({
+        id: Date.now().toString(),
+        name,
+        quantity,
+        unit,
+        cost
+      });
+      saveInventory(inventory);
+    }
+
     renderInventory();
     populateRecipeIngredientOptions();
+    renderRecipes();
+    renderMenus();
+    renderEvents();
 
     if (inventoryItemNameInput) inventoryItemNameInput.value = "";
     if (inventoryQuantityInput) inventoryQuantityInput.value = "";
