@@ -443,32 +443,17 @@ document.addEventListener("DOMContentLoaded", () => {
         <td><span class="status ${inventoryCheck.className}">${inventoryCheck.label}</span></td>
         <td><span class="status ${getStatusClass(eventData.status)}">${eventData.status || "Draft"}</span></td>
         <td>
-          <div class="action-menu">
-            <button type="button" class="action-menu-btn" aria-label="Open actions menu">☰</button>
-            <div class="action-menu-dropdown">
-              <button type="button" class="action-item analyze-btn">Analyze</button>
-              <button type="button" class="action-item edit-btn">Edit</button>
-              <button type="button" class="action-item delete-btn danger">Delete</button>
-            </div>
+          <div class="icon-actions">
+            <button type="button" class="icon-btn analyze analyze-btn" title="Analyze">🧠</button>
+            <button type="button" class="icon-btn edit edit-btn" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete delete-btn" title="Delete">🗑️</button>
           </div>
         </td>
       `;
 
-      const actionMenuBtn = newRow.querySelector(".action-menu-btn");
-      const actionMenu = newRow.querySelector(".action-menu");
       const analyzeBtn = newRow.querySelector(".analyze-btn");
       const editBtn = newRow.querySelector(".edit-btn");
       const deleteBtn = newRow.querySelector(".delete-btn");
-
-      if (actionMenuBtn && actionMenu) {
-        actionMenuBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          document.querySelectorAll(".action-menu.open").forEach((menu) => {
-            if (menu !== actionMenu) menu.classList.remove("open");
-          });
-          actionMenu.classList.toggle("open");
-        });
-      }
 
       if (analyzeBtn) {
         analyzeBtn.addEventListener("click", () => {
