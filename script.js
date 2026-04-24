@@ -46,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const addRecipeIngredientBtn = document.getElementById("add-recipe-ingredient-btn");
   const selectedIngredientsList = document.getElementById("selected-ingredients-list");
   let currentRecipeIngredients = [];
+  let editingRecipeId = null;
   const navInventory = document.getElementById("nav-inventory");
   const inventorySection = document.getElementById("inventory-section");
   const addInventoryBtn = document.getElementById("add-inventory-btn");
@@ -833,7 +834,7 @@ ${staffSuggestion}
     if (recipes.length === 0) {
       const emptyRow = document.createElement("tr");
       emptyRow.innerHTML = `
-        <td colspan="7" style="color:#64748b; text-align:center; padding:20px;">
+        <td colspan="8" style="color:#64748b; text-align:center; padding:20px;">
           No recipes yet. Create your first recipe.
         </td>
       `;
@@ -860,7 +861,73 @@ ${staffSuggestion}
         <td>${portions || "-"}</td>
         <td>$${totalBatchCost.toFixed(2)}</td>
         <td>${recipe.notes || "-"}</td>
+        <td>
+          <div class="action-menu">
+            <button type="button" class="action-menu-btn" aria-label="Open recipe actions menu">☰</button>
+            <div class="action-menu-dropdown">
+              <button type="button" class="action-item recipe-edit-btn">Edit</button>
+              <button type="button" class="action-item recipe-delete-btn danger">Delete</button>
+            </div>
+          </div>
+        </td>
       `;
+
+      const actionMenuBtn = newRow.querySelector(".action-menu-btn");
+      const actionMenu = newRow.querySelector(".action-menu");
+      const editBtn = newRow.querySelector(".recipe-edit-btn");
+      const deleteBtn = newRow.querySelector(".recipe-delete-btn");
+
+      if (actionMenuBtn && actionMenu) {
+        actionMenuBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          document.querySelectorAll(".action-menu.open").forEach((menu) => {
+            if (menu !== actionMenu) menu.classList.remove("open");
+          });
+          actionMenu.classList.toggle("open");
+        });
+      }
+
+      if (editBtn) {
+        editBtn.addEventListener("click", () => {
+          if (recipeNameInput) recipeNameInput.value = recipe.name || "";
+          if (recipeCategoryInput) recipeCategoryInput.value = recipe.category || "Entree";
+          if (recipeCostInput) recipeCostInput.value = recipe.cost || "";
+          if (recipePortionsInput) recipePortionsInput.value = recipe.portions || "";
+          if (recipeNotesInput) recipeNotesInput.value = recipe.notes || "";
+          currentRecipeIngredients = [...(recipe.ingredients || [])];
+          editingRecipeId = recipe.id;
+          renderSelectedIngredients();
+          if (addRecipeBtn) addRecipeBtn.textContent = "Update Recipe";
+          recipesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+          const confirmDelete = confirm(`Delete ${recipe.name || "this recipe"}?`);
+          if (!confirmDelete) return;
+
+          const updatedRecipes = getRecipes().filter((recipeItem) => recipeItem.id !== recipe.id);
+          saveRecipes(updatedRecipes);
+
+          if (editingRecipeId === recipe.id) {
+            editingRecipeId = null;
+            currentRecipeIngredients = [];
+            renderSelectedIngredients();
+            if (addRecipeBtn) addRecipeBtn.textContent = "Add Recipe";
+            if (recipeNameInput) recipeNameInput.value = "";
+            if (recipeCostInput) recipeCostInput.value = "";
+            if (recipePortionsInput) recipePortionsInput.value = "";
+            if (recipeNotesInput) recipeNotesInput.value = "";
+          }
+
+          renderRecipes();
+          populateMenuRecipeOptions();
+          renderMenus();
+          renderEvents();
+        });
+      }
+
       recipesTableBody.appendChild(newRow);
     });
   };
@@ -880,18 +947,40 @@ ${staffSuggestion}
     }
 
     const recipes = getRecipes();
-    recipes.push({
-      id: Date.now().toString(),
-      name,
-      category,
-      cost,
-      portions,
-      notes,
-      ingredients: [...currentRecipeIngredients]
-    });
-    saveRecipes(recipes);
+
+    if (editingRecipeId) {
+      const updatedRecipes = recipes.map((recipe) => {
+        if (recipe.id !== editingRecipeId) return recipe;
+        return {
+          ...recipe,
+          name,
+          category,
+          cost,
+          portions,
+          notes,
+          ingredients: [...currentRecipeIngredients]
+        };
+      });
+      saveRecipes(updatedRecipes);
+      editingRecipeId = null;
+      if (addRecipeBtn) addRecipeBtn.textContent = "Add Recipe";
+    } else {
+      recipes.push({
+        id: Date.now().toString(),
+        name,
+        category,
+        cost,
+        portions,
+        notes,
+        ingredients: [...currentRecipeIngredients]
+      });
+      saveRecipes(recipes);
+    }
+
     renderRecipes();
     populateMenuRecipeOptions();
+    renderMenus();
+    renderEvents();
 
     if (recipeNameInput) recipeNameInput.value = "";
     if (recipeCostInput) recipeCostInput.value = "";
