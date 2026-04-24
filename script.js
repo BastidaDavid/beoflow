@@ -607,14 +607,24 @@ ${staffSuggestion}
     const amount = Number(qty || 0);
     if (!fromUnit || !toUnit || fromUnit === toUnit) return amount;
 
-    const conversions = {
-      lb: { oz: 16 },
-      oz: { lb: 1 / 16 },
-      gallons: { quarts: 4 },
-      quarts: { gallons: 1 / 4 }
-    };
+    const normalizedFromUnit = fromUnit === "gal" ? "gallons" : fromUnit;
+    const normalizedToUnit = toUnit === "gal" ? "gallons" : toUnit;
 
-    return conversions[fromUnit]?.[toUnit] ? amount * conversions[fromUnit][toUnit] : amount;
+    // Weight conversions
+    if (normalizedFromUnit === "oz" && normalizedToUnit === "lb") return amount / 16;
+    if (normalizedFromUnit === "lb" && normalizedToUnit === "oz") return amount * 16;
+
+    // US liquid volume conversions
+    if (normalizedFromUnit === "oz" && normalizedToUnit === "gallons") return amount / 128;
+    if (normalizedFromUnit === "gallons" && normalizedToUnit === "oz") return amount * 128;
+
+    if (normalizedFromUnit === "oz" && normalizedToUnit === "quarts") return amount / 32;
+    if (normalizedFromUnit === "quarts" && normalizedToUnit === "oz") return amount * 32;
+
+    if (normalizedFromUnit === "quarts" && normalizedToUnit === "gallons") return amount / 4;
+    if (normalizedFromUnit === "gallons" && normalizedToUnit === "quarts") return amount * 4;
+
+    return amount;
   };
 
   const getIngredientDisplayQty = (ingredient, item) => {
@@ -645,15 +655,13 @@ ${staffSuggestion}
     selectedIngredientsList.innerHTML = currentRecipeIngredients.map((ingredient, index) => {
       const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
       const itemName = item ? item.name : "Unknown item";
-      const itemUnit = item ? item.unit : "unit";
       const ingredientCost = Number(ingredient.qty || 0) * Number(item?.cost || 0);
       const displayQty = getIngredientDisplayQty(ingredient, item);
-      const convertedQty = Number(ingredient.qty || 0).toFixed(4);
 
       return `
         <div class="selected-ingredient-pill">
           <span>
-            ${itemName}: ${displayQty} / portion · ${convertedQty} ${itemUnit} converted · $${ingredientCost.toFixed(2)}
+            ${itemName}: ${displayQty} / portion · $${ingredientCost.toFixed(2)}
           </span>
 
           <div class="icon-actions">
