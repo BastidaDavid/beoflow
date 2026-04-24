@@ -148,6 +148,7 @@
               <th>Cost / Person</th>
               <th>Price / Person</th>
               <th>Estimated Margin</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="menus-table-body"></tbody>
@@ -185,6 +186,12 @@
           <div class="form-group">
             <label for="recipePortions">Portions</label>
             <input type="number" id="recipePortions" placeholder="Example: 50" />
+          </div>
+
+          <div class="form-group">
+            <label for="recipeYield">Yield %</label>
+            <input type="number" id="recipeYield" value="100" min="1" max="100" step="1" />
+            <small class="field-hint">100% = no waste. 90% = 10% waste.</small>
           </div>
 
           <div class="form-group">
@@ -277,8 +284,8 @@
           </div>
 
           <div class="form-group">
-            <label for="inventoryCost">Cost Per Unit</label>
-            <input type="number" id="inventoryCost" placeholder="Example: 3.20" step="0.01" />
+            <label for="inventoryCost">Presentation Cost</label>
+            <input type="number" id="inventoryCost" placeholder="Example: 20.00" step="0.01" />
           </div>
         </div>
 
@@ -292,7 +299,7 @@
               <th>Item Name</th>
               <th>Quantity</th>
               <th>Unit</th>
-              <th>Cost / Unit</th>
+              <th>Presentation Cost</th>
               <th>Stock Value</th>
               <th>Status</th>
               <th>Actions</th>

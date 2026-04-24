@@ -41,6 +41,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const recipeCategoryInput = document.getElementById("recipeCategory");
   const recipeCostInput = document.getElementById("recipeCost");
   const recipePortionsInput = document.getElementById("recipePortions");
+  const recipeYieldInput = document.getElementById("recipeYield");
   const recipeNotesInput = document.getElementById("recipeNotes");
   const recipeIngredientItemInput = document.getElementById("recipeIngredientItem");
   const recipeIngredientQtyInput = document.getElementById("recipeIngredientQty");
@@ -643,6 +644,12 @@ ${staffSuggestion}
     }, 0);
   };
 
+  const applyYieldToCost = (cost, yieldPercent) => {
+    const safeYield = Number(yieldPercent || 100);
+    if (safeYield <= 0 || safeYield >= 100) return Number(cost || 0);
+    return Number(cost || 0) / (safeYield / 100);
+  };
+
   const renderSelectedIngredients = () => {
     if (!selectedIngredientsList) return;
 
@@ -1021,7 +1028,8 @@ ${staffSuggestion}
 
     recipes.forEach((recipe) => {
       const ingredientCost = calculateRecipeIngredientCost(recipe.ingredients || []);
-      const cost = ingredientCost > 0 ? ingredientCost : Number(recipe.cost || 0);
+      const baseCost = ingredientCost > 0 ? ingredientCost : Number(recipe.cost || 0);
+      const cost = applyYieldToCost(baseCost, recipe.yieldPercent || 100);
       const portions = Number(recipe.portions || 0);
       const totalBatchCost = cost * portions;
       const ingredientNames = (recipe.ingredients || []).map((ingredient) => {
@@ -1053,8 +1061,9 @@ ${staffSuggestion}
         editBtn.addEventListener("click", () => {
           if (recipeNameInput) recipeNameInput.value = recipe.name || "";
           if (recipeCategoryInput) recipeCategoryInput.value = recipe.category || "Entree";
-          if (recipeCostInput) recipeCostInput.value = recipe.cost || "";
+          if (recipeCostInput) recipeCostInput.value = recipe.baseCost || recipe.cost || "";
           if (recipePortionsInput) recipePortionsInput.value = recipe.portions || "";
+          if (recipeYieldInput) recipeYieldInput.value = recipe.yieldPercent || 100;
           if (recipeNotesInput) recipeNotesInput.value = recipe.notes || "";
           currentRecipeIngredients = [...(recipe.ingredients || [])];
           editingRecipeId = recipe.id;
@@ -1080,6 +1089,7 @@ ${staffSuggestion}
             if (recipeNameInput) recipeNameInput.value = "";
             if (recipeCostInput) recipeCostInput.value = "";
             if (recipePortionsInput) recipePortionsInput.value = "";
+            if (recipeYieldInput) recipeYieldInput.value = "100";
             if (recipeNotesInput) recipeNotesInput.value = "";
           }
 
@@ -1099,7 +1109,9 @@ ${staffSuggestion}
     const category = recipeCategoryInput ? recipeCategoryInput.value : "Entree";
     const ingredientCost = calculateRecipeIngredientCost(currentRecipeIngredients);
     const manualCost = recipeCostInput ? Number(recipeCostInput.value) : 0;
-    const cost = ingredientCost > 0 ? ingredientCost : manualCost;
+    const baseCost = ingredientCost > 0 ? ingredientCost : manualCost;
+    const yieldPercent = recipeYieldInput ? Number(recipeYieldInput.value || 100) : 100;
+    const cost = applyYieldToCost(baseCost, yieldPercent);
     const portions = recipePortionsInput ? Number(recipePortionsInput.value) : 0;
     const notes = recipeNotesInput ? recipeNotesInput.value.trim() : "";
 
@@ -1117,7 +1129,9 @@ ${staffSuggestion}
           ...recipe,
           name,
           category,
+          baseCost,
           cost,
+          yieldPercent,
           portions,
           notes,
           ingredients: [...currentRecipeIngredients]
@@ -1131,7 +1145,9 @@ ${staffSuggestion}
         id: Date.now().toString(),
         name,
         category,
+        baseCost,
         cost,
+        yieldPercent,
         portions,
         notes,
         ingredients: [...currentRecipeIngredients]
@@ -1147,6 +1163,7 @@ ${staffSuggestion}
     if (recipeNameInput) recipeNameInput.value = "";
     if (recipeCostInput) recipeCostInput.value = "";
     if (recipePortionsInput) recipePortionsInput.value = "";
+    if (recipeYieldInput) recipeYieldInput.value = "100";
     if (recipeNotesInput) recipeNotesInput.value = "";
     currentRecipeIngredients = [];
     renderSelectedIngredients();
