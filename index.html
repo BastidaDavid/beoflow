@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEOFlow Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <aside class="sidebar">
+      <div class="logo-area">
+        <img src="img/logobeoflow.png" alt="Beoflow Logo" class="logo-img" />
+        <div class="logo-text">
+          <h2>Beoflow</h2>
+          <p>Bastida Systems</p>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#" id="nav-dashboard" class="active">Dashboard</a>
+        <a href="#" id="nav-events">Events</a>
+        <a href="#" id="nav-menus">Menus</a>
+        <a href="#" id="nav-recipes">Recipes</a>
+        <a href="#">Production</a>
+        <a href="#" id="nav-inventory">Inventory</a>
+        <a href="#">Staff</a>
+        <a href="#">Reports</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Event & Banquet Operations Control</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="create-event-btn" class="primary-btn">New Event Form</button>
+          <button id="upload-event-btn" class="secondary-btn">Upload Event Image</button>
+        </div>
+      </header>
+
+      <section id="dashboard-section" class="kpi-grid">
+        <div class="kpi-card blue">
+          <h3>Events Today</h3>
+          <span id="kpi-events-today">0</span>
+          <small>Active today</small>
+        </div>
+
+        <div class="kpi-card yellow">
+          <h3>Upcoming Events</h3>
+          <span id="kpi-upcoming-events">0</span>
+          <small>Next 7 days</small>
+        </div>
+
+        <div class="kpi-card red">
+          <h3>Draft BEOs</h3>
+          <span id="kpi-draft-events">0</span>
+          <small>Pending confirmation</small>
+        </div>
+
+        <div class="kpi-card green">
+          <h3>Confirmed Events</h3>
+          <span id="kpi-confirmed-events">0</span>
+          <small>Ready for execution</small>
+        </div>
+      </section>
+
+      <section id="events-section" class="table-section">
+        <div class="section-header">
+          <h2>Events List</h2>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Date</th>
+              <th>Venue</th>
+              <th>Guests</th>
+              <th>Menu</th>
+              <th>Est. Revenue</th>
+              <th>Est. Cost</th>
+              <th>Profit</th>
+              <th>Margin</th>
+              <th>Insight</th>
+              <th>Inventory Check</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="events-table-body"></tbody>
+        </table>
+      </section>
+
+      <section id="menus-section" class="table-section" hidden>
+        <div class="section-header">
+          <h2>Menus</h2>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="menuName">Menu Name</label>
+            <input type="text" id="menuName" placeholder="Example: Holiday Buffet" />
+          </div>
+
+          <div class="form-group">
+            <label for="menuType">Menu Type</label>
+            <select id="menuType">
+              <option>Buffet</option>
+              <option>Plated Dinner</option>
+              <option>Cocktail Reception</option>
+              <option>Breakfast</option>
+              <option>Lunch</option>
+            </select>
+          </div>
+
+          <div class="form-group full-width recipes-picker-card">
+            <label for="menuRecipes">Recipes Included</label>
+            <select id="menuRecipes" multiple>
+              <option value="">Create recipes first</option>
+            </select>
+            <small class="field-hint">Select one or more recipes for this menu. Hold Command (Mac) or Ctrl (Windows) to select multiple recipes.</small>
+          </div>
+
+          <div class="form-group">
+            <label for="menuCost">Cost Per Person</label>
+            <input type="number" id="menuCost" placeholder="Optional if recipes are selected" step="0.01" />
+          </div>
+
+          <div class="form-group">
+            <label for="menuPrice">Selling Price Per Person</label>
+            <input type="number" id="menuPrice" placeholder="Example: 45.00" step="0.01" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="add-menu-btn" class="primary-btn">Add Menu</button>
+        </div>
+
+        <table class="menus-table">
+          <thead>
+            <tr>
+              <th>Menu Name</th>
+              <th>Type</th>
+              <th>Recipes</th>
+              <th>Cost / Person</th>
+              <th>Price / Person</th>
+              <th>Estimated Margin</th>
+            </tr>
+          </thead>
+          <tbody id="menus-table-body"></tbody>
+        </table>
+      </section>
+
+      <section id="recipes-section" class="table-section" hidden>
+        <div class="section-header">
+          <h2>Recipes</h2>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="recipeName">Recipe Name</label>
+            <input type="text" id="recipeName" placeholder="Example: Chicken Alfredo" />
+          </div>
+
+          <div class="form-group">
+            <label for="recipeCategory">Category</label>
+            <select id="recipeCategory">
+              <option>Entree</option>
+              <option>Side</option>
+              <option>Salad</option>
+              <option>Dessert</option>
+              <option>Beverage</option>
+              <option>Sauce</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="recipeCost">Cost Per Portion</label>
+            <input type="number" id="recipeCost" placeholder="Example: 5.40" step="0.01" />
+          </div>
+
+          <div class="form-group">
+            <label for="recipePortions">Portions</label>
+            <input type="number" id="recipePortions" placeholder="Example: 50" />
+          </div>
+
+          <div class="form-group">
+            <label for="recipeNotes">Notes</label>
+            <input type="text" id="recipeNotes" placeholder="Prep notes, allergens, or service details" />
+          </div>
+
+          <div class="form-group full-width recipes-picker-card">
+            <label>Ingredients From Inventory</label>
+            <div class="ingredient-builder">
+              <div class="form-group">
+                <label for="recipeIngredientItem">Inventory Item</label>
+                <select id="recipeIngredientItem">
+                  <option value="">Add inventory items first</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="recipeIngredientQty">Qty Per Portion</label>
+                <input type="number" id="recipeIngredientQty" placeholder="Example: 0.25" step="0.01" />
+              </div>
+
+              <button type="button" id="add-recipe-ingredient-btn" class="secondary-btn">Add Ingredient</button>
+            </div>
+
+            <div id="selected-ingredients-list" class="selected-ingredients-list">
+              No ingredients added yet.
+            </div>
+            <small class="field-hint">Example: Chicken Breast 0.25 lb per portion. Inventory units come from your Inventory module.</small>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="add-recipe-btn" class="primary-btn">Add Recipe</button>
+        </div>
+
+        <table class="recipes-table">
+          <thead>
+            <tr>
+              <th>Recipe Name</th>
+              <th>Category</th>
+              <th>Ingredients</th>
+              <th>Cost / Portion</th>
+              <th>Portions</th>
+              <th>Total Batch Cost</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="recipes-table-body"></tbody>
+        </table>
+      </section>
+
+      <section id="inventory-section" class="table-section" hidden>
+        <div class="section-header">
+          <h2>Inventory</h2>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="inventoryItemName">Item Name</label>
+            <input type="text" id="inventoryItemName" placeholder="Example: Chicken Breast" />
+          </div>
+
+          <div class="form-group">
+            <label for="inventoryQuantity">Quantity</label>
+            <input type="number" id="inventoryQuantity" placeholder="Example: 50" step="0.01" />
+          </div>
+
+          <div class="form-group">
+            <label for="inventoryUnit">Unit</label>
+            <select id="inventoryUnit">
+              <option>lb</option>
+              <option>oz</option>
+              <option>units</option>
+              <option>gallons</option>
+              <option>quarts</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="inventoryCost">Cost Per Unit</label>
+            <input type="number" id="inventoryCost" placeholder="Example: 3.20" step="0.01" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" id="add-inventory-btn" class="primary-btn">Add Inventory Item</button>
+        </div>
+
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Quantity</th>
+              <th>Unit</th>
+              <th>Cost / Unit</th>
+              <th>Stock Value</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-table-body"></tbody>
+        </table>
+      </section>
+
+      <section id="create-event-section" class="table-section form-panel" hidden>
+        <div class="section-header">
+          <h2>Create New Event</h2>
+        </div>
+
+        <input type="hidden" id="editing-event-index" value="" />
+
+        <form class="event-form">
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="eventName">Event Name</label>
+              <input type="text" id="eventName" placeholder="Wedding Garcia" required />
+            </div>
+
+            <div class="form-group">
+              <label for="clientName">Client Name</label>
+              <input type="text" id="clientName" placeholder="Garcia Family" />
+            </div>
+
+            <div class="form-group">
+              <label for="eventDate">Event Date</label>
+              <input type="date" id="eventDate" required />
+            </div>
+
+            <div class="form-group">
+              <label for="startTime">Start Time</label>
+              <input type="time" id="startTime" />
+            </div>
+
+            <div class="form-group">
+              <label for="endTime">End Time</label>
+              <input type="time" id="endTime" />
+            </div>
+
+            <div class="form-group">
+              <label for="guestCount">Guests</label>
+              <input type="number" id="guestCount" placeholder="180" required />
+            </div>
+
+            <div class="form-group">
+              <label for="eventMenu">Menu</label>
+              <select id="eventMenu">
+                <option value="">Select a menu</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="venue">Venue</label>
+              <input type="text" id="venue" placeholder="Skyline Ballroom" />
+            </div>
+
+          <div class="form-group">
+            <label for="eventImage">Upload Event Image (BEO)</label>
+            <input type="file" id="eventImage" accept="image/*" hidden />
+            <div id="upload-status" class="event-time-range">No image uploaded yet.</div>
+          </div>
+
+            <div class="form-group">
+              <label for="status">Status</label>
+              <select id="status">
+                <option>Draft</option>
+                <option>Confirmed</option>
+                <option>In Preparation</option>
+                <option>Ready</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="cancel-event-btn" class="secondary-btn">Cancel</button>
+            <button type="submit" class="primary-btn">Save Event</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
