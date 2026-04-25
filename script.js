@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadBtn = document.getElementById("upload-event-btn");
   const eventImageInput = document.getElementById("eventImage");
   const uploadStatus = document.getElementById("upload-status");
+  const API_BASE_URL = "http://localhost:3001";
 
   const eventNameInput = document.getElementById("eventName");
   const clientNameInput = document.getElementById("clientName");
@@ -75,6 +76,58 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       return [];
     }
+  };
+
+  const mapApiEventToUiEvent = (event) => ({
+    id: event.id,
+    name: event.event_name || "",
+    client: event.client_name || "",
+    date: event.event_date ? String(event.event_date).split("T")[0] : "",
+    startTime: event.start_time || "",
+    endTime: event.end_time || "",
+    guests: event.guests || "",
+    menuId: event.menu_id || event.menuId || "",
+    venue: event.venue || "",
+    status: event.status || "Draft"
+  });
+
+  const fetchEventsFromApi = async () => {
+    const response = await fetch(`${API_BASE_URL}/events`);
+
+    if (!response.ok) {
+      throw new Error("Failed to load events from API.");
+    }
+
+    const events = await response.json();
+    const mappedEvents = Array.isArray(events) ? events.map(mapApiEventToUiEvent) : [];
+    saveEvents(mappedEvents);
+    return mappedEvents;
+  };
+
+  const createEventInApi = async (eventData) => {
+    const response = await fetch(`${API_BASE_URL}/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        event_name: eventData.name,
+        client_name: eventData.client,
+        event_date: eventData.date || null,
+        start_time: eventData.startTime,
+        end_time: eventData.endTime,
+        guests: eventData.guests ? Number(eventData.guests) : null,
+        venue: eventData.venue,
+        status: eventData.status || "Draft"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save event to API.");
+    }
+
+    const result = await response.json();
+    return mapApiEventToUiEvent(result.event);
   };
 
   const saveEvents = (events) => {
@@ -358,7 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const imageBase64 = await fileToBase64(file);
 
-      const response = await fetch("http://localhost:3001/api/extract-event", {
+      const response = await fetch(`${API_BASE_URL}/api/extract-event`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -387,14 +440,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const renderEvents = () => {
+  const renderEvents = async () => {
     const events = getEvents();
+    try {
+      const apiEvents = await fetchEventsFromApi();
+      localStorage.setItem("events", JSON.stringify(apiEvents));
+    } catch (error) {
+      console.warn("Using local events because API is unavailable:", error);
+    }
+    const freshEvents = getEvents();
     if (!tableBody) return;
 
     tableBody.innerHTML = "";
     const menus = getMenus();
 
-    if (events.length === 0) {
+    if (freshEvents.length === 0) {
       const emptyRow = document.createElement("tr");
       emptyRow.innerHTML = `
         <td colspan="13" style="color:#64748b; text-align:center; padding:20px;">
@@ -405,8 +465,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    [...events].reverse().forEach((eventData, index) => {
-      const realIndex = events.length - 1 - index;
+    [...freshEvents].reverse().forEach((eventData, index) => {
+      const realIndex = freshEvents.length - 1 - index;
       const newRow = document.createElement("tr");
       const selectedMenu = menus.find((menu) => menu.id === eventData.menuId);
       const guests = Number(eventData.guests || 0);
@@ -1475,7 +1535,7 @@ ${staffSuggestion}
   }
 
   if (form) {
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
       const eventData = {
@@ -1495,16 +1555,23 @@ ${staffSuggestion}
         ? Number(editingEventIndex.value)
         : -1;
 
-      if (editingIndex >= 0) {
-        events[editingIndex] = eventData;
-      } else {
-        events.push(eventData);
-      }
+      try {
+        if (editingIndex >= 0) {
+          events[editingIndex] = eventData;
+          saveEvents(events);
+        } else {
+          const savedEvent = await createEventInApi(eventData);
+          events.push(savedEvent);
+          saveEvents(events);
+        }
 
-      saveEvents(events);
-      renderEvents();
-      renderKpis();
-      closeForm();
+        await renderEvents();
+        renderKpis();
+        closeForm();
+      } catch (error) {
+        console.error(error);
+        alert("Event could not be saved to the database. Make sure the backend is running on http://localhost:3001.");
+      }
     });
   }
 
@@ -1512,8 +1579,7 @@ ${staffSuggestion}
   renderSelectedIngredients();
   populateMenuRecipeOptions();
   populateEventMenuOptions();
-  renderEvents();
-  renderKpis();
+  renderEvents().then(renderKpis);
   renderMenus();
   renderRecipes();
   renderInventory();
