@@ -130,6 +130,22 @@ document.addEventListener("DOMContentLoaded", () => {
     return mapApiEventToUiEvent(result.event);
   };
 
+  const deleteEventInApi = async (eventId) => {
+    if (!eventId) {
+      throw new Error("Missing event ID for delete request.");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete event from API.");
+    }
+
+    return response.json();
+  };
+
   const saveEvents = (events) => {
     localStorage.setItem("events", JSON.stringify(events));
   };
@@ -588,15 +604,20 @@ ${staffSuggestion}
       }
 
       if (deleteBtn) {
-        deleteBtn.addEventListener("click", () => {
+        deleteBtn.addEventListener("click", async () => {
           const confirmDelete = confirm("Delete this event?");
           if (!confirmDelete) return;
 
-          const realEvents = getEvents();
-          realEvents.splice(realIndex, 1);
-          saveEvents(realEvents);
-          renderEvents();
-          renderKpis();
+          try {
+            await deleteEventInApi(eventData.id);
+            const updatedEvents = getEvents().filter((eventItem) => eventItem.id !== eventData.id);
+            saveEvents(updatedEvents);
+            await renderEvents();
+            renderKpis();
+          } catch (error) {
+            console.error(error);
+            alert("Event could not be deleted from the database. Make sure the Render API is running correctly.");
+          }
         });
       }
 

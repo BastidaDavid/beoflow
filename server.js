@@ -166,6 +166,20 @@ app.get("/events", async (req, res) => {
   }
 });
 
+// Delete Event
+app.delete("/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await pool.query("DELETE FROM events WHERE id = $1", [id]);
+
+    res.json({ ok: true, message: "Event deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete event" });
+  }
+});
+
 initDB().then(() => {
   app.listen(3001, () => {
     console.log("🚀 Server running on http://localhost:3001");
