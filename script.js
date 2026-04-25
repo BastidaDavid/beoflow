@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadBtn = document.getElementById("upload-event-btn");
   const eventImageInput = document.getElementById("eventImage");
   const uploadStatus = document.getElementById("upload-status");
-  const API_BASE_URL = "http://localhost:3001";
+  const API_BASE_URL = "https://beoflow-api.onrender.com";
 
   const eventNameInput = document.getElementById("eventName");
   const clientNameInput = document.getElementById("clientName");
@@ -1570,7 +1570,7 @@ ${staffSuggestion}
         closeForm();
       } catch (error) {
         console.error(error);
-        alert("Event could not be saved to the database. Make sure the backend is running on http://localhost:3001.");
+        alert("Event could not be saved to the database. Make sure the Render API is running correctly.");
       }
     });
   }
