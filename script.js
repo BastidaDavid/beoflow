@@ -130,6 +130,36 @@ document.addEventListener("DOMContentLoaded", () => {
     return mapApiEventToUiEvent(result.event);
   };
 
+  const updateEventInApi = async (eventId, eventData) => {
+    if (!eventId) {
+      throw new Error("Missing event ID for update request.");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        event_name: eventData.name,
+        client_name: eventData.client,
+        event_date: eventData.date || null,
+        start_time: eventData.startTime,
+        end_time: eventData.endTime,
+        guests: eventData.guests ? Number(eventData.guests) : null,
+        venue: eventData.venue,
+        status: eventData.status || "Draft"
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update event in API.");
+    }
+
+    const result = await response.json();
+    return mapApiEventToUiEvent(result.event);
+  };
+
   const deleteEventInApi = async (eventId) => {
     if (!eventId) {
       throw new Error("Missing event ID for delete request.");
@@ -1578,7 +1608,9 @@ ${staffSuggestion}
 
       try {
         if (editingIndex >= 0) {
-          events[editingIndex] = eventData;
+          const existingEvent = events[editingIndex];
+          const updatedEvent = await updateEventInApi(existingEvent.id, eventData);
+          events[editingIndex] = updatedEvent;
           saveEvents(events);
         } else {
           const savedEvent = await createEventInApi(eventData);

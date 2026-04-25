@@ -166,6 +166,57 @@ app.get("/events", async (req, res) => {
   }
 });
 
+// Update Event
+app.put("/events/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      event_name,
+      client_name,
+      event_date,
+      start_time,
+      end_time,
+      guests,
+      venue,
+      status
+    } = req.body;
+
+    const result = await pool.query(
+      `UPDATE events SET
+        event_name = $1,
+        client_name = $2,
+        event_date = $3,
+        start_time = $4,
+        end_time = $5,
+        guests = $6,
+        venue = $7,
+        status = $8
+      WHERE id = $9
+      RETURNING *`,
+      [
+        event_name,
+        client_name,
+        event_date,
+        start_time,
+        end_time,
+        guests,
+        venue,
+        status || "Draft",
+        id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    res.json({ ok: true, event: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update event" });
+  }
+});
+
 // Delete Event
 app.delete("/events/:id", async (req, res) => {
   try {
