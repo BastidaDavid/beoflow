@@ -56,7 +56,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentRecipeIngredients = [];
   let editingRecipeId = null;
   const navInventory = document.getElementById("nav-inventory");
+  const navProduction = document.getElementById("nav-production");
+  const navStaff = document.getElementById("nav-staff");
   const inventorySection = document.getElementById("inventory-section");
+  const productionSection = document.getElementById("production-section");
+  const productionTableBody = document.getElementById("production-table-body");
+  const staffSection = document.getElementById("staff-section");
+  const addStaffBtn = document.getElementById("add-staff-btn");
+  const staffTableBody = document.getElementById("staff-table-body");
+  const staffNameInput = document.getElementById("staffName");
+  const staffRoleInput = document.getElementById("staffRole");
   const addInventoryBtn = document.getElementById("add-inventory-btn");
   const inventoryTableBody = document.getElementById("inventory-table-body");
   const inventoryItemNameInput = document.getElementById("inventoryItemName");
@@ -72,7 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getEvents = () => {
     try {
-      return JSON.parse(localStorage.getItem("events")) || [];
+      return JSON.parse(localStorage.getItem("beoflow_events")) || [];
     } catch {
       return [];
     }
@@ -177,43 +186,55 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const saveEvents = (events) => {
-    localStorage.setItem("events", JSON.stringify(events));
+    localStorage.setItem("beoflow_events", JSON.stringify(events));
   };
 
   const getMenus = () => {
     try {
-      return JSON.parse(localStorage.getItem("menus")) || [];
+      return JSON.parse(localStorage.getItem("beoflow_menus")) || [];
     } catch {
       return [];
     }
   };
 
   const saveMenus = (menus) => {
-    localStorage.setItem("menus", JSON.stringify(menus));
+    localStorage.setItem("beoflow_menus", JSON.stringify(menus));
   };
 
   const getRecipes = () => {
     try {
-      return JSON.parse(localStorage.getItem("recipes")) || [];
+      return JSON.parse(localStorage.getItem("beoflow_recipes")) || [];
     } catch {
       return [];
     }
   };
 
   const saveRecipes = (recipes) => {
-    localStorage.setItem("recipes", JSON.stringify(recipes));
+    localStorage.setItem("beoflow_recipes", JSON.stringify(recipes));
   };
 
   const getInventory = () => {
     try {
-      return JSON.parse(localStorage.getItem("inventory")) || [];
+      return JSON.parse(localStorage.getItem("beoflow_inventory")) || [];
     } catch {
       return [];
     }
   };
 
   const saveInventory = (inventory) => {
-    localStorage.setItem("inventory", JSON.stringify(inventory));
+    localStorage.setItem("beoflow_inventory", JSON.stringify(inventory));
+  };
+
+  const getStaff = () => {
+    try {
+      return JSON.parse(localStorage.getItem("beoflow_staff")) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveStaff = (staff) => {
+    localStorage.setItem("beoflow_staff", JSON.stringify(staff));
   };
 
   const resetFormState = () => {
@@ -490,7 +511,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const events = getEvents();
     try {
       const apiEvents = await fetchEventsFromApi();
-      localStorage.setItem("events", JSON.stringify(apiEvents));
+      saveEvents(apiEvents);
     } catch (error) {
       console.warn("Using local events because API is unavailable:", error);
     }
@@ -710,11 +731,13 @@ ${staffSuggestion}
     if (menusSection) menusSection.hidden = true;
     if (recipesSection) recipesSection.hidden = true;
     if (inventorySection) inventorySection.hidden = true;
+    if (productionSection) productionSection.hidden = true;
+    if (staffSection) staffSection.hidden = true;
     if (createEventSection) createEventSection.hidden = true;
   };
 
   const setActiveNav = (activeNav) => {
-    [navDashboard, navEvents, navMenus, navRecipes, navInventory].forEach((navItem) => {
+    [navDashboard, navEvents, navMenus, navRecipes, navInventory, navProduction, navStaff].forEach((navItem) => {
       if (!navItem) return;
       navItem.classList.toggle("active", navItem === activeNav);
     });
@@ -1469,6 +1492,109 @@ ${staffSuggestion}
     if (inventoryQuantityInput) inventoryQuantityInput.value = "";
     if (inventoryCostInput) inventoryCostInput.value = "";
   };
+  const renderStaff = () => {
+    const staff = getStaff();
+
+    if (!staffTableBody) return;
+
+    staffTableBody.innerHTML = "";
+
+    if (staff.length === 0) {
+      staffTableBody.innerHTML = `
+        <tr>
+          <td colspan="3" style="color:#64748b; text-align:center; padding:20px;">
+            No staff added yet.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    staff.forEach((person) => {
+      const row = document.createElement("tr");
+
+      row.innerHTML = `
+        <td>${person.name || "-"}</td>
+        <td>${person.role || "-"}</td>
+        <td>${person.tasks || "No tasks yet"}</td>
+      `;
+
+      staffTableBody.appendChild(row);
+    });
+  };
+
+  const addStaff = () => {
+    const name = staffNameInput ? staffNameInput.value.trim() : "";
+    const role = staffRoleInput ? staffRoleInput.value : "Chef";
+
+    if (!name) {
+      alert("Enter staff name.");
+      return;
+    }
+
+    const staff = getStaff();
+
+    staff.push({
+      id: Date.now().toString(),
+      name,
+      role,
+      tasks: ""
+    });
+
+    saveStaff(staff);
+    renderStaff();
+
+    if (staffNameInput) staffNameInput.value = "";
+    if (staffRoleInput) staffRoleInput.value = "Chef";
+  };
+
+  const renderProduction = () => {
+    const events = getEvents();
+    const menus = getMenus();
+    const recipes = getRecipes();
+
+    if (!productionTableBody) return;
+
+    productionTableBody.innerHTML = "";
+
+    let taskCount = 0;
+
+    events.forEach((eventData) => {
+      const selectedMenu = menus.find((menu) => menu.id === eventData.menuId);
+      const guests = Number(eventData.guests || 0);
+
+      if (!selectedMenu || guests <= 0) return;
+
+      (selectedMenu.recipeIds || []).forEach((recipeId) => {
+        const recipe = recipes.find((item) => item.id === recipeId);
+        if (!recipe) return;
+
+        taskCount++;
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${eventData.name || "Untitled Event"}</td>
+          <td>${recipe.name || "Unnamed Recipe"}</td>
+          <td>${guests} portions</td>
+          <td><span class="status upcoming">Pending</span></td>
+          <td>-</td>
+        `;
+
+        productionTableBody.appendChild(row);
+      });
+    });
+
+    if (taskCount === 0) {
+      productionTableBody.innerHTML = `
+        <tr>
+          <td colspan="5" style="color:#64748b; text-align:center; padding:20px;">
+            No production tasks yet. Create an event with a menu connected to recipes.
+          </td>
+        </tr>
+      `;
+    }
+  };
+
   if (navInventory && inventorySection) {
     navInventory.addEventListener("click", (e) => {
       e.preventDefault();
@@ -1477,6 +1603,28 @@ ${staffSuggestion}
       renderInventory();
       setActiveNav(navInventory);
       inventorySection.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  if (navProduction && productionSection) {
+    navProduction.addEventListener("click", (e) => {
+      e.preventDefault();
+      hideAllMainSections();
+      productionSection.hidden = false;
+      renderProduction();
+      setActiveNav(navProduction);
+      productionSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  if (navStaff && staffSection) {
+    navStaff.addEventListener("click", (e) => {
+      e.preventDefault();
+      hideAllMainSections();
+      staffSection.hidden = false;
+      renderStaff();
+      setActiveNav(navStaff);
+      staffSection.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
@@ -1552,6 +1700,10 @@ ${staffSuggestion}
 
   if (addInventoryBtn) {
     addInventoryBtn.addEventListener("click", addInventoryItem);
+  }
+
+  if (addStaffBtn) {
+    addStaffBtn.addEventListener("click", addStaff);
   }
 
   if (createBtn) {
@@ -1636,4 +1788,6 @@ ${staffSuggestion}
   renderMenus();
   renderRecipes();
   renderInventory();
+  renderStaff();
+  renderProduction();
 });
