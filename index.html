@@ -45,6 +45,68 @@
         </div>
       </header>
 
+      <section id="smart-setup-section" class="smart-setup-panel" hidden>
+        <div class="smart-setup-shell">
+          <div class="smart-setup-header">
+            <div>
+              <span class="smart-setup-kicker">Smart Setup</span>
+              <h2>Choose how you want to start</h2>
+              <p>Pick the workflow that matches how your team wants to bring BEOFlow online.</p>
+            </div>
+            <div class="smart-setup-header-actions">
+              <span id="smart-setup-progress-label" class="smart-setup-progress-label">Select a path</span>
+              <button type="button" id="smart-setup-close" class="smart-setup-close" aria-label="Close Smart Setup">×</button>
+            </div>
+          </div>
+
+          <div class="smart-setup-options" role="radiogroup" aria-label="Smart setup starting path">
+            <button type="button" class="smart-setup-option" data-smart-flow="inventory" aria-pressed="false">
+              <span class="smart-setup-option-index">01</span>
+              <strong>Inventory First</strong>
+              <span>For cost control and operations</span>
+              <p>Start by adding inventory to track real costs, waste, and stock from day one.</p>
+            </button>
+
+            <button type="button" class="smart-setup-option" data-smart-flow="recipe" aria-pressed="false">
+              <span class="smart-setup-option-index">02</span>
+              <strong>Recipe First</strong>
+              <span>For chefs and menu creation</span>
+              <p>Start by creating dishes first, then connect ingredients later.</p>
+            </button>
+          </div>
+
+          <div id="smart-setup-checklist" class="smart-setup-checklist" hidden>
+            <div class="smart-setup-progress-head">
+              <div>
+                <strong id="smart-setup-flow-title">Setup checklist</strong>
+                <span id="smart-setup-flow-subtitle">Complete each step to activate the operating workflow.</span>
+              </div>
+              <span id="smart-setup-progress-count">0/5 completed</span>
+            </div>
+
+            <div class="smart-setup-progress-track" aria-hidden="true">
+              <div id="smart-setup-progress-bar" class="smart-setup-progress-bar"></div>
+            </div>
+
+            <div id="smart-setup-warning" class="smart-setup-warning" hidden>
+              Cost data will be estimated until ingredients are linked.
+            </div>
+
+            <div id="smart-setup-task-list" class="smart-setup-task-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <button type="button" id="smart-setup-launcher" class="smart-setup-launcher" aria-controls="smart-setup-section" aria-expanded="false">
+        <span class="smart-setup-launcher-copy">
+          <strong>Comenzar</strong>
+          <span id="smart-setup-launcher-count">Select a path</span>
+        </span>
+        <span class="smart-setup-launcher-track" aria-hidden="true">
+          <span id="smart-setup-launcher-bar" class="smart-setup-launcher-bar"></span>
+        </span>
+      </button>
+
       <section id="dashboard-section" class="kpi-grid">
         <div class="kpi-card blue" role="button" tabindex="0" data-event-filter="today">
           <h3>Events Today</h3>

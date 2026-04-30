@@ -25,6 +25,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const navMenus = document.getElementById("nav-menus");
   const navRecipes = document.getElementById("nav-recipes");
   const navSubRecipes = document.getElementById("nav-sub-recipes");
+  const smartSetupSection = document.getElementById("smart-setup-section");
+  const smartSetupChecklist = document.getElementById("smart-setup-checklist");
+  const smartSetupProgressLabel = document.getElementById("smart-setup-progress-label");
+  const smartSetupFlowTitle = document.getElementById("smart-setup-flow-title");
+  const smartSetupFlowSubtitle = document.getElementById("smart-setup-flow-subtitle");
+  const smartSetupProgressCount = document.getElementById("smart-setup-progress-count");
+  const smartSetupProgressBar = document.getElementById("smart-setup-progress-bar");
+  const smartSetupWarning = document.getElementById("smart-setup-warning");
+  const smartSetupTaskList = document.getElementById("smart-setup-task-list");
+  const smartSetupCloseBtn = document.getElementById("smart-setup-close");
+  const smartSetupLauncher = document.getElementById("smart-setup-launcher");
+  const smartSetupLauncherCount = document.getElementById("smart-setup-launcher-count");
+  const smartSetupLauncherBar = document.getElementById("smart-setup-launcher-bar");
   const dashboardSection = document.getElementById("dashboard-section");
   const dashboardCalendarSection = document.getElementById("dashboard-calendar-section");
   const eventsSection = document.getElementById("events-section");
@@ -434,9 +447,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return response.json();
   };
 
+  const notifySmartSetupDataChange = () => {
+    window.dispatchEvent(new CustomEvent("beoflow:setup-updated"));
+  };
+
   const saveEvents = (events) => {
     localStorage.setItem("beoflow_events", JSON.stringify(events));
     window.dispatchEvent(new CustomEvent("beoflow:events-updated"));
+    notifySmartSetupDataChange();
   };
 
   const getMenus = () => {
@@ -449,6 +467,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveMenus = (menus) => {
     localStorage.setItem("beoflow_menus", JSON.stringify(menus));
+    notifySmartSetupDataChange();
   };
 
   const getRecipes = () => {
@@ -461,6 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveRecipes = (recipes) => {
     localStorage.setItem("beoflow_recipes", JSON.stringify(recipes));
+    notifySmartSetupDataChange();
   };
 
   const getSubRecipes = () => {
@@ -485,6 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveInventory = (inventory) => {
     localStorage.setItem("beoflow_inventory", JSON.stringify(inventory));
+    notifySmartSetupDataChange();
   };
 
   const getStaff = () => {
@@ -497,6 +518,228 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveStaff = (staff) => {
     localStorage.setItem("beoflow_staff", JSON.stringify(staff));
+  };
+
+  const SMART_SETUP_KEY = "beoflow_smart_setup";
+
+  const smartSetupFlows = {
+    inventory: {
+      label: "Inventory First",
+      subtitle: "Cost control and operations setup",
+      tasks: [
+        {
+          key: "addInventory",
+          label: "Add Inventory",
+          description: "Create at least one inventory item with quantity and cost.",
+          module: "inventory",
+          isAutoComplete: () => getInventory().length > 0
+        },
+        {
+          key: "createRecipe",
+          label: "Create Recipe",
+          description: "Build a production recipe from your item catalog.",
+          module: "recipes",
+          isAutoComplete: () => getRecipes().length > 0
+        },
+        {
+          key: "buildMenu",
+          label: "Build Menu",
+          description: "Create a menu that includes one or more recipes.",
+          module: "menus",
+          isAutoComplete: () => getMenus().length > 0
+        },
+        {
+          key: "createEvent",
+          label: "Create Event",
+          description: "Add an event and connect it to a menu.",
+          module: "events",
+          isAutoComplete: () => getEvents().length > 0
+        },
+        {
+          key: "viewDashboard",
+          label: "View Dashboard",
+          description: "Review KPIs, events, calendar, and setup progress.",
+          module: "dashboard",
+          isAutoComplete: () => false
+        }
+      ]
+    },
+    recipe: {
+      label: "Recipe First",
+      subtitle: "Chef and menu creation setup",
+      tasks: [
+        {
+          key: "createRecipe",
+          label: "Create Recipe",
+          description: "Start with a dish, prep item, or production recipe.",
+          module: "recipes",
+          isAutoComplete: () => getRecipes().length > 0
+        },
+        {
+          key: "linkIngredients",
+          label: "Link Ingredients to Inventory",
+          description: "Attach inventory ingredients so recipe cost becomes real.",
+          module: "recipes",
+          isAutoComplete: () => getRecipes().some((recipe) => Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0)
+        },
+        {
+          key: "buildMenu",
+          label: "Build Menu",
+          description: "Group recipes into a sellable menu.",
+          module: "menus",
+          isAutoComplete: () => getMenus().length > 0
+        },
+        {
+          key: "createEvent",
+          label: "Create Event",
+          description: "Schedule an event and select its menu.",
+          module: "events",
+          isAutoComplete: () => getEvents().length > 0
+        },
+        {
+          key: "viewDashboard",
+          label: "View Dashboard",
+          description: "Track setup progress and operational KPIs.",
+          module: "dashboard",
+          isAutoComplete: () => false
+        }
+      ]
+    }
+  };
+
+  const getSmartSetupState = () => {
+    try {
+      const parsedState = JSON.parse(localStorage.getItem(SMART_SETUP_KEY)) || {};
+      return {
+        flow: parsedState.flow || "",
+        completed: parsedState.completed || {}
+      };
+    } catch {
+      return { flow: "", completed: {} };
+    }
+  };
+
+  const saveSmartSetupState = (state) => {
+    localStorage.setItem(SMART_SETUP_KEY, JSON.stringify(state));
+  };
+
+  const getSmartSetupTaskStatus = (task, state) =>
+    Boolean(state.completed[task.key] || task.isAutoComplete?.());
+
+  const openSmartSetupPanel = () => {
+    if (!smartSetupSection) return;
+    smartSetupSection.hidden = false;
+    smartSetupLauncher?.setAttribute("aria-expanded", "true");
+    renderSmartSetup();
+  };
+
+  const closeSmartSetupPanel = () => {
+    if (!smartSetupSection) return;
+    smartSetupSection.hidden = true;
+    smartSetupLauncher?.setAttribute("aria-expanded", "false");
+  };
+
+  const renderSmartSetup = () => {
+    if (!smartSetupSection && !smartSetupLauncher) return;
+
+    const state = getSmartSetupState();
+    const flow = smartSetupFlows[state.flow];
+
+    smartSetupSection?.querySelectorAll("[data-smart-flow]").forEach((button) => {
+      const isSelected = button.dataset.smartFlow === state.flow;
+      button.classList.toggle("is-selected", isSelected);
+      button.setAttribute("aria-pressed", String(isSelected));
+    });
+
+    if (!flow) {
+      if (smartSetupChecklist) smartSetupChecklist.hidden = true;
+      if (smartSetupProgressLabel) smartSetupProgressLabel.textContent = "Select a path";
+      if (smartSetupLauncherCount) smartSetupLauncherCount.textContent = "Select a path";
+      if (smartSetupLauncherBar) smartSetupLauncherBar.style.width = "0%";
+      return;
+    }
+
+    const tasks = flow.tasks;
+    const completedCount = tasks.filter((task) => getSmartSetupTaskStatus(task, state)).length;
+    const progressPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
+
+    if (smartSetupChecklist) smartSetupChecklist.hidden = false;
+    if (smartSetupFlowTitle) smartSetupFlowTitle.textContent = `${flow.label} checklist`;
+    if (smartSetupFlowSubtitle) smartSetupFlowSubtitle.textContent = flow.subtitle;
+    if (smartSetupProgressLabel) smartSetupProgressLabel.textContent = `${completedCount}/${tasks.length} completed`;
+    if (smartSetupProgressCount) smartSetupProgressCount.textContent = `${completedCount}/${tasks.length} completed`;
+    if (smartSetupProgressBar) smartSetupProgressBar.style.width = `${progressPercent}%`;
+    if (smartSetupLauncherCount) smartSetupLauncherCount.textContent = `${completedCount}/${tasks.length}`;
+    if (smartSetupLauncherBar) smartSetupLauncherBar.style.width = `${progressPercent}%`;
+    if (smartSetupWarning) smartSetupWarning.hidden = state.flow !== "recipe";
+
+    if (!smartSetupTaskList) return;
+
+    smartSetupTaskList.innerHTML = tasks.map((task) => {
+      const isComplete = getSmartSetupTaskStatus(task, state);
+
+      return `
+        <div class="smart-setup-task ${isComplete ? "is-complete" : ""}">
+          <button type="button" class="smart-setup-task-toggle" data-smart-task="${task.key}">
+            <span class="smart-setup-task-check">${isComplete ? "✓" : ""}</span>
+            <span>
+              <span class="smart-setup-task-title">${task.label}</span>
+              <span class="smart-setup-task-meta">${task.description}</span>
+            </span>
+          </button>
+          <button type="button" class="smart-setup-task-action" data-smart-action="${task.key}">Open</button>
+        </div>
+      `;
+    }).join("");
+  };
+
+  const selectSmartSetupFlow = (flowKey) => {
+    const state = getSmartSetupState();
+    saveSmartSetupState({
+      ...state,
+      flow: flowKey
+    });
+    renderSmartSetup();
+  };
+
+  const toggleSmartSetupTask = (taskKey) => {
+    const state = getSmartSetupState();
+    const flow = smartSetupFlows[state.flow];
+    if (!flow) return;
+
+    const task = flow.tasks.find((item) => item.key === taskKey);
+    if (!task) return;
+
+    const isComplete = getSmartSetupTaskStatus(task, state);
+    saveSmartSetupState({
+      ...state,
+      completed: {
+        ...state.completed,
+        [taskKey]: !isComplete
+      }
+    });
+    renderSmartSetup();
+  };
+
+  const openSmartSetupTask = (taskKey) => {
+    const state = getSmartSetupState();
+    const flow = smartSetupFlows[state.flow];
+    const task = flow?.tasks.find((item) => item.key === taskKey);
+    if (!task?.module) return;
+
+    if (task.key === "viewDashboard") {
+      saveSmartSetupState({
+        ...state,
+        completed: {
+          ...state.completed,
+          viewDashboard: true
+        }
+      });
+    }
+
+    showModuleByKey(task.module);
+    closeSmartSetupPanel();
+    renderSmartSetup();
   };
 
   const moduleHeaders = {
@@ -1144,6 +1387,7 @@ ${staffSuggestion}
       showSection(dashboardCalendarSection, "grid");
       setActiveNav(navDashboard);
       renderKpis();
+      renderSmartSetup();
       window.renderDashboardCalendar?.();
       if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -3008,6 +3252,41 @@ ${staffSuggestion}
     });
   }
 
+  if (smartSetupSection) {
+    smartSetupSection.addEventListener("click", (e) => {
+      const flowButton = e.target.closest("[data-smart-flow]");
+      if (flowButton) {
+        selectSmartSetupFlow(flowButton.dataset.smartFlow);
+        return;
+      }
+
+      const actionButton = e.target.closest("[data-smart-action]");
+      if (actionButton) {
+        openSmartSetupTask(actionButton.dataset.smartAction);
+        return;
+      }
+
+      const taskButton = e.target.closest("[data-smart-task]");
+      if (taskButton) {
+        toggleSmartSetupTask(taskButton.dataset.smartTask);
+      }
+    });
+  }
+
+  if (smartSetupLauncher) {
+    smartSetupLauncher.addEventListener("click", () => {
+      if (smartSetupSection?.hidden) {
+        openSmartSetupPanel();
+      } else {
+        closeSmartSetupPanel();
+      }
+    });
+  }
+
+  if (smartSetupCloseBtn) {
+    smartSetupCloseBtn.addEventListener("click", closeSmartSetupPanel);
+  }
+
   if (navEvents && eventsSection) {
     navEvents.addEventListener("click", (e) => {
       e.preventDefault();
@@ -3196,6 +3475,8 @@ ${staffSuggestion}
     });
   }
 
+  window.addEventListener("beoflow:setup-updated", renderSmartSetup);
+
   showModuleByKey("dashboard", { scroll: false });
 
   populateRecipeIngredientOptions();
@@ -3211,4 +3492,5 @@ ${staffSuggestion}
   renderInventory();
   renderStaff();
   renderProduction();
+  renderSmartSetup();
 });
