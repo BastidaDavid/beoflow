@@ -600,7 +600,7 @@ body {
   .smart-setup-panel {
     right: 16px;
     left: 16px;
-    bottom: 92px;
+    bottom: 104px;
     width: auto;
     max-height: calc(100vh - 120px);
   }
@@ -608,7 +608,27 @@ body {
   .smart-setup-launcher {
     right: 16px;
     bottom: 16px;
-    width: calc(100vw - 32px);
+    width: 72px;
+    height: 72px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .smart-setup-launcher-copy {
+    display: block;
+    text-align: center;
+  }
+
+  .smart-setup-launcher-copy strong {
+    font-size: 0.82rem;
+  }
+
+  .smart-setup-launcher-copy span,
+  .smart-setup-launcher-track {
+    display: none;
   }
 }
 
