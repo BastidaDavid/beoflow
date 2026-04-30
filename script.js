@@ -239,6 +239,63 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const EVENT_MENU_LINKS_KEY = "beoflow_event_menu_links";
+
+  const getEventSignature = (eventData = {}) =>
+    [
+      eventData.name,
+      eventData.client,
+      eventData.date,
+      eventData.startTime,
+      eventData.endTime,
+      eventData.venue
+    ]
+      .map((value) => String(value || "").trim().toLowerCase())
+      .join("|");
+
+  const getEventMenuLinks = () => {
+    try {
+      return JSON.parse(localStorage.getItem(EVENT_MENU_LINKS_KEY)) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveEventMenuLinks = (links) => {
+    localStorage.setItem(EVENT_MENU_LINKS_KEY, JSON.stringify(links));
+  };
+
+  const getLinkedEventMenuId = (eventData = {}) => {
+    const links = getEventMenuLinks();
+    const idKey = eventData.id != null && eventData.id !== "" ? `id:${eventData.id}` : "";
+    const signature = getEventSignature(eventData);
+
+    return (idKey && links[idKey]) || links[`signature:${signature}`] || "";
+  };
+
+  const getEventMenuId = (eventData = {}) =>
+    eventData.menuId || eventData.menu_id || getLinkedEventMenuId(eventData) || "";
+
+  const rememberEventMenuLink = (eventData = {}, menuId = "") => {
+    const links = getEventMenuLinks();
+    const idKey = eventData.id != null && eventData.id !== "" ? `id:${eventData.id}` : "";
+    const signatureKey = `signature:${getEventSignature(eventData)}`;
+
+    if (menuId) {
+      if (idKey) links[idKey] = menuId;
+      links[signatureKey] = menuId;
+    } else {
+      if (idKey) delete links[idKey];
+      delete links[signatureKey];
+    }
+
+    saveEventMenuLinks(links);
+  };
+
+  const removeEventMenuLink = (eventData = {}) => {
+    rememberEventMenuLink(eventData, "");
+  };
+
   const mapApiEventToUiEvent = (event) => ({
     id: event.id,
     name: event.event_name || "",
@@ -276,7 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       return {
         ...apiEvent,
-        menuId: apiEvent.menuId || localEvent?.menuId || ""
+        menuId: getEventMenuId(apiEvent) || getEventMenuId(localEvent) || ""
       };
     });
 
@@ -747,7 +804,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (startTimeInput) startTimeInput.value = eventData.startTime || "";
     if (endTimeInput) endTimeInput.value = eventData.endTime || "";
     if (guestCountInput) guestCountInput.value = eventData.guests || "";
-    if (eventMenuInput) eventMenuInput.value = eventData.menuId || "";
+    if (eventMenuInput) eventMenuInput.value = getEventMenuId(eventData);
     if (venueInput) venueInput.value = eventData.venue || "";
     if (statusInput) statusInput.value = eventData.status || "Draft";
     if (editingEventIndex) editingEventIndex.value = String(index);
@@ -851,7 +908,8 @@ document.addEventListener("DOMContentLoaded", () => {
     [...displayedEvents].reverse().forEach((eventData) => {
       const realIndex = freshEvents.indexOf(eventData);
       const newRow = document.createElement("tr");
-      const selectedMenu = menus.find((menu) => menu.id === eventData.menuId);
+      const menuId = getEventMenuId(eventData);
+      const selectedMenu = menus.find((menu) => menu.id === menuId);
       const guests = Number(eventData.guests || 0);
       const estimatedRevenue = selectedMenu ? guests * Number(selectedMenu.price || 0) : 0;
       const estimatedCost = selectedMenu ? guests * Number(selectedMenu.cost || 0) : 0;
@@ -977,6 +1035,7 @@ ${staffSuggestion}
 
           try {
             await deleteEventInApi(eventData.id);
+            removeEventMenuLink(eventData);
             const updatedEvents = getEvents().filter((eventItem) => eventItem.id !== eventData.id);
             saveEvents(updatedEvents);
             await renderEvents();
@@ -2883,7 +2942,8 @@ ${staffSuggestion}
     let taskCount = 0;
 
     events.forEach((eventData) => {
-      const selectedMenu = menus.find((menu) => menu.id === eventData.menuId);
+      const menuId = getEventMenuId(eventData);
+      const selectedMenu = menus.find((menu) => menu.id === menuId);
       const guests = Number(eventData.guests || 0);
 
       if (!selectedMenu || guests <= 0) return;
@@ -3114,10 +3174,12 @@ ${staffSuggestion}
         if (editingIndex >= 0) {
           const existingEvent = events[editingIndex];
           const updatedEvent = await updateEventInApi(existingEvent.id, eventData);
+          rememberEventMenuLink(updatedEvent, eventData.menuId);
           events[editingIndex] = updatedEvent;
           saveEvents(events);
         } else {
           const savedEvent = await createEventInApi(eventData);
+          rememberEventMenuLink(savedEvent, eventData.menuId);
           events.push(savedEvent);
           saveEvents(events);
         }
