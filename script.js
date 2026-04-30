@@ -24,15 +24,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const navEvents = document.getElementById("nav-events");
   const navMenus = document.getElementById("nav-menus");
   const navRecipes = document.getElementById("nav-recipes");
+  const navSubRecipes = document.getElementById("nav-sub-recipes");
   const dashboardSection = document.getElementById("dashboard-section");
+  const dashboardCalendarSection = document.getElementById("dashboard-calendar-section");
   const eventsSection = document.getElementById("events-section");
+  const eventsActiveFilter = document.getElementById("events-active-filter");
   const menusSection = document.getElementById("menus-section");
   const recipesSection = document.getElementById("recipes-section");
+  const subRecipesSection = document.getElementById("sub-recipes-section");
+  const topbarTitle = document.querySelector(".topbar h1");
+  const topbarSubtitle = document.querySelector(".topbar p");
   const addMenuBtn = document.getElementById("add-menu-btn");
   const menusTableBody = document.getElementById("menus-table-body");
   const menuNameInput = document.getElementById("menuName");
   const menuTypeInput = document.getElementById("menuType");
   const menuCostInput = document.getElementById("menuCost");
+  if (menuCostInput) {
+    const menuCostField = menuCostInput.closest(".form-group") || menuCostInput.parentElement;
+    if (menuCostField) {
+      menuCostField.hidden = true;
+      menuCostField.style.display = "none";
+    }
+  }
   const menuPriceInput = document.getElementById("menuPrice");
   const menuRecipesInput = document.getElementById("menuRecipes");
   let editingMenuId = null;
@@ -44,17 +57,51 @@ document.addEventListener("DOMContentLoaded", () => {
   const recipePortionsInput = document.getElementById("recipePortions");
   const recipeYieldInput = document.getElementById("recipeYield");
   const recipeNotesInput = document.getElementById("recipeNotes");
+  const recipeIngredientSearchInput = document.getElementById("recipeIngredientSearch");
   const recipeIngredientItemInput = document.getElementById("recipeIngredientItem");
+  const recipeIngredientMatches = document.getElementById("recipeIngredientMatches");
+  const recipeIngredientStatus = document.getElementById("recipeIngredientStatus");
   const recipeIngredientQtyInput = document.getElementById("recipeIngredientQty");
   const recipeIngredientUnitInput = document.getElementById("recipeIngredientUnit");
+  const recipeQuickInventoryFields = document.getElementById("recipeQuickInventoryFields");
+  const recipeNewInventoryQuantityInput = document.getElementById("recipeNewInventoryQuantity");
+  const recipeNewInventoryUnitInput = document.getElementById("recipeNewInventoryUnit");
+  const recipeNewInventoryTotalCostInput = document.getElementById("recipeNewInventoryTotalCost");
+  const recipeNewInventoryStorageAreaInput = document.getElementById("recipeNewInventoryStorageArea");
   const addRecipeIngredientBtn = document.getElementById("add-recipe-ingredient-btn");
   const selectedIngredientsList = document.getElementById("selected-ingredients-list");
+  const addSubRecipeBtn = document.getElementById("add-sub-recipe-btn");
+  const subRecipesTableBody = document.getElementById("sub-recipes-table-body");
+  const subRecipeNameInput = document.getElementById("subRecipeName");
+  const subRecipeCategoryInput = document.getElementById("subRecipeCategory");
+  const subRecipeYieldInput = document.getElementById("subRecipeYield");
+  const subRecipeYieldUnitInput = document.getElementById("subRecipeYieldUnit");
+  const subRecipeWasteInput = document.getElementById("subRecipeWaste");
+  const subRecipeNotesInput = document.getElementById("subRecipeNotes");
+  const subRecipeIngredientSearchInput = document.getElementById("subRecipeIngredientSearch");
+  const subRecipeIngredientItemInput = document.getElementById("subRecipeIngredientItem");
+  const subRecipeIngredientMatches = document.getElementById("subRecipeIngredientMatches");
+  const subRecipeIngredientStatus = document.getElementById("subRecipeIngredientStatus");
+  const subRecipeIngredientQtyInput = document.getElementById("subRecipeIngredientQty");
+  const subRecipeIngredientUnitInput = document.getElementById("subRecipeIngredientUnit");
+  const subRecipeQuickInventoryFields = document.getElementById("subRecipeQuickInventoryFields");
+  const subRecipeNewInventoryQuantityInput = document.getElementById("subRecipeNewInventoryQuantity");
+  const subRecipeNewInventoryUnitInput = document.getElementById("subRecipeNewInventoryUnit");
+  const subRecipeNewInventoryTotalCostInput = document.getElementById("subRecipeNewInventoryTotalCost");
+  const subRecipeNewInventoryStorageAreaInput = document.getElementById("subRecipeNewInventoryStorageArea");
+  const addSubRecipeIngredientBtn = document.getElementById("add-sub-recipe-ingredient-btn");
+  const selectedSubRecipeIngredientsList = document.getElementById("selected-sub-recipe-ingredients-list");
   const ingredientsModal = document.getElementById("ingredients-modal");
   const ingredientsModalTitle = document.getElementById("ingredients-modal-title");
   const ingredientsModalBody = document.getElementById("ingredients-modal-body");
   const closeIngredientsModalBtn = document.getElementById("close-ingredients-modal");
   let currentRecipeIngredients = [];
   let editingRecipeId = null;
+  let currentSubRecipeIngredients = [];
+  let editingSubRecipeId = null;
+  let activeModuleKey = "dashboard";
+  let moduleBeforeForm = "dashboard";
+  let activeEventFilter = null;
   const navInventory = document.getElementById("nav-inventory");
   const navProduction = document.getElementById("nav-production");
   const navStaff = document.getElementById("nav-staff");
@@ -69,15 +116,120 @@ document.addEventListener("DOMContentLoaded", () => {
   const addInventoryBtn = document.getElementById("add-inventory-btn");
   const inventoryTableBody = document.getElementById("inventory-table-body");
   const inventoryItemNameInput = document.getElementById("inventoryItemName");
+  const inventoryCategoryInput = document.getElementById("inventoryCategory");
   const inventoryQuantityInput = document.getElementById("inventoryQuantity");
   const inventoryUnitInput = document.getElementById("inventoryUnit");
-  const inventoryCostInput = document.getElementById("inventoryCost");
+  const inventoryTotalCostInput = document.getElementById("inventoryTotalCost");
+  const inventoryStorageAreaInput = document.getElementById("inventoryStorageArea");
+  const inventorySearchInput = document.getElementById("inventorySearch");
+  const inventoryCategoryFilterInput = document.getElementById("inventoryCategoryFilter");
+  const inventoryCategorySummary = document.getElementById("inventory-category-summary");
+  const inventorySections = document.getElementById("inventory-sections");
+  const inventoryPrepRecipesList = document.getElementById("inventory-prep-recipes-list");
+  const inventoryGoPrepRecipesBtn = document.getElementById("inventory-go-prep-recipes");
   let editingInventoryItemId = null;
 
   const kpiEventsToday = document.getElementById("kpi-events-today");
   const kpiUpcomingEvents = document.getElementById("kpi-upcoming-events");
   const kpiDraftEvents = document.getElementById("kpi-draft-events");
   const kpiConfirmedEvents = document.getElementById("kpi-confirmed-events");
+
+  const recipeIngredientPicker = {
+    searchInput: recipeIngredientSearchInput,
+    hiddenInput: recipeIngredientItemInput,
+    matchesList: recipeIngredientMatches,
+    statusEl: recipeIngredientStatus,
+    quickFields: recipeQuickInventoryFields,
+    quickQuantityInput: recipeNewInventoryQuantityInput,
+    quickUnitInput: recipeNewInventoryUnitInput,
+    quickTotalCostInput: recipeNewInventoryTotalCostInput,
+    quickStorageAreaInput: recipeNewInventoryStorageAreaInput
+  };
+
+  const subRecipeIngredientPicker = {
+    searchInput: subRecipeIngredientSearchInput,
+    hiddenInput: subRecipeIngredientItemInput,
+    matchesList: subRecipeIngredientMatches,
+    statusEl: subRecipeIngredientStatus,
+    quickFields: subRecipeQuickInventoryFields,
+    quickQuantityInput: subRecipeNewInventoryQuantityInput,
+    quickUnitInput: subRecipeNewInventoryUnitInput,
+    quickTotalCostInput: subRecipeNewInventoryTotalCostInput,
+    quickStorageAreaInput: subRecipeNewInventoryStorageAreaInput
+  };
+
+  const inventoryCategories = [
+    {
+      id: "produce",
+      label: "Vegetables & Fruit",
+      icon: "🥬",
+      className: "produce",
+      keywords: ["vegetable", "veggie", "lettuce", "tomato", "onion", "cilantro", "pepper", "carrot", "potato", "avocado", "lime", "lemon", "fruit", "apple", "orange", "banana", "berries", "spinach", "mushroom", "zucchini", "cucumber"]
+    },
+    {
+      id: "meat",
+      label: "Meat & Poultry",
+      icon: "🥩",
+      className: "meat",
+      keywords: ["beef", "steak", "chicken", "pork", "turkey", "bacon", "sausage", "ham", "lamb", "carne", "pollo"]
+    },
+    {
+      id: "fish",
+      label: "Fish & Seafood",
+      icon: "🐟",
+      className: "fish",
+      keywords: ["fish", "salmon", "tuna", "shrimp", "seafood", "cod", "tilapia", "mahi", "crab", "lobster", "scallop"]
+    },
+    {
+      id: "dairy",
+      label: "Dairy",
+      icon: "🥛",
+      className: "dairy",
+      keywords: ["milk", "cheese", "cream", "butter", "yogurt", "parmesan", "mozzarella", "queso", "lacteo", "dairy"]
+    },
+    {
+      id: "dry",
+      label: "Dry Goods",
+      icon: "🌾",
+      className: "dry",
+      keywords: ["rice", "flour", "sugar", "salt", "spice", "pasta", "beans", "lentil", "cereal", "oil", "vinegar", "dry"]
+    },
+    {
+      id: "bakery",
+      label: "Bakery",
+      icon: "🥖",
+      className: "bakery",
+      keywords: ["bread", "bun", "roll", "tortilla", "croissant", "bagel", "bakery"]
+    },
+    {
+      id: "beverage",
+      label: "Beverages",
+      icon: "🧃",
+      className: "beverage",
+      keywords: ["juice", "soda", "water", "coffee", "tea", "wine", "beer", "beverage", "drink"]
+    },
+    {
+      id: "pickled",
+      label: "Pickles & Ferments",
+      icon: "🥒",
+      className: "pickled",
+      keywords: ["pickle", "pickled", "pickles", "encurtido", "encurtidos", "curtido", "curtidos", "escabeche", "escabechado", "ferment", "fermented", "fermentado", "fermentados", "kimchi", "sauerkraut", "jalapeno", "jalapeño", "pepperoncini", "cornichon", "relish"]
+    },
+    {
+      id: "prep",
+      label: "Prep Recipes",
+      icon: "🍲",
+      className: "prep",
+      keywords: ["prep", "sauce", "salsa", "dressing", "base", "stock", "marinade", "guacamole", "pico"]
+    },
+    {
+      id: "other",
+      label: "Other",
+      icon: "📦",
+      className: "other",
+      keywords: []
+    }
+  ];
 
   const getEvents = () => {
     try {
@@ -213,6 +365,18 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("beoflow_recipes", JSON.stringify(recipes));
   };
 
+  const getSubRecipes = () => {
+    try {
+      return JSON.parse(localStorage.getItem("beoflow_sub_recipes")) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveSubRecipes = (subRecipes) => {
+    localStorage.setItem("beoflow_sub_recipes", JSON.stringify(subRecipes));
+  };
+
   const getInventory = () => {
     try {
       return JSON.parse(localStorage.getItem("beoflow_inventory")) || [];
@@ -237,6 +401,111 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("beoflow_staff", JSON.stringify(staff));
   };
 
+  const moduleHeaders = {
+    dashboard: {
+      title: "Dashboard",
+      subtitle: "Event & Banquet Operations Control"
+    },
+    events: {
+      title: "Events",
+      subtitle: "Review scheduled events, margins, inventory checks, and execution status"
+    },
+    menus: {
+      title: "Menu",
+      subtitle: "Build banquet menus connected to saved recipes"
+    },
+    recipes: {
+      title: "Recipes",
+      subtitle: "Create production-ready recipes from inventory"
+    },
+    subRecipes: {
+      title: "Prep Recipes",
+      subtitle: "Manage base preparations used inside recipes and production"
+    },
+    inventory: {
+      title: "Inventory",
+      subtitle: "Track item quantity, cost, storage area, and stock status"
+    },
+    production: {
+      title: "Production",
+      subtitle: "Track what needs to be prepared and assigned"
+    },
+    staff: {
+      title: "Staff",
+      subtitle: "Manage team assignments and roles"
+    },
+    eventForm: {
+      title: "Event Form",
+      subtitle: "Create or update a banquet event order"
+    }
+  };
+
+  const updateTopbar = (moduleKey) => {
+    const header = moduleHeaders[moduleKey] || moduleHeaders.dashboard;
+    if (topbarTitle) topbarTitle.textContent = header.title;
+    if (topbarSubtitle) topbarSubtitle.textContent = header.subtitle;
+  };
+
+  const eventFilterLabels = {
+    today: "Events Today",
+    upcoming: "Upcoming Events",
+    draft: "Draft BEOs",
+    confirmed: "Confirmed Events"
+  };
+
+  const filterEventsByActiveFilter = (events) => {
+    if (!activeEventFilter) return events;
+
+    const today = new Date();
+    const todayString = today.toISOString().split("T")[0];
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    const nextWeekString = nextWeek.toISOString().split("T")[0];
+
+    return events.filter((eventData) => {
+      const eventDate = eventData.date || "";
+
+      if (activeEventFilter === "today") {
+        return eventDate === todayString;
+      }
+
+      if (activeEventFilter === "upcoming") {
+        return eventDate > todayString && eventDate <= nextWeekString;
+      }
+
+      if (activeEventFilter === "draft") {
+        return eventData.status === "Draft";
+      }
+
+      if (activeEventFilter === "confirmed") {
+        return eventData.status === "Confirmed";
+      }
+
+      return true;
+    });
+  };
+
+  const renderEventsFilterBar = () => {
+    if (!eventsActiveFilter) return;
+
+    if (!activeEventFilter) {
+      eventsActiveFilter.hidden = true;
+      eventsActiveFilter.innerHTML = "";
+      return;
+    }
+
+    eventsActiveFilter.hidden = false;
+    eventsActiveFilter.innerHTML = `
+      <span>Showing: <strong>${eventFilterLabels[activeEventFilter] || "Filtered Events"}</strong></span>
+      <button type="button" class="secondary-btn clear-event-filter-btn">Show All Events</button>
+    `;
+
+    eventsActiveFilter.querySelector(".clear-event-filter-btn")?.addEventListener("click", () => {
+      activeEventFilter = null;
+      renderEvents();
+    });
+  };
+
   const resetFormState = () => {
     if (form) form.reset();
     if (editingEventIndex) editingEventIndex.value = "";
@@ -246,15 +515,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const openForm = () => {
     if (!createEventSection) return;
-    createEventSection.hidden = false;
+    moduleBeforeForm = activeModuleKey || "dashboard";
+    hideAllMainSections();
+    showSection(createEventSection);
+    setActiveNav(null);
+    updateTopbar("eventForm");
     createEventSection.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const closeForm = () => {
     if (!createEventSection) return;
-    createEventSection.hidden = true;
     resetFormState();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    showModuleByKey(moduleBeforeForm || "dashboard");
   };
 
   const getStatusClass = (status) => {
@@ -518,22 +790,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const freshEvents = getEvents();
     if (!tableBody) return;
 
+    renderEventsFilterBar();
     tableBody.innerHTML = "";
     const menus = getMenus();
+    const displayedEvents = filterEventsByActiveFilter(freshEvents);
 
-    if (freshEvents.length === 0) {
+    if (displayedEvents.length === 0) {
       const emptyRow = document.createElement("tr");
       emptyRow.innerHTML = `
         <td colspan="13" style="color:#64748b; text-align:center; padding:20px;">
-          No events yet. Create your first event.
+          ${freshEvents.length === 0 ? "No events yet. Create your first event." : "No events match this filter."}
         </td>
       `;
       tableBody.appendChild(emptyRow);
       return;
     }
 
-    [...freshEvents].reverse().forEach((eventData, index) => {
-      const realIndex = freshEvents.length - 1 - index;
+    [...displayedEvents].reverse().forEach((eventData) => {
+      const realIndex = freshEvents.indexOf(eventData);
       const newRow = document.createElement("tr");
       const selectedMenu = menus.find((menu) => menu.id === eventData.menuId);
       const guests = Number(eventData.guests || 0);
@@ -722,25 +996,119 @@ ${staffSuggestion}
     if (kpiConfirmedEvents) kpiConfirmedEvents.textContent = confirmedEventsCount;
   };
 
+  const hideSection = (section) => {
+    if (!section) return;
+    section.hidden = true;
+    section.style.display = "none";
+  };
+
+  const showSection = (section, displayType = "block") => {
+    if (!section) return;
+    section.hidden = false;
+    section.style.display = displayType;
+  };
+
   const hideAllMainSections = () => {
-    if (dashboardSection) {
-      dashboardSection.hidden = true;
-      dashboardSection.style.display = "none";
-    }
-    if (eventsSection) eventsSection.hidden = true;
-    if (menusSection) menusSection.hidden = true;
-    if (recipesSection) recipesSection.hidden = true;
-    if (inventorySection) inventorySection.hidden = true;
-    if (productionSection) productionSection.hidden = true;
-    if (staffSection) staffSection.hidden = true;
-    if (createEventSection) createEventSection.hidden = true;
+    [
+      dashboardSection,
+      dashboardCalendarSection,
+      eventsSection,
+      menusSection,
+      recipesSection,
+      subRecipesSection,
+      inventorySection,
+      productionSection,
+      staffSection,
+      createEventSection
+    ].forEach(hideSection);
   };
 
   const setActiveNav = (activeNav) => {
-    [navDashboard, navEvents, navMenus, navRecipes, navInventory, navProduction, navStaff].forEach((navItem) => {
+    [navDashboard, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff].forEach((navItem) => {
       if (!navItem) return;
       navItem.classList.toggle("active", navItem === activeNav);
     });
+  };
+
+  const showModuleByKey = (moduleKey, options = {}) => {
+    const { scroll = true } = options;
+
+    hideAllMainSections();
+    activeModuleKey = moduleKey;
+    updateTopbar(moduleKey);
+
+    if (moduleKey === "dashboard") {
+      showSection(dashboardSection, "grid");
+      showSection(dashboardCalendarSection, "grid");
+      setActiveNav(navDashboard);
+      renderKpis();
+      if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    if (moduleKey === "events") {
+      activeEventFilter = options.eventFilter || null;
+      showSection(eventsSection);
+      setActiveNav(navEvents);
+      renderEvents().then(renderKpis);
+      if (scroll) eventsSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "menus") {
+      showSection(menusSection);
+      setActiveNav(navMenus);
+      populateMenuRecipeOptions();
+      renderMenus();
+      if (scroll) menusSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "recipes") {
+      showSection(recipesSection);
+      setActiveNav(navRecipes);
+      populateRecipeIngredientOptions();
+      renderSelectedIngredients();
+      renderRecipes();
+      if (scroll) recipesSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "subRecipes") {
+      showSection(subRecipesSection);
+      setActiveNav(navSubRecipes);
+      populateSubRecipeIngredientOptions();
+      renderSelectedSubRecipeIngredients();
+      renderSubRecipes();
+      if (scroll) subRecipesSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "inventory") {
+      showSection(inventorySection);
+      setActiveNav(navInventory);
+      renderInventory();
+      if (scroll) inventorySection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "production") {
+      showSection(productionSection);
+      setActiveNav(navProduction);
+      renderProduction();
+      if (scroll) productionSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (moduleKey === "staff") {
+      showSection(staffSection);
+      setActiveNav(navStaff);
+      renderStaff();
+      if (scroll) staffSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    showModuleByKey("dashboard", options);
   };
 
   const convertQuantity = (qty, fromUnit, toUnit) => {
@@ -773,12 +1141,242 @@ ${staffSuggestion}
     return `${Number(displayQty || 0).toFixed(2)} ${displayUnit}`;
   };
 
+  const getInventoryUnitCost = (item) => {
+    if (!item) return 0;
+
+    const quantity = Number(item.quantity || 0);
+    const totalCost = Number(item.totalCost ?? item.stockValue ?? 0);
+
+    if (quantity > 0 && totalCost > 0) {
+      return totalCost / quantity;
+    }
+
+    return Number(item.costPerUnit ?? item.cost ?? 0);
+  };
+
+  const getInventoryCategoryMeta = (categoryId = "other") => {
+    const normalizedCategoryId = String(categoryId || "").trim().toLowerCase();
+    return inventoryCategories.find((category) => category.id === normalizedCategoryId)
+      || inventoryCategories.find((category) => normalizeIngredientName(category.label) === normalizedCategoryId)
+      || inventoryCategories[inventoryCategories.length - 1];
+  };
+
+  const inferInventoryCategoryId = (item = {}) => {
+    if (item.category) {
+      return getInventoryCategoryMeta(item.category).id;
+    }
+
+    if (item.sourceType === "prepRecipe" || item.subRecipeId) {
+      return "prep";
+    }
+
+    const searchableText = [
+      item.name,
+      item.storageArea,
+      item.unit
+    ].join(" ").toLowerCase();
+
+    const matchedCategory = inventoryCategories.find((category) => {
+      if (category.id === "other") return false;
+      return category.keywords.some((keyword) => searchableText.includes(keyword));
+    });
+
+    return matchedCategory ? matchedCategory.id : "other";
+  };
+
+  const getInventoryItemCategory = (item = {}) => getInventoryCategoryMeta(inferInventoryCategoryId(item));
+
+  const getInventoryStockValue = (item = {}) => {
+    const explicitValue = Number(item.totalCost ?? item.stockValue ?? 0);
+    if (explicitValue > 0) return explicitValue;
+
+    return Number(item.quantity || 0) * getInventoryUnitCost(item);
+  };
+
+  const normalizeIngredientName = (name) => String(name || "").trim().toLowerCase();
+
+  const getInventoryItemLabel = (item) => {
+    const itemUnit = item?.unit || "units";
+    const itemCost = getInventoryUnitCost(item);
+    return `${item?.name || "Untitled Item"} (${itemUnit}) - $${itemCost.toFixed(2)} / ${itemUnit}`;
+  };
+
+  const findInventoryItemByName = (name) => {
+    const normalizedName = normalizeIngredientName(name);
+    if (!normalizedName) return null;
+    return getInventory().find((item) => normalizeIngredientName(item.name) === normalizedName) || null;
+  };
+
+  const selectIngredientPickerItem = (picker, item) => {
+    if (!picker?.searchInput || !picker.hiddenInput || !item) return;
+
+    picker.searchInput.value = item.name || "";
+    picker.hiddenInput.value = item.id || "";
+    if (picker.quickFields) picker.quickFields.hidden = true;
+    if (picker.statusEl) picker.statusEl.textContent = `Selected from inventory: ${getInventoryItemLabel(item)}`;
+    if (picker.matchesList) picker.matchesList.hidden = true;
+  };
+
+  const clearIngredientPicker = (picker) => {
+    if (!picker) return;
+
+    if (picker.searchInput) picker.searchInput.value = "";
+    if (picker.hiddenInput) picker.hiddenInput.value = "";
+    if (picker.matchesList) {
+      picker.matchesList.innerHTML = "";
+      picker.matchesList.hidden = true;
+    }
+    if (picker.statusEl) picker.statusEl.textContent = "Type to search inventory or create a new ingredient.";
+    if (picker.quickFields) picker.quickFields.hidden = true;
+    if (picker.quickQuantityInput) picker.quickQuantityInput.value = "";
+    if (picker.quickTotalCostInput) picker.quickTotalCostInput.value = "";
+  };
+
+  const renderIngredientPickerMatches = (picker, showList = false) => {
+    if (!picker?.searchInput || !picker.hiddenInput || !picker.matchesList) return;
+
+    const query = picker.searchInput.value.trim();
+    const normalizedQuery = normalizeIngredientName(query);
+    const inventory = getInventory();
+    const exactMatch = findInventoryItemByName(query);
+    const selectedItem = inventory.find((item) => item.id === picker.hiddenInput.value);
+    const hasSelectedCurrentItem = selectedItem && normalizeIngredientName(selectedItem.name) === normalizedQuery;
+
+    if (!hasSelectedCurrentItem) {
+      picker.hiddenInput.value = "";
+    }
+
+    const matches = normalizedQuery
+      ? inventory
+          .filter((item) => normalizeIngredientName(item.name).includes(normalizedQuery))
+          .slice(0, 6)
+      : inventory.slice(0, 6);
+
+    const canCreate = Boolean(normalizedQuery && !exactMatch);
+    if (picker.quickFields) picker.quickFields.hidden = !canCreate;
+
+    if (picker.statusEl) {
+      if (!normalizedQuery) {
+        picker.statusEl.textContent = inventory.length
+          ? "Start typing to search inventory."
+          : "No inventory yet. Type a name and fill the add-to-inventory fields.";
+      } else if (hasSelectedCurrentItem || exactMatch) {
+        picker.statusEl.textContent = `Found in inventory: ${getInventoryItemLabel(exactMatch || selectedItem)}`;
+      } else {
+        picker.statusEl.textContent = `"${query}" is not in inventory. Complete the add-to-inventory fields below.`;
+      }
+    }
+
+    picker.matchesList.innerHTML = "";
+
+    matches.forEach((item) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "ingredient-match-btn";
+      button.textContent = getInventoryItemLabel(item);
+      button.addEventListener("click", () => {
+        selectIngredientPickerItem(picker, item);
+      });
+      picker.matchesList.appendChild(button);
+    });
+
+    if (canCreate) {
+      const createHint = document.createElement("div");
+      createHint.className = "ingredient-match-empty";
+      createHint.textContent = `Create "${query}" in inventory using the fields below.`;
+      picker.matchesList.appendChild(createHint);
+    }
+
+    picker.matchesList.hidden = !showList || (!matches.length && !canCreate);
+  };
+
+  const populateIngredientPicker = (picker) => {
+    if (!picker?.searchInput || !picker.hiddenInput) return;
+
+    const selectedItem = getInventory().find((item) => item.id === picker.hiddenInput.value);
+    if (selectedItem) {
+      selectIngredientPickerItem(picker, selectedItem);
+      return;
+    }
+
+    renderIngredientPickerMatches(picker, false);
+  };
+
+  const setupIngredientPicker = (picker) => {
+    if (!picker?.searchInput || !picker.hiddenInput || !picker.matchesList) return;
+
+    picker.searchInput.addEventListener("input", () => {
+      picker.hiddenInput.value = "";
+      renderIngredientPickerMatches(picker, true);
+    });
+
+    picker.searchInput.addEventListener("focus", () => {
+      renderIngredientPickerMatches(picker, true);
+    });
+
+    picker.quickUnitInput?.addEventListener("change", () => {
+      renderIngredientPickerMatches(picker, false);
+    });
+  };
+
+  const createInventoryItemFromPicker = (picker, fallbackUnit) => {
+    const name = picker?.searchInput ? picker.searchInput.value.trim() : "";
+    if (!name) {
+      alert("Please type an ingredient name.");
+      return "";
+    }
+
+    const exactMatch = findInventoryItemByName(name);
+    if (exactMatch) {
+      selectIngredientPickerItem(picker, exactMatch);
+      return exactMatch.id;
+    }
+
+    const quantity = picker.quickQuantityInput ? Number(picker.quickQuantityInput.value) : 0;
+    const totalCost = picker.quickTotalCostInput ? Number(picker.quickTotalCostInput.value) : 0;
+    const unit = picker.quickUnitInput ? picker.quickUnitInput.value : fallbackUnit;
+    const storageArea = picker.quickStorageAreaInput ? picker.quickStorageAreaInput.value : "Prep Area";
+
+    if (quantity <= 0 || totalCost <= 0) {
+      alert("This ingredient is not in inventory yet. Enter inventory quantity and total cost to add it.");
+      return "";
+    }
+
+    const costPerUnit = totalCost / quantity;
+    const inventoryItem = {
+      id: Date.now().toString(),
+      name,
+      category: inferInventoryCategoryId({ name, storageArea, unit }),
+      quantity,
+      unit,
+      totalCost,
+      storageArea,
+      costPerUnit,
+      cost: costPerUnit,
+      stockValue: totalCost
+    };
+
+    const inventory = getInventory();
+    inventory.push(inventoryItem);
+    saveInventory(inventory);
+
+    populateRecipeIngredientOptions();
+    populateSubRecipeIngredientOptions();
+    renderInventory();
+    selectIngredientPickerItem(picker, inventoryItem);
+
+    return inventoryItem.id;
+  };
+
   const calculateRecipeIngredientCost = (ingredients = []) => {
     const inventory = getInventory();
 
     return ingredients.reduce((total, ingredient) => {
       const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
-      return total + (Number(ingredient.qty || 0) * Number(item?.cost || 0));
+      const unitCost = getInventoryUnitCost(item);
+      const quantityUsed = Number(ingredient.qty || 0);
+
+      return total + (quantityUsed * unitCost);
     }, 0);
   };
 
@@ -796,77 +1394,237 @@ ${staffSuggestion}
     if (!selectedIngredientsList) return;
 
     if (currentRecipeIngredients.length === 0) {
-      selectedIngredientsList.textContent = "No ingredients added yet.";
+      selectedIngredientsList.innerHTML = `
+        <div class="recipe-ingredients-cell">
+          <strong>0 ingredients</strong>
+          <span>No ingredients added yet.</span>
+        </div>
+      `;
       return;
     }
 
+    selectedIngredientsList.innerHTML = `
+      <div class="recipe-ingredients-cell">
+        <strong>${currentRecipeIngredients.length} ingredients ready to save</strong>
+        <span>Open the table to review ingredients before saving.</span>
+        <button type="button" class="secondary-btn view-current-ingredients-btn">
+          Open Ingredients Table
+        </button>
+      </div>
+    `;
+
+    const viewCurrentIngredientsBtn = selectedIngredientsList.querySelector(".view-current-ingredients-btn");
+
+    if (viewCurrentIngredientsBtn) {
+      viewCurrentIngredientsBtn.addEventListener("click", () => {
+        openCurrentIngredientsModal();
+      });
+    }
+  };
+
+  const openCurrentIngredientsModal = () => {
+    if (!ingredientsModal || !ingredientsModalTitle || !ingredientsModalBody) return;
+
     const inventory = getInventory();
+    ingredientsModalTitle.textContent = editingRecipeId
+      ? "Edit Recipe Ingredients"
+      : "New Recipe Ingredients";
 
-    selectedIngredientsList.innerHTML = currentRecipeIngredients.map((ingredient, index) => {
-      const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
-      const itemName = item ? item.name : "Unknown item";
-      const ingredientCost = Number(ingredient.qty || 0) * Number(item?.cost || 0);
-      const displayQty = getIngredientDisplayQty(ingredient, item);
+    if (currentRecipeIngredients.length === 0) {
+      ingredientsModalBody.innerHTML = `<div class="ingredient-row">No ingredients added yet.</div>`;
+    } else {
+      ingredientsModalBody.innerHTML = `
+        <div class="ingredients-table-wrap">
+          <table class="ingredients-detail-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Quantity Used</th>
+                <th>Unit</th>
+                <th>Price</th>
+                <th>Presentation</th>
+                <th>Base Cost</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${currentRecipeIngredients.map((ingredient, index) => {
+                const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+                const itemName = item ? item.name : "Unknown item";
+                const usedQty = Number(ingredient.originalQty ?? ingredient.qty ?? 0);
+                const usedUnit = ingredient.originalUnit || item?.unit || "unit";
+                const inventoryQty = Number(item?.quantity || 0);
+                const inventoryUnit = item?.unit || usedUnit;
+                const itemPrice = getInventoryUnitCost(item);
+                const convertedQty = Number(ingredient.qty || 0);
+                const ingredientCost = convertedQty * itemPrice;
+                const presentation = item
+                  ? `${inventoryQty.toFixed(2)} ${inventoryUnit}`
+                  : "No presentation";
 
-      return `
-        <div class="selected-ingredient-pill">
-          <span>
-            ${itemName}: ${displayQty} / portion · $${ingredientCost.toFixed(2)}
-          </span>
-
-          <div class="icon-actions">
-            <button type="button" class="icon-btn edit ingredient-edit-btn" data-index="${index}" title="Edit">✏️</button>
-            <button type="button" class="icon-btn delete ingredient-delete-btn" data-index="${index}" title="Delete">🗑️</button>
-          </div>
+                return `
+                  <tr>
+                    <td>${itemName}</td>
+                    <td>${usedQty.toFixed(2)}</td>
+                    <td>${usedUnit}</td>
+                    <td>$${itemPrice.toFixed(2)} / ${inventoryUnit}</td>
+                    <td>${presentation}</td>
+                    <td>$${ingredientCost.toFixed(2)}</td>
+                    <td>
+                      <div class="icon-actions">
+                        <button type="button" class="icon-btn edit ingredient-edit-btn" data-index="${index}" title="Edit">✏️</button>
+                        <button type="button" class="icon-btn delete ingredient-delete-btn" data-index="${index}" title="Delete">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
         </div>
-      `;
-    }).join("");
+        ${(() => {
+          const baseCost = calculateRecipeIngredientCost(currentRecipeIngredients);
+          const wastePercent = recipeYieldInput ? Number(recipeYieldInput.value || 0) : 0;
+          const finalCost = applyWasteToCost(baseCost, wastePercent);
+          const wasteCost = finalCost - baseCost;
 
-    selectedIngredientsList.querySelectorAll(".ingredient-delete-btn").forEach((btn) => {
+          return `
+            <div class="recipe-waste-summary">
+              <h4>Recipe Waste Summary</h4>
+              <div class="recipe-waste-summary-grid">
+                <div>
+                  <span>Base Recipe Cost</span>
+                  <strong>$${baseCost.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <span>Waste Applied</span>
+                  <strong>${wastePercent.toFixed(0)}%</strong>
+                </div>
+                <div>
+                  <span>Waste Cost</span>
+                  <strong>$${wasteCost.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <span>Final Recipe Cost</span>
+                  <strong>$${finalCost.toFixed(2)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        })()}
+      `;
+    }
+
+    ingredientsModalBody.querySelectorAll(".ingredient-delete-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const index = Number(btn.dataset.index);
         currentRecipeIngredients.splice(index, 1);
         renderSelectedIngredients();
+        openCurrentIngredientsModal();
       });
     });
 
-    selectedIngredientsList.querySelectorAll(".ingredient-edit-btn").forEach((btn) => {
+    ingredientsModalBody.querySelectorAll(".ingredient-edit-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const index = Number(btn.dataset.index);
         const ingredient = currentRecipeIngredients[index];
 
-        if (recipeIngredientItemInput) recipeIngredientItemInput.value = ingredient.inventoryItemId;
+        const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
+        if (inventoryItem) selectIngredientPickerItem(recipeIngredientPicker, inventoryItem);
         if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
         if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
 
         currentRecipeIngredients.splice(index, 1);
+        closeIngredientsModal();
         renderSelectedIngredients();
       });
     });
+
+    ingredientsModal.hidden = false;
   };
 
   const openIngredientsModal = (recipe) => {
     if (!ingredientsModal || !ingredientsModalTitle || !ingredientsModalBody) return;
 
     const inventory = getInventory();
+    const wastePercent = Number(recipe.wastePercent || 0);
     ingredientsModalTitle.textContent = `${recipe.name || "Recipe"} Ingredients`;
 
     if (!recipe.ingredients || recipe.ingredients.length === 0) {
       ingredientsModalBody.innerHTML = `<div class="ingredient-row">No ingredients added.</div>`;
     } else {
-      ingredientsModalBody.innerHTML = recipe.ingredients.map((ingredient) => {
-        const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
-        const itemName = item ? item.name : "Unknown item";
-        const ingredientCost = Number(ingredient.qty || 0) * Number(item?.cost || 0);
-        const displayQty = getIngredientDisplayQty(ingredient, item);
+      ingredientsModalBody.innerHTML = `
+        <div class="ingredients-table-wrap">
+          <table class="ingredients-detail-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Quantity Used</th>
+                <th>Unit</th>
+                <th>Price</th>
+                <th>Presentation</th>
+                <th>Base Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${recipe.ingredients.map((ingredient) => {
+                const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+                const itemName = item ? item.name : "Unknown item";
+                const usedQty = Number(ingredient.originalQty ?? ingredient.qty ?? 0);
+                const usedUnit = ingredient.originalUnit || item?.unit || "unit";
+                const inventoryQty = Number(item?.quantity || 0);
+                const inventoryUnit = item?.unit || usedUnit;
+                const itemPrice = getInventoryUnitCost(item);
+                const convertedQty = Number(ingredient.qty || 0);
+                const ingredientCost = convertedQty * itemPrice;
+                const presentation = item
+                  ? `${inventoryQty.toFixed(2)} ${inventoryUnit}`
+                  : "No presentation";
 
-        return `
-          <div class="ingredient-row">
-            <span>${itemName}</span>
-            <strong>${displayQty} / portion · $${ingredientCost.toFixed(2)}</strong>
-          </div>
-        `;
-      }).join("");
+                return `
+                  <tr>
+                    <td>${itemName}</td>
+                    <td>${usedQty.toFixed(2)}</td>
+                    <td>${usedUnit}</td>
+                    <td>$${itemPrice.toFixed(2)} / ${inventoryUnit}</td>
+                    <td>${presentation}</td>
+                    <td>$${ingredientCost.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+        ${(() => {
+          const baseCost = calculateRecipeIngredientCost(recipe.ingredients || []);
+          const finalCost = applyWasteToCost(baseCost, wastePercent);
+          const wasteCost = finalCost - baseCost;
+
+          return `
+            <div class="recipe-waste-summary">
+              <h4>Recipe Waste Summary</h4>
+              <div class="recipe-waste-summary-grid">
+                <div>
+                  <span>Base Recipe Cost</span>
+                  <strong>$${baseCost.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <span>Waste Applied</span>
+                  <strong>${wastePercent.toFixed(0)}%</strong>
+                </div>
+                <div>
+                  <span>Waste Cost</span>
+                  <strong>$${wasteCost.toFixed(2)}</strong>
+                </div>
+                <div>
+                  <span>Final Recipe Cost</span>
+                  <strong>$${finalCost.toFixed(2)}</strong>
+                </div>
+              </div>
+            </div>
+          `;
+        })()}
+      `;
     }
 
     ingredientsModal.hidden = false;
@@ -878,41 +1636,26 @@ ${staffSuggestion}
   };
 
   const populateRecipeIngredientOptions = () => {
-    if (!recipeIngredientItemInput) return;
-
-    const selectedValue = recipeIngredientItemInput.value;
-    const inventory = getInventory();
-
-    recipeIngredientItemInput.innerHTML = "";
-
-    if (inventory.length === 0) {
-      const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "Add inventory items first";
-      recipeIngredientItemInput.appendChild(option);
-      return;
-    }
-
-    inventory.forEach((item) => {
-      const option = document.createElement("option");
-      option.value = item.id;
-      option.textContent = `${item.name} (${item.unit}) - $${Number(item.cost || 0).toFixed(2)} / ${item.unit}`;
-      recipeIngredientItemInput.appendChild(option);
-    });
-
-    recipeIngredientItemInput.value = selectedValue;
+    populateIngredientPicker(recipeIngredientPicker);
   };
 
   const addRecipeIngredient = () => {
-    const inventoryItemId = recipeIngredientItemInput ? recipeIngredientItemInput.value : "";
     const qty = recipeIngredientQtyInput ? Number(recipeIngredientQtyInput.value) : 0;
     const recipeUnit = recipeIngredientUnitInput ? recipeIngredientUnitInput.value : "lb";
+
+    if (qty <= 0) {
+      alert("Please enter the quantity used for this recipe.");
+      return;
+    }
+
+    const inventoryItemId = recipeIngredientItemInput && recipeIngredientItemInput.value
+      ? recipeIngredientItemInput.value
+      : createInventoryItemFromPicker(recipeIngredientPicker, recipeUnit);
     const inventoryItem = getInventory().find((item) => item.id === inventoryItemId);
     const inventoryUnit = inventoryItem?.unit || recipeUnit;
     const convertedQty = convertQuantity(qty, recipeUnit, inventoryUnit);
 
-    if (!inventoryItemId || qty <= 0) {
-      alert("Please select an inventory item and enter quantity per portion.");
+    if (!inventoryItemId) {
       return;
     }
 
@@ -925,6 +1668,170 @@ ${staffSuggestion}
     renderSelectedIngredients();
 
     if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
+    clearIngredientPicker(recipeIngredientPicker);
+  };
+
+  const calculateSubRecipeIngredientCost = (ingredients = []) => calculateRecipeIngredientCost(ingredients);
+
+  const populateSubRecipeIngredientOptions = () => {
+    populateIngredientPicker(subRecipeIngredientPicker);
+  };
+
+  const renderSelectedSubRecipeIngredients = () => {
+    if (!selectedSubRecipeIngredientsList) return;
+
+    if (currentSubRecipeIngredients.length === 0) {
+      selectedSubRecipeIngredientsList.innerHTML = `
+        <div class="recipe-ingredients-cell">
+          <strong>0 ingredients</strong>
+          <span>No prep ingredients added yet.</span>
+        </div>
+      `;
+      return;
+    }
+
+    selectedSubRecipeIngredientsList.innerHTML = `
+      <div class="recipe-ingredients-cell">
+        <strong>${currentSubRecipeIngredients.length} ingredients ready to save</strong>
+        <span>Open the table to review ingredients before saving.</span>
+        <button type="button" class="secondary-btn view-current-sub-recipe-ingredients-btn">
+          Open Ingredients Table
+        </button>
+      </div>
+    `;
+
+    selectedSubRecipeIngredientsList
+      .querySelector(".view-current-sub-recipe-ingredients-btn")
+      ?.addEventListener("click", () => openCurrentSubRecipeIngredientsModal());
+  };
+
+  const openCurrentSubRecipeIngredientsModal = () => {
+    if (!ingredientsModal || !ingredientsModalTitle || !ingredientsModalBody) return;
+
+    const inventory = getInventory();
+    ingredientsModalTitle.textContent = editingSubRecipeId
+      ? "Edit Prep Recipe Ingredients"
+      : "New Prep Recipe Ingredients";
+
+    if (currentSubRecipeIngredients.length === 0) {
+      ingredientsModalBody.innerHTML = `<div class="ingredient-row">No prep ingredients added yet.</div>`;
+    } else {
+      ingredientsModalBody.innerHTML = `
+        <div class="ingredients-table-wrap">
+          <table class="ingredients-detail-table">
+            <thead>
+              <tr>
+                <th>Ingredient</th>
+                <th>Quantity Used</th>
+                <th>Unit</th>
+                <th>Price</th>
+                <th>Presentation</th>
+                <th>Base Cost</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${currentSubRecipeIngredients.map((ingredient, index) => {
+                const item = inventory.find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+                const itemName = item ? item.name : "Unknown item";
+                const usedQty = Number(ingredient.originalQty ?? ingredient.qty ?? 0);
+                const usedUnit = ingredient.originalUnit || item?.unit || "unit";
+                const inventoryQty = Number(item?.quantity || 0);
+                const inventoryUnit = item?.unit || usedUnit;
+                const itemPrice = getInventoryUnitCost(item);
+                const convertedQty = Number(ingredient.qty || 0);
+                const ingredientCost = convertedQty * itemPrice;
+                const presentation = item
+                  ? `${inventoryQty.toFixed(2)} ${inventoryUnit}`
+                  : "No presentation";
+
+                return `
+                  <tr>
+                    <td>${itemName}</td>
+                    <td>${usedQty.toFixed(2)}</td>
+                    <td>${usedUnit}</td>
+                    <td>$${itemPrice.toFixed(2)} / ${inventoryUnit}</td>
+                    <td>${presentation}</td>
+                    <td>$${ingredientCost.toFixed(2)}</td>
+                    <td>
+                      <div class="icon-actions">
+                        <button type="button" class="icon-btn edit sub-recipe-ingredient-edit-btn" data-index="${index}" title="Edit">✏️</button>
+                        <button type="button" class="icon-btn delete sub-recipe-ingredient-delete-btn" data-index="${index}" title="Delete">🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    ingredientsModalBody.querySelectorAll(".sub-recipe-ingredient-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        currentSubRecipeIngredients.splice(Number(btn.dataset.index), 1);
+        renderSelectedSubRecipeIngredients();
+        openCurrentSubRecipeIngredientsModal();
+      });
+    });
+
+    ingredientsModalBody.querySelectorAll(".sub-recipe-ingredient-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const ingredient = currentSubRecipeIngredients[Number(btn.dataset.index)];
+
+        const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
+        if (inventoryItem) selectIngredientPickerItem(subRecipeIngredientPicker, inventoryItem);
+        if (subRecipeIngredientQtyInput) subRecipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
+        if (subRecipeIngredientUnitInput) subRecipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
+
+        currentSubRecipeIngredients.splice(Number(btn.dataset.index), 1);
+        closeIngredientsModal();
+        renderSelectedSubRecipeIngredients();
+      });
+    });
+
+    ingredientsModal.hidden = false;
+  };
+
+  const openSubRecipeIngredientsModal = (subRecipe) => {
+    openIngredientsModal({
+      name: subRecipe.name || "Prep Recipe",
+      ingredients: subRecipe.ingredients || [],
+      wastePercent: subRecipe.wastePercent || 0
+    });
+  };
+
+  const addSubRecipeIngredient = () => {
+    const qty = subRecipeIngredientQtyInput ? Number(subRecipeIngredientQtyInput.value) : 0;
+    const recipeUnit = subRecipeIngredientUnitInput ? subRecipeIngredientUnitInput.value : "lb";
+
+    if (qty <= 0) {
+      alert("Please enter the quantity used for this prep recipe.");
+      return;
+    }
+
+    const inventoryItemId = subRecipeIngredientItemInput && subRecipeIngredientItemInput.value
+      ? subRecipeIngredientItemInput.value
+      : createInventoryItemFromPicker(subRecipeIngredientPicker, recipeUnit);
+    const inventoryItem = getInventory().find((item) => item.id === inventoryItemId);
+    const inventoryUnit = inventoryItem?.unit || recipeUnit;
+    const convertedQty = convertQuantity(qty, recipeUnit, inventoryUnit);
+
+    if (!inventoryItemId) {
+      return;
+    }
+
+    currentSubRecipeIngredients.push({
+      inventoryItemId,
+      qty: convertedQty,
+      originalQty: qty,
+      originalUnit: recipeUnit
+    });
+    renderSelectedSubRecipeIngredients();
+
+    if (subRecipeIngredientQtyInput) subRecipeIngredientQtyInput.value = "";
+    clearIngredientPicker(subRecipeIngredientPicker);
   };
 
   const populateEventMenuOptions = () => {
@@ -1069,7 +1976,6 @@ ${staffSuggestion}
         editBtn.addEventListener("click", () => {
           if (menuNameInput) menuNameInput.value = menu.name || "";
           if (menuTypeInput) menuTypeInput.value = menu.type || "Buffet";
-          if (menuCostInput) menuCostInput.value = menu.cost || "";
           if (menuPriceInput) menuPriceInput.value = menu.price || "";
 
           populateMenuRecipeOptions();
@@ -1098,7 +2004,6 @@ ${staffSuggestion}
             editingMenuId = null;
             if (addMenuBtn) addMenuBtn.textContent = "Add Menu";
             if (menuNameInput) menuNameInput.value = "";
-            if (menuCostInput) menuCostInput.value = "";
             if (menuPriceInput) menuPriceInput.value = "";
             if (menuRecipesInput) {
               Array.from(menuRecipesInput.options).forEach((option) => {
@@ -1130,12 +2035,11 @@ ${staffSuggestion}
       const recipe = recipes.find((item) => item.id === recipeId);
       return total + Number(recipe?.cost || 0);
     }, 0);
-    const manualCost = menuCostInput ? Number(menuCostInput.value) : 0;
-    const cost = recipeCost > 0 ? recipeCost : manualCost;
+    const cost = recipeCost;
     const price = menuPriceInput ? Number(menuPriceInput.value) : 0;
 
-    if (!name || cost <= 0 || price <= 0) {
-      alert("Please complete the menu information. Add a manual cost or select recipes.");
+    if (!name || selectedRecipeIds.length === 0 || cost <= 0 || price <= 0) {
+      alert("Please complete the menu information. Select at least one recipe and enter the selling price per person.");
       return;
     }
 
@@ -1173,7 +2077,6 @@ ${staffSuggestion}
     renderEvents();
 
     if (menuNameInput) menuNameInput.value = "";
-    if (menuCostInput) menuCostInput.value = "";
     if (menuPriceInput) menuPriceInput.value = "";
     if (menuRecipesInput) {
       Array.from(menuRecipesInput.options).forEach((option) => {
@@ -1206,16 +2109,17 @@ ${staffSuggestion}
       const cost = applyWasteToCost(baseCost, recipe.wastePercent || 0);
       const portions = Number(recipe.portions || 0);
       const totalBatchCost = cost * portions;
-      const ingredientCount = (recipe.ingredients || []).length;
 
       const newRow = document.createElement("tr");
       newRow.innerHTML = `
         <td>${recipe.name || "-"}</td>
         <td>${recipe.category || "-"}</td>
         <td>
-          <button type="button" class="secondary-btn view-ingredients-btn">
-            View Ingredients (${ingredientCount})
-          </button>
+          <div class="recipe-ingredients-cell">
+            <button type="button" class="secondary-btn view-ingredients-btn">
+              View Details
+            </button>
+          </div>
         </td>
         <td>$${cost.toFixed(2)}</td>
         <td>${portions || "-"}</td>
@@ -1351,6 +2255,157 @@ ${staffSuggestion}
     renderSelectedIngredients();
   };
 
+  const renderSubRecipes = () => {
+    const subRecipes = getSubRecipes();
+    if (!subRecipesTableBody) return;
+
+    subRecipesTableBody.innerHTML = "";
+
+    if (subRecipes.length === 0) {
+      const emptyRow = document.createElement("tr");
+      emptyRow.innerHTML = `
+        <td colspan="8" style="color:#64748b; text-align:center; padding:20px;">
+          No prep recipes yet. Create your first prep recipe.
+        </td>
+      `;
+      subRecipesTableBody.appendChild(emptyRow);
+      return;
+    }
+
+    subRecipes.forEach((subRecipe) => {
+      const baseCost = calculateSubRecipeIngredientCost(subRecipe.ingredients || []);
+      const totalPrepCost = applyWasteToCost(baseCost, subRecipe.wastePercent || 0);
+      const yieldAmount = Number(subRecipe.yieldAmount || 0);
+      const costPerYieldUnit = yieldAmount > 0 ? totalPrepCost / yieldAmount : 0;
+      const yieldUnit = subRecipe.yieldUnit || "units";
+
+      const newRow = document.createElement("tr");
+      newRow.innerHTML = `
+        <td>${subRecipe.name || "-"}</td>
+        <td>${subRecipe.category || "-"}</td>
+        <td>
+          <div class="recipe-ingredients-cell">
+            <button type="button" class="secondary-btn view-sub-recipe-ingredients-btn">
+              View Details
+            </button>
+          </div>
+        </td>
+        <td>${yieldAmount ? `${yieldAmount.toFixed(2)} ${yieldUnit}` : "-"}</td>
+        <td>$${costPerYieldUnit.toFixed(2)} / ${yieldUnit}</td>
+        <td>$${totalPrepCost.toFixed(2)}</td>
+        <td>${subRecipe.notes || "-"}</td>
+        <td>
+          <div class="icon-actions">
+            <button type="button" class="icon-btn edit sub-recipe-edit-btn" title="Edit">✏️</button>
+            <button type="button" class="icon-btn delete sub-recipe-delete-btn" title="Delete">🗑️</button>
+          </div>
+        </td>
+      `;
+
+      newRow.querySelector(".view-sub-recipe-ingredients-btn")?.addEventListener("click", () => {
+        openSubRecipeIngredientsModal(subRecipe);
+      });
+
+      newRow.querySelector(".sub-recipe-edit-btn")?.addEventListener("click", () => {
+        if (subRecipeNameInput) subRecipeNameInput.value = subRecipe.name || "";
+        if (subRecipeCategoryInput) subRecipeCategoryInput.value = subRecipe.category || "Sauce";
+        if (subRecipeYieldInput) subRecipeYieldInput.value = subRecipe.yieldAmount || "";
+        if (subRecipeYieldUnitInput) subRecipeYieldUnitInput.value = subRecipe.yieldUnit || "lb";
+        if (subRecipeWasteInput) subRecipeWasteInput.value = subRecipe.wastePercent || 0;
+        if (subRecipeNotesInput) subRecipeNotesInput.value = subRecipe.notes || "";
+
+        currentSubRecipeIngredients = [...(subRecipe.ingredients || [])];
+        editingSubRecipeId = subRecipe.id;
+        renderSelectedSubRecipeIngredients();
+        if (addSubRecipeBtn) addSubRecipeBtn.textContent = "Update Prep Recipe";
+        subRecipesSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      newRow.querySelector(".sub-recipe-delete-btn")?.addEventListener("click", () => {
+        const confirmDelete = confirm(`Delete ${subRecipe.name || "this prep recipe"}?`);
+        if (!confirmDelete) return;
+
+        const updatedSubRecipes = getSubRecipes().filter((item) => item.id !== subRecipe.id);
+        saveSubRecipes(updatedSubRecipes);
+        syncSubRecipesToInventory();
+
+        if (editingSubRecipeId === subRecipe.id) {
+          editingSubRecipeId = null;
+          currentSubRecipeIngredients = [];
+          renderSelectedSubRecipeIngredients();
+          if (addSubRecipeBtn) addSubRecipeBtn.textContent = "Add Prep Recipe";
+        }
+
+        renderSubRecipes();
+        renderInventory();
+      });
+
+      subRecipesTableBody.appendChild(newRow);
+    });
+  };
+
+  const addSubRecipe = () => {
+    const name = subRecipeNameInput ? subRecipeNameInput.value.trim() : "";
+    const category = subRecipeCategoryInput ? subRecipeCategoryInput.value : "Sauce";
+    const yieldAmount = subRecipeYieldInput ? Number(subRecipeYieldInput.value) : 0;
+    const yieldUnit = subRecipeYieldUnitInput ? subRecipeYieldUnitInput.value : "lb";
+    const wastePercent = subRecipeWasteInput ? Number(subRecipeWasteInput.value || 0) : 0;
+    const notes = subRecipeNotesInput ? subRecipeNotesInput.value.trim() : "";
+    const baseCost = calculateSubRecipeIngredientCost(currentSubRecipeIngredients);
+    const totalPrepCost = applyWasteToCost(baseCost, wastePercent);
+    const costPerYieldUnit = yieldAmount > 0 ? totalPrepCost / yieldAmount : 0;
+
+    if (!name || yieldAmount <= 0 || currentSubRecipeIngredients.length === 0 || totalPrepCost <= 0) {
+      alert("Please complete the prep recipe information and add at least one inventory ingredient.");
+      return;
+    }
+
+    const subRecipes = getSubRecipes();
+    const subRecipeData = {
+      name,
+      category,
+      yieldAmount,
+      yieldUnit,
+      wastePercent,
+      notes,
+      baseCost,
+      totalPrepCost,
+      costPerYieldUnit,
+      ingredients: [...currentSubRecipeIngredients]
+    };
+
+    if (editingSubRecipeId) {
+      const updatedSubRecipes = subRecipes.map((subRecipe) => {
+        if (subRecipe.id !== editingSubRecipeId) return subRecipe;
+        return {
+          ...subRecipe,
+          ...subRecipeData
+        };
+      });
+      saveSubRecipes(updatedSubRecipes);
+      syncSubRecipesToInventory();
+      editingSubRecipeId = null;
+      if (addSubRecipeBtn) addSubRecipeBtn.textContent = "Add Prep Recipe";
+    } else {
+      subRecipes.push({
+        id: Date.now().toString(),
+        ...subRecipeData
+      });
+      saveSubRecipes(subRecipes);
+      syncSubRecipesToInventory();
+    }
+
+    renderSubRecipes();
+    renderInventory();
+
+    if (subRecipeNameInput) subRecipeNameInput.value = "";
+    if (subRecipeYieldInput) subRecipeYieldInput.value = "";
+    if (subRecipeWasteInput) subRecipeWasteInput.value = "0";
+    if (subRecipeNotesInput) subRecipeNotesInput.value = "";
+    currentSubRecipeIngredients = [];
+    renderSelectedSubRecipeIngredients();
+  };
+
   const getInventoryStatus = (quantity) => {
     const qty = Number(quantity || 0);
     if (qty <= 0) {
@@ -1362,96 +2417,308 @@ ${staffSuggestion}
     return { label: "In Stock", className: "confirmed" };
   };
 
-  const renderInventory = () => {
+  const buildPrepRecipeInventoryItem = (subRecipe, existingItem = {}) => {
+    const baseCost = calculateSubRecipeIngredientCost(subRecipe.ingredients || []);
+    const totalPrepCost = Number(subRecipe.totalPrepCost || 0) || applyWasteToCost(baseCost, subRecipe.wastePercent || 0);
+    const quantity = Number(subRecipe.yieldAmount || 0);
+    const unit = subRecipe.yieldUnit || "units";
+    const costPerUnit = quantity > 0 ? totalPrepCost / quantity : 0;
+
+    return {
+      ...existingItem,
+      id: existingItem.id || `prep-${subRecipe.id}`,
+      name: subRecipe.name || "Prep Recipe",
+      category: "prep",
+      quantity,
+      unit,
+      totalCost: totalPrepCost,
+      storageArea: existingItem.storageArea || "Prep Area",
+      costPerUnit,
+      cost: costPerUnit,
+      stockValue: totalPrepCost,
+      sourceType: "prepRecipe",
+      subRecipeId: subRecipe.id
+    };
+  };
+
+  const syncSubRecipesToInventory = () => {
+    const subRecipes = getSubRecipes();
     const inventory = getInventory();
-    if (!inventoryTableBody) return;
+    const linkedInventory = new Map(
+      inventory
+        .filter((item) => item.sourceType === "prepRecipe" && item.subRecipeId)
+        .map((item) => [item.subRecipeId, item])
+    );
+    const manualInventory = inventory.filter((item) => item.sourceType !== "prepRecipe");
+    const prepInventory = subRecipes.map((subRecipe) => buildPrepRecipeInventoryItem(
+      subRecipe,
+      linkedInventory.get(subRecipe.id) || {}
+    ));
 
-    inventoryTableBody.innerHTML = "";
+    saveInventory([...manualInventory, ...prepInventory]);
+  };
 
-    if (inventory.length === 0) {
-      const emptyRow = document.createElement("tr");
-      emptyRow.innerHTML = `
-        <td colspan="7" style="color:#64748b; text-align:center; padding:20px;">
-          No inventory items yet. Add your first item.
-        </td>
+  const renderInventorySummary = (items) => {
+    if (!inventoryCategorySummary) return;
+
+    inventoryCategorySummary.innerHTML = "";
+
+    inventoryCategories.forEach((category) => {
+      const categoryItems = items.filter((item) => getInventoryItemCategory(item).id === category.id);
+      const categoryValue = categoryItems.reduce((total, item) => total + getInventoryStockValue(item), 0);
+
+      const card = document.createElement("button");
+      card.type = "button";
+      const isActiveCategory = inventoryCategoryFilterInput && inventoryCategoryFilterInput.value === category.id;
+      card.className = `inventory-summary-card ${category.className}${isActiveCategory ? " active" : ""}`;
+      card.innerHTML = `
+        <span class="inventory-summary-icon">${category.icon}</span>
+        <div>
+          <strong>${category.label}</strong>
+          <span>${categoryItems.length} item${categoryItems.length === 1 ? "" : "s"} · $${categoryValue.toFixed(2)}</span>
+        </div>
       `;
-      inventoryTableBody.appendChild(emptyRow);
+      card.addEventListener("click", () => {
+        if (!inventoryCategoryFilterInput) return;
+        inventoryCategoryFilterInput.value = isActiveCategory ? "" : category.id;
+        renderInventory();
+      });
+      inventoryCategorySummary.appendChild(card);
+    });
+  };
+
+  const renderInventoryPrepRecipes = () => {
+    if (!inventoryPrepRecipesList) return;
+
+    const subRecipes = getSubRecipes();
+    inventoryPrepRecipesList.innerHTML = "";
+
+    if (subRecipes.length === 0) {
+      inventoryPrepRecipesList.innerHTML = `
+        <div class="inventory-empty-card">
+          No prep recipes saved yet. Create sauces, salsas, dressings, or prep bases to make them part of inventory.
+        </div>
+      `;
       return;
     }
 
-    inventory.forEach((item) => {
-      const quantity = Number(item.quantity || 0);
-      const cost = Number(item.cost || 0);
-      const stockValue = quantity * cost;
-      const status = getInventoryStatus(quantity);
+    subRecipes.forEach((subRecipe) => {
+      const prepItem = buildPrepRecipeInventoryItem(subRecipe);
+      const card = document.createElement("div");
+      card.className = "inventory-prep-card";
+      card.innerHTML = `
+        <div>
+          <strong>${prepItem.name}</strong>
+          <span>${subRecipe.category || "Prep Recipe"} · ${prepItem.quantity.toFixed(2)} ${prepItem.unit}</span>
+        </div>
+        <div>
+          <strong>$${prepItem.costPerUnit.toFixed(2)} / ${prepItem.unit}</strong>
+          <span>Total batch $${prepItem.totalCost.toFixed(2)}</span>
+        </div>
+      `;
+      inventoryPrepRecipesList.appendChild(card);
+    });
+  };
 
-      const newRow = document.createElement("tr");
-      newRow.innerHTML = `
-        <td>${item.name || "-"}</td>
-        <td>${quantity.toFixed(2)}</td>
-        <td>${item.unit || "-"}</td>
-        <td>$${cost.toFixed(2)}</td>
-        <td>$${stockValue.toFixed(2)}</td>
-        <td><span class="status ${status.className}">${status.label}</span></td>
-        <td>
-          <div class="icon-actions">
-            <button type="button" class="icon-btn edit inventory-edit-btn" title="Edit">✏️</button>
-            <button type="button" class="icon-btn delete inventory-delete-btn" title="Delete">🗑️</button>
+  const renderInventory = () => {
+    syncSubRecipesToInventory();
+
+    const inventory = getInventory().map((item) => ({
+      ...item,
+      category: inferInventoryCategoryId(item)
+    }));
+    const searchTerm = inventorySearchInput ? inventorySearchInput.value.trim().toLowerCase() : "";
+    const categoryFilter = inventoryCategoryFilterInput ? inventoryCategoryFilterInput.value : "";
+    const filteredInventory = inventory.filter((item) => {
+      const category = getInventoryItemCategory(item);
+      const searchableText = [
+        item.name,
+        category.label,
+        item.unit,
+        item.storageArea
+      ].join(" ").toLowerCase();
+
+      const matchesSearch = searchableText.includes(searchTerm);
+      const matchesCategory = !categoryFilter || category.id === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+
+    renderInventorySummary(inventory);
+    renderInventoryPrepRecipes();
+
+    if (!inventorySections) return;
+
+    inventorySections.innerHTML = "";
+
+    if (filteredInventory.length === 0) {
+      inventorySections.innerHTML = `
+        <div class="inventory-empty-card">
+          ${inventory.length === 0 ? "No inventory items yet. Add your first item." : "No inventory items match your search or category filter."}
+        </div>
+      `;
+      return;
+    }
+
+    const sortedInventory = [...filteredInventory].sort((a, b) => {
+      const categoryA = getInventoryItemCategory(a).label.toLowerCase();
+      const categoryB = getInventoryItemCategory(b).label.toLowerCase();
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
+
+      if (categoryA !== categoryB) {
+        return categoryA.localeCompare(categoryB);
+      }
+
+      return nameA.localeCompare(nameB);
+    });
+
+    inventoryCategories.forEach((category) => {
+      const categoryItems = sortedInventory.filter((item) => getInventoryItemCategory(item).id === category.id);
+      if (categoryItems.length === 0) return;
+
+      const categoryValue = categoryItems.reduce((total, item) => total + getInventoryStockValue(item), 0);
+      const section = document.createElement("section");
+      section.className = `inventory-category-section ${category.className}`;
+      section.innerHTML = `
+        <div class="inventory-category-header">
+          <div>
+            <span>${category.icon}</span>
+            <div>
+              <h3>${category.label}</h3>
+              <p>${categoryItems.length} item${categoryItems.length === 1 ? "" : "s"} · $${categoryValue.toFixed(2)} stock value</p>
+            </div>
           </div>
-        </td>
+        </div>
+        <div class="inventory-category-table-wrap">
+          <table class="inventory-table">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Quantity</th>
+                <th>Total Cost</th>
+                <th>Cost / Unit</th>
+                <th>Storage Area</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       `;
 
-      const editBtn = newRow.querySelector(".inventory-edit-btn");
-      const deleteBtn = newRow.querySelector(".inventory-delete-btn");
+      const sectionBody = section.querySelector("tbody");
 
-      if (editBtn) {
-        editBtn.addEventListener("click", () => {
-          if (inventoryItemNameInput) inventoryItemNameInput.value = item.name || "";
-          if (inventoryQuantityInput) inventoryQuantityInput.value = item.quantity || "";
-          if (inventoryUnitInput) inventoryUnitInput.value = item.unit || "lb";
-          if (inventoryCostInput) inventoryCostInput.value = item.cost || "";
-          editingInventoryItemId = item.id;
-          if (addInventoryBtn) addInventoryBtn.textContent = "Update Inventory Item";
-          inventorySection.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
+      categoryItems.forEach((item) => {
+        const quantity = Number(item.quantity || 0);
+        const unit = item.unit || "units";
+        const totalCost = getInventoryStockValue(item);
+        const costPerUnit = getInventoryUnitCost(item);
+        const storageArea = item.storageArea || "-";
+        const status = getInventoryStatus(quantity);
+        const isPrepRecipeItem = item.sourceType === "prepRecipe";
 
-      if (deleteBtn) {
-        deleteBtn.addEventListener("click", () => {
-          const confirmDelete = confirm(`Delete ${item.name || "this inventory item"}?`);
-          if (!confirmDelete) return;
+        const newRow = document.createElement("tr");
+        newRow.innerHTML = `
+          <td>
+            <div class="inventory-item-name">
+              <strong>${item.name || "-"}</strong>
+              ${isPrepRecipeItem ? "<span>Prep Recipe</span>" : ""}
+            </div>
+          </td>
+          <td>${quantity.toFixed(2)} ${unit}</td>
+          <td>$${totalCost.toFixed(2)}</td>
+          <td>$${costPerUnit.toFixed(2)} / ${unit}</td>
+          <td>${storageArea}</td>
+          <td><span class="status ${status.className}">${status.label}</span></td>
+          <td>
+            <div class="icon-actions">
+              <button type="button" class="icon-btn edit inventory-edit-btn" title="${isPrepRecipeItem ? "Open Prep Recipe" : "Edit"}">${isPrepRecipeItem ? "↗" : "✏️"}</button>
+              <button type="button" class="icon-btn delete inventory-delete-btn" title="Delete">🗑️</button>
+            </div>
+          </td>
+        `;
 
-          const updatedInventory = getInventory().filter((inventoryItem) => inventoryItem.id !== item.id);
-          saveInventory(updatedInventory);
+        const editBtn = newRow.querySelector(".inventory-edit-btn");
+        const deleteBtn = newRow.querySelector(".inventory-delete-btn");
 
-          if (editingInventoryItemId === item.id) {
-            editingInventoryItemId = null;
-            if (addInventoryBtn) addInventoryBtn.textContent = "Add Inventory Item";
-            if (inventoryItemNameInput) inventoryItemNameInput.value = "";
-            if (inventoryQuantityInput) inventoryQuantityInput.value = "";
-            if (inventoryCostInput) inventoryCostInput.value = "";
-          }
+        if (editBtn) {
+          editBtn.addEventListener("click", () => {
+            if (isPrepRecipeItem) {
+              showModuleByKey("subRecipes");
+              return;
+            }
 
-          renderInventory();
-          populateRecipeIngredientOptions();
-          renderRecipes();
-          renderMenus();
-          renderEvents();
-        });
-      }
+            if (inventoryItemNameInput) inventoryItemNameInput.value = item.name || "";
+            if (inventoryCategoryInput) inventoryCategoryInput.value = getInventoryItemCategory(item).id;
+            if (inventoryQuantityInput) inventoryQuantityInput.value = quantity || "";
+            if (inventoryUnitInput) inventoryUnitInput.value = unit;
+            if (inventoryTotalCostInput) inventoryTotalCostInput.value = totalCost || "";
+            if (inventoryStorageAreaInput) inventoryStorageAreaInput.value = storageArea === "-" ? "Refrigerated" : storageArea;
+            editingInventoryItemId = item.id;
+            if (addInventoryBtn) addInventoryBtn.textContent = "Update Inventory Item";
+            inventorySection.scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+        }
 
-      inventoryTableBody.appendChild(newRow);
+        if (deleteBtn) {
+          deleteBtn.addEventListener("click", () => {
+            if (isPrepRecipeItem) {
+              const confirmDeletePrep = confirm(`Delete prep recipe ${item.name || "this prep recipe"}? This removes it from Prep Recipes and Inventory.`);
+              if (!confirmDeletePrep) return;
+
+              const updatedSubRecipes = getSubRecipes().filter((subRecipe) => subRecipe.id !== item.subRecipeId);
+              saveSubRecipes(updatedSubRecipes);
+              syncSubRecipesToInventory();
+              renderInventory();
+              renderSubRecipes();
+              return;
+            }
+
+            const confirmDelete = confirm(`Delete ${item.name || "this inventory item"}?`);
+            if (!confirmDelete) return;
+
+            const updatedInventory = getInventory().filter((inventoryItem) => inventoryItem.id !== item.id);
+            saveInventory(updatedInventory);
+
+            if (editingInventoryItemId === item.id) {
+              editingInventoryItemId = null;
+              if (addInventoryBtn) addInventoryBtn.textContent = "Add Inventory Item";
+              if (inventoryItemNameInput) inventoryItemNameInput.value = "";
+              if (inventoryCategoryInput) inventoryCategoryInput.value = "produce";
+              if (inventoryQuantityInput) inventoryQuantityInput.value = "";
+              if (inventoryTotalCostInput) inventoryTotalCostInput.value = "";
+              if (inventoryStorageAreaInput) inventoryStorageAreaInput.value = "Refrigerated";
+            }
+
+            renderInventory();
+            populateRecipeIngredientOptions();
+            populateSubRecipeIngredientOptions();
+            renderRecipes();
+            renderSubRecipes();
+            renderMenus();
+            renderEvents();
+          });
+        }
+
+        sectionBody.appendChild(newRow);
+      });
+
+      inventorySections.appendChild(section);
     });
   };
 
   const addInventoryItem = () => {
     const name = inventoryItemNameInput ? inventoryItemNameInput.value.trim() : "";
+    const category = inventoryCategoryInput ? inventoryCategoryInput.value : "";
     const quantity = inventoryQuantityInput ? Number(inventoryQuantityInput.value) : 0;
-    const unit = inventoryUnitInput ? inventoryUnitInput.value : "lb";
-    const cost = inventoryCostInput ? Number(inventoryCostInput.value) : 0;
+    const unit = inventoryUnitInput ? inventoryUnitInput.value : "units";
+    const totalCost = inventoryTotalCostInput ? Number(inventoryTotalCostInput.value) : 0;
+    const storageArea = inventoryStorageAreaInput ? inventoryStorageAreaInput.value : "Refrigerated";
+    const costPerUnit = quantity > 0 ? totalCost / quantity : 0;
 
-    if (!name || quantity < 0 || cost < 0) {
-      alert("Please complete the inventory item information.");
+    if (!name || quantity <= 0 || totalCost <= 0) {
+      alert("Please complete the inventory item information. Quantity and total cost must be greater than 0.");
       return;
     }
 
@@ -1463,9 +2730,14 @@ ${staffSuggestion}
         return {
           ...item,
           name,
+          category: category || inferInventoryCategoryId({ name, storageArea, unit }),
           quantity,
           unit,
-          cost
+          totalCost,
+          storageArea,
+          costPerUnit,
+          cost: costPerUnit,
+          stockValue: totalCost
         };
       });
       saveInventory(updatedInventory);
@@ -1475,22 +2747,31 @@ ${staffSuggestion}
       inventory.push({
         id: Date.now().toString(),
         name,
+        category: category || inferInventoryCategoryId({ name, storageArea, unit }),
         quantity,
         unit,
-        cost
+        totalCost,
+        storageArea,
+        costPerUnit,
+        cost: costPerUnit,
+        stockValue: totalCost
       });
       saveInventory(inventory);
     }
 
     renderInventory();
     populateRecipeIngredientOptions();
+    populateSubRecipeIngredientOptions();
     renderRecipes();
+    renderSubRecipes();
     renderMenus();
     renderEvents();
 
     if (inventoryItemNameInput) inventoryItemNameInput.value = "";
+    if (inventoryCategoryInput) inventoryCategoryInput.value = "produce";
     if (inventoryQuantityInput) inventoryQuantityInput.value = "";
-    if (inventoryCostInput) inventoryCostInput.value = "";
+    if (inventoryTotalCostInput) inventoryTotalCostInput.value = "";
+    if (inventoryStorageAreaInput) inventoryStorageAreaInput.value = "Refrigerated";
   };
   const renderStaff = () => {
     const staff = getStaff();
@@ -1598,81 +2879,74 @@ ${staffSuggestion}
   if (navInventory && inventorySection) {
     navInventory.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      inventorySection.hidden = false;
-      renderInventory();
-      setActiveNav(navInventory);
-      inventorySection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("inventory");
     });
   }
 
   if (navProduction && productionSection) {
     navProduction.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      productionSection.hidden = false;
-      renderProduction();
-      setActiveNav(navProduction);
-      productionSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("production");
     });
   }
 
   if (navStaff && staffSection) {
     navStaff.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      staffSection.hidden = false;
-      renderStaff();
-      setActiveNav(navStaff);
-      staffSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("staff");
     });
   }
 
   if (navDashboard && dashboardSection) {
     navDashboard.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      dashboardSection.hidden = false;
-      dashboardSection.style.display = "grid";
-      setActiveNav(navDashboard);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      showModuleByKey("dashboard");
     });
   }
 
   if (navEvents && eventsSection) {
     navEvents.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      eventsSection.hidden = false;
-      setActiveNav(navEvents);
-      eventsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("events");
     });
   }
 
   if (navMenus && menusSection) {
     navMenus.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      menusSection.hidden = false;
-      populateMenuRecipeOptions();
-      renderMenus();
-      setActiveNav(navMenus);
-      menusSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("menus");
     });
   }
 
   if (navRecipes && recipesSection) {
     navRecipes.addEventListener("click", (e) => {
       e.preventDefault();
-      hideAllMainSections();
-      recipesSection.hidden = false;
-      populateRecipeIngredientOptions();
-      renderSelectedIngredients();
-      renderRecipes();
-      setActiveNav(navRecipes);
-      recipesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      showModuleByKey("recipes");
     });
   }
+
+  if (navSubRecipes && subRecipesSection) {
+    navSubRecipes.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("subRecipes");
+    });
+  }
+
+  document.querySelectorAll("[data-event-filter]").forEach((card) => {
+    const openFilteredEvents = () => {
+      showModuleByKey("events", {
+        eventFilter: card.dataset.eventFilter
+      });
+    };
+
+    card.addEventListener("click", openFilteredEvents);
+    card.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openFilteredEvents();
+      }
+    });
+  });
 
   if (addMenuBtn) {
     addMenuBtn.addEventListener("click", addMenu);
@@ -1684,6 +2958,28 @@ ${staffSuggestion}
 
   if (addRecipeIngredientBtn) {
     addRecipeIngredientBtn.addEventListener("click", addRecipeIngredient);
+  }
+
+  setupIngredientPicker(recipeIngredientPicker);
+  setupIngredientPicker(subRecipeIngredientPicker);
+
+  document.addEventListener("click", (event) => {
+    [recipeIngredientPicker, subRecipeIngredientPicker].forEach((picker) => {
+      if (!picker.matchesList || picker.matchesList.hidden) return;
+      const clickedInsideSearch = picker.searchInput?.contains(event.target);
+      const clickedInsideMatches = picker.matchesList.contains(event.target);
+      if (!clickedInsideSearch && !clickedInsideMatches) {
+        picker.matchesList.hidden = true;
+      }
+    });
+  });
+
+  if (addSubRecipeBtn) {
+    addSubRecipeBtn.addEventListener("click", addSubRecipe);
+  }
+
+  if (addSubRecipeIngredientBtn) {
+    addSubRecipeIngredientBtn.addEventListener("click", addSubRecipeIngredient);
   }
 
   if (closeIngredientsModalBtn) {
@@ -1700,6 +2996,20 @@ ${staffSuggestion}
 
   if (addInventoryBtn) {
     addInventoryBtn.addEventListener("click", addInventoryItem);
+  }
+
+  if (inventorySearchInput) {
+    inventorySearchInput.addEventListener("input", renderInventory);
+  }
+
+  if (inventoryCategoryFilterInput) {
+    inventoryCategoryFilterInput.addEventListener("change", renderInventory);
+  }
+
+  if (inventoryGoPrepRecipesBtn) {
+    inventoryGoPrepRecipesBtn.addEventListener("click", () => {
+      showModuleByKey("subRecipes");
+    });
   }
 
   if (addStaffBtn) {
@@ -1780,13 +3090,18 @@ ${staffSuggestion}
     });
   }
 
+  showModuleByKey("dashboard", { scroll: false });
+
   populateRecipeIngredientOptions();
+  populateSubRecipeIngredientOptions();
   renderSelectedIngredients();
+  renderSelectedSubRecipeIngredients();
   populateMenuRecipeOptions();
   populateEventMenuOptions();
   renderEvents().then(renderKpis);
   renderMenus();
   renderRecipes();
+  renderSubRecipes();
   renderInventory();
   renderStaff();
   renderProduction();

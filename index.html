@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>BEOFlow</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Sora:wght@600;700;800&amp;display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -22,6 +25,7 @@
         <a href="#" id="nav-events">Events</a>
         <a href="#" id="nav-menus">Menu</a>
         <a href="#" id="nav-recipes">Recipes</a>
+        <a href="#" id="nav-sub-recipes">Prep Recipes</a>
         <a href="#" id="nav-inventory">Inventory</a>
         <a href="#" id="nav-production">Production</a>
         <a href="#" id="nav-staff">Staff</a>
@@ -42,35 +46,76 @@
       </header>
 
       <section id="dashboard-section" class="kpi-grid">
-        <div class="kpi-card blue">
+        <div class="kpi-card blue" role="button" tabindex="0" data-event-filter="today">
           <h3>Events Today</h3>
           <span id="kpi-events-today">0</span>
           <small>Active today</small>
         </div>
 
-        <div class="kpi-card yellow">
+        <div class="kpi-card yellow" role="button" tabindex="0" data-event-filter="upcoming">
           <h3>Upcoming Events</h3>
           <span id="kpi-upcoming-events">0</span>
           <small>Next 7 days</small>
         </div>
 
-        <div class="kpi-card red">
+        <div class="kpi-card red" role="button" tabindex="0" data-event-filter="draft">
           <h3>Draft BEOs</h3>
           <span id="kpi-draft-events">0</span>
           <small>Pending confirmation</small>
         </div>
 
-        <div class="kpi-card green">
+        <div class="kpi-card green" role="button" tabindex="0" data-event-filter="confirmed">
           <h3>Confirmed Events</h3>
           <span id="kpi-confirmed-events">0</span>
           <small>Ready for execution</small>
         </div>
       </section>
 
-      <section id="events-section" class="table-section">
+      <section id="dashboard-calendar-section" class="dashboard-calendar-section">
+        <div class="calendar-card">
+          <div class="calendar-header">
+            <div>
+              <h2>Event Calendar</h2>
+              <p>Click any date to review scheduled events.</p>
+            </div>
+            <div class="calendar-controls">
+              <button type="button" id="calendar-prev-month" class="secondary-btn">‹</button>
+              <h3 id="calendar-month-label">Month Year</h3>
+              <button type="button" id="calendar-next-month" class="secondary-btn">›</button>
+            </div>
+          </div>
+
+          <div class="calendar-weekdays">
+            <span>Sun</span>
+            <span>Mon</span>
+            <span>Tue</span>
+            <span>Wed</span>
+            <span>Thu</span>
+            <span>Fri</span>
+            <span>Sat</span>
+          </div>
+
+          <div id="dashboard-calendar-grid" class="dashboard-calendar-grid"></div>
+        </div>
+
+        <div id="calendar-events-panel" class="calendar-events-panel">
+          <div class="calendar-events-header">
+            <div>
+              <h3 id="calendar-events-title">Events</h3>
+              <p id="calendar-events-subtitle">Next event details will appear here.</p>
+            </div>
+            <button type="button" id="calendar-go-events" class="primary-btn">Go to Events</button>
+          </div>
+          <div id="calendar-events-list" class="calendar-events-list"></div>
+        </div>
+      </section>
+
+      <section id="events-section" class="table-section" hidden>
         <div class="section-header">
           <h2>Events List</h2>
         </div>
+
+        <div id="events-active-filter" class="active-filter-bar" hidden></div>
 
         <table>
           <thead>
@@ -97,6 +142,7 @@
       <section id="menus-section" class="table-section" hidden>
         <div class="section-header">
           <h2>Menu</h2>
+          <p>Create banquet menus and connect them with saved recipes.</p>
         </div>
 
         <div class="form-grid">
@@ -155,68 +201,244 @@
         </table>
       </section>
 
-      <section id="recipes-section" class="table-section" hidden>
-        <div class="section-header">
-          <h2>Recipes</h2>
+      <section id="recipes-section" class="table-section recipes-workspace" hidden>
+        <div class="section-header recipes-title-header">
+          <div>
+            <h2>Recipes</h2>
+            <p>Create recipes from inventory, calculate ingredient cost automatically, and save production-ready recipe cards.</p>
+          </div>
         </div>
 
-        <div class="form-grid">
-          <div class="form-group">
-            <label for="recipeName">Recipe Name</label>
-            <input type="text" id="recipeName" placeholder="Example: Chicken Alfredo" />
-          </div>
+        <div class="recipes-layout">
+          <div class="recipe-panel recipe-main-panel">
+            <div class="recipe-panel-header">
+              <span class="recipe-step-badge">1</span>
+              <div>
+                <h3>Recipe Information</h3>
+                <p>Start with the recipe name, category, portions, waste percentage, and notes.</p>
+              </div>
+            </div>
 
-          <div class="form-group">
-            <label for="recipeCategory">Category</label>
-            <select id="recipeCategory">
-              <option>Entree</option>
-              <option>Side</option>
-              <option>Salad</option>
-              <option>Dessert</option>
-              <option>Beverage</option>
-              <option>Sauce</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label for="recipeCost">Cost Per Portion</label>
-            <input type="number" id="recipeCost" placeholder="Example: 5.40" step="0.01" />
-          </div>
-
-          <div class="form-group">
-            <label for="recipePortions">Portions</label>
-            <input type="number" id="recipePortions" placeholder="Example: 50" />
-          </div>
-
-          <div class="form-group">
-            <label for="recipeYield">Waste %</label>
-            <input type="number" id="recipeYield" value="0" min="0" max="99" step="1" />
-            <small class="field-hint">0% = no waste. 10% = 10% loss.</small>
-          </div>
-
-          <div class="form-group">
-            <label for="recipeNotes">Notes</label>
-            <input type="text" id="recipeNotes" placeholder="Prep notes, allergens, or service details" />
-          </div>
-
-          <div class="form-group full-width recipes-picker-card">
-            <label>Ingredients From Inventory</label>
-            <div class="ingredient-builder">
+            <div class="form-grid recipe-info-grid">
               <div class="form-group">
-                <label for="recipeIngredientItem">Inventory Item</label>
-                <select id="recipeIngredientItem">
-                  <option value="">Add inventory items first</option>
+                <label for="recipeName">Recipe Name</label>
+                <input type="text" id="recipeName" placeholder="Example: Caesar Salad" />
+              </div>
+
+              <div class="form-group">
+                <label for="recipeCategory">Category</label>
+                <select id="recipeCategory">
+                  <option>Entree</option>
+                  <option>Side</option>
+                  <option>Salad</option>
+                  <option>Dessert</option>
+                  <option>Beverage</option>
+                  <option>Sauce</option>
                 </select>
               </div>
 
               <div class="form-group">
-                <label for="recipeIngredientQty">Qty Per Portion</label>
-                <input type="number" id="recipeIngredientQty" placeholder="Example: 5" step="0.01" />
+                <label for="recipePortions">Portions</label>
+                <input type="number" id="recipePortions" placeholder="Example: 50" />
+              </div>
+
+
+              <div class="form-group">
+                <label for="recipeYield">Waste %</label>
+                <input type="number" id="recipeYield" value="0" min="0" max="99" step="1" />
+                <small class="field-hint">0% = no waste. 10% = 10% loss.</small>
+              </div>
+
+              <div class="form-group full-width waste-guide-action">
+                <button type="button" class="waste-guide-btn" id="openWasteGuideBtn">
+                  <span class="waste-guide-icon">📖</span>
+                  <span>Open Waste % Guide / Merma Manual</span>
+                </button>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="recipeNotes">Notes</label>
+                <input type="text" id="recipeNotes" placeholder="Prep notes, allergens, or service details" />
+              </div>
+            </div>
+          </div>
+
+          <div class="recipe-panel recipe-ingredients-panel">
+            <div class="recipe-panel-header">
+              <span class="recipe-step-badge">2</span>
+              <div>
+                <h3>Ingredients From Inventory</h3>
+                <p>Search inventory by name, or create a missing ingredient before adding it to the recipe.</p>
+              </div>
+            </div>
+
+            <div class="ingredient-builder-card">
+              <div class="ingredient-builder">
+                <div class="form-group ingredient-item-field ingredient-search-field">
+                  <label for="recipeIngredientSearch">Inventory Item</label>
+                  <div class="ingredient-search-shell">
+                    <input type="text" id="recipeIngredientSearch" placeholder="Type ingredient name..." autocomplete="off" />
+                    <input type="hidden" id="recipeIngredientItem" value="" />
+                    <div id="recipeIngredientMatches" class="ingredient-match-list" hidden></div>
+                  </div>
+                  <small id="recipeIngredientStatus" class="field-hint">Type to search inventory or create a new ingredient.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="recipeIngredientQty">Quantity Used</label>
+                  <input type="number" id="recipeIngredientQty" placeholder="Example: 5" step="0.01" />
+                </div>
+
+                <div class="form-group">
+                  <label for="recipeIngredientUnit">Recipe Unit</label>
+                  <select id="recipeIngredientUnit">
+                    <option value="lb">lb</option>
+                    <option value="oz">oz</option>
+                    <option value="units">units</option>
+                    <option value="gallons">gallons</option>
+                    <option value="quarts">quarts</option>
+                  </select>
+                </div>
+
+                <div id="recipeQuickInventoryFields" class="quick-inventory-fields" hidden>
+                  <div class="quick-inventory-header">
+                    <strong>Add to inventory</strong>
+                    <span>Fill this once so BEOFlow can price the ingredient.</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="recipeNewInventoryQuantity">Inventory Quantity</label>
+                    <input type="number" id="recipeNewInventoryQuantity" placeholder="Example: 10" step="0.01" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="recipeNewInventoryUnit">Inventory Unit</label>
+                    <select id="recipeNewInventoryUnit">
+                      <option value="lb">lb</option>
+                      <option value="oz">oz</option>
+                      <option value="units">units</option>
+                      <option value="gallons">gallons</option>
+                      <option value="quarts">quarts</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="recipeNewInventoryTotalCost">Total Cost</label>
+                    <input type="number" id="recipeNewInventoryTotalCost" placeholder="Example: 24.00" step="0.01" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="recipeNewInventoryStorageArea">Storage Area</label>
+                    <select id="recipeNewInventoryStorageArea">
+                      <option value="Refrigerated">Refrigerated</option>
+                      <option value="Frozen">Frozen</option>
+                      <option value="Dry Storage">Dry Storage</option>
+                      <option value="Prep Area">Prep Area</option>
+                      <option value="Banquet Kitchen">Banquet Kitchen</option>
+                      <option value="Bar Storage">Bar Storage</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="button" id="add-recipe-ingredient-btn" class="secondary-btn ingredient-add-btn">Add Ingredient</button>
+              </div>
+
+              <div class="selected-ingredients-card">
+                <div class="mini-section-title">
+                  <h4>Selected Ingredients</h4>
+                  <span>Live recipe build</span>
+                </div>
+                <div id="selected-ingredients-list" class="selected-ingredients-list">
+                  No ingredients added yet.
+                </div>
+              </div>
+
+              <small class="field-hint recipe-conversion-hint">Example: Inventory has Romaine Lettuce in lb, but the recipe can use 5 oz. BEOFlow converts it automatically.</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="recipe-save-panel">
+          <div>
+            <h3>Save Recipe</h3>
+            <p>BEOFlow will calculate Cost / Portion and Total Batch Cost automatically from inventory ingredients.</p>
+          </div>
+          <button type="button" id="add-recipe-btn" class="primary-btn">Add Recipe</button>
+        </div>
+
+        <div class="recipe-section-spacer" aria-hidden="true"></div>
+
+        <div class="recipe-table-panel">
+          <div class="recipe-panel-header">
+            <span class="recipe-step-badge">3</span>
+            <div>
+              <h3>Saved Recipes</h3>
+              <p>Review recipe ingredients, cost per portion, total batch cost, and notes.</p>
+            </div>
+          </div>
+
+          <table class="recipes-table">
+            <thead>
+              <tr>
+                <th>Recipe Name</th>
+                <th>Category</th>
+                <th>Ingredients</th>
+                <th>Cost / Portion</th>
+                <th>Portions</th>
+                <th>Total Batch Cost</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recipes-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sub-recipes-section" class="table-section recipes-workspace" hidden>
+        <div class="section-header recipes-title-header">
+          <div>
+            <h2>Prep Recipes</h2>
+            <p>Create base preparations used to complement main recipes, such as salsa, sauces, dressings, guacamole, and pico de gallo.</p>
+          </div>
+        </div>
+
+        <div class="recipes-layout">
+          <div class="recipe-panel recipe-main-panel">
+            <div class="recipe-panel-header">
+              <span class="recipe-step-badge">1</span>
+              <div>
+                <h3>Prep Recipe Information</h3>
+                <p>Start with the prep recipe name, category, batch yield, unit, waste percentage, and notes.</p>
+              </div>
+            </div>
+
+            <div class="form-grid recipe-info-grid">
+              <div class="form-group">
+                <label for="subRecipeName">Prep Recipe Name</label>
+                <input type="text" id="subRecipeName" placeholder="Example: Pico de Gallo" />
               </div>
 
               <div class="form-group">
-                <label for="recipeIngredientUnit">Recipe Unit</label>
-                <select id="recipeIngredientUnit">
+                <label for="subRecipeCategory">Category</label>
+                <select id="subRecipeCategory">
+                  <option>Sauce</option>
+                  <option>Dressing</option>
+                  <option>Salsa</option>
+                  <option>Garnish</option>
+                  <option>Prep Base</option>
+                  <option>Side Prep</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="subRecipeYield">Batch Yield</label>
+                <input type="number" id="subRecipeYield" placeholder="Example: 2" step="0.01" />
+              </div>
+
+              <div class="form-group">
+                <label for="subRecipeYieldUnit">Yield Unit</label>
+                <select id="subRecipeYieldUnit">
                   <option value="lb">lb</option>
                   <option value="oz">oz</option>
                   <option value="units">units</option>
@@ -225,35 +447,149 @@
                 </select>
               </div>
 
-              <button type="button" id="add-recipe-ingredient-btn" class="secondary-btn">Add Ingredient</button>
+              <div class="form-group">
+                <label for="subRecipeWaste">Waste %</label>
+                <input type="number" id="subRecipeWaste" value="0" min="0" max="99" step="1" />
+                <small class="field-hint">Use this for cleaning, trimming, transfer loss, or storage loss.</small>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="subRecipeNotes">Notes</label>
+                <input type="text" id="subRecipeNotes" placeholder="Prep notes, allergens, holding instructions, or service details" />
+              </div>
+            </div>
+          </div>
+
+          <div class="recipe-panel recipe-ingredients-panel">
+            <div class="recipe-panel-header">
+              <span class="recipe-step-badge">2</span>
+              <div>
+                <h3>Ingredients From Inventory</h3>
+                <p>Search inventory by name, or create a missing ingredient before adding it to the prep recipe.</p>
+              </div>
             </div>
 
-            <div id="selected-ingredients-list" class="selected-ingredients-list">
-              No ingredients added yet.
+            <div class="ingredient-builder-card">
+              <div class="ingredient-builder">
+                <div class="form-group ingredient-item-field ingredient-search-field">
+                  <label for="subRecipeIngredientSearch">Inventory Item</label>
+                  <div class="ingredient-search-shell">
+                    <input type="text" id="subRecipeIngredientSearch" placeholder="Type ingredient name..." autocomplete="off" />
+                    <input type="hidden" id="subRecipeIngredientItem" value="" />
+                    <div id="subRecipeIngredientMatches" class="ingredient-match-list" hidden></div>
+                  </div>
+                  <small id="subRecipeIngredientStatus" class="field-hint">Type to search inventory or create a new ingredient.</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="subRecipeIngredientQty">Quantity Used</label>
+                  <input type="number" id="subRecipeIngredientQty" placeholder="Example: 2" step="0.01" />
+                </div>
+
+                <div class="form-group">
+                  <label for="subRecipeIngredientUnit">Recipe Unit</label>
+                  <select id="subRecipeIngredientUnit">
+                    <option value="lb">lb</option>
+                    <option value="oz">oz</option>
+                    <option value="units">units</option>
+                    <option value="gallons">gallons</option>
+                    <option value="quarts">quarts</option>
+                  </select>
+                </div>
+
+                <div id="subRecipeQuickInventoryFields" class="quick-inventory-fields" hidden>
+                  <div class="quick-inventory-header">
+                    <strong>Add to inventory</strong>
+                    <span>Fill this once so BEOFlow can price the prep ingredient.</span>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="subRecipeNewInventoryQuantity">Inventory Quantity</label>
+                    <input type="number" id="subRecipeNewInventoryQuantity" placeholder="Example: 10" step="0.01" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="subRecipeNewInventoryUnit">Inventory Unit</label>
+                    <select id="subRecipeNewInventoryUnit">
+                      <option value="lb">lb</option>
+                      <option value="oz">oz</option>
+                      <option value="units">units</option>
+                      <option value="gallons">gallons</option>
+                      <option value="quarts">quarts</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="subRecipeNewInventoryTotalCost">Total Cost</label>
+                    <input type="number" id="subRecipeNewInventoryTotalCost" placeholder="Example: 24.00" step="0.01" />
+                  </div>
+
+                  <div class="form-group">
+                    <label for="subRecipeNewInventoryStorageArea">Storage Area</label>
+                    <select id="subRecipeNewInventoryStorageArea">
+                      <option value="Refrigerated">Refrigerated</option>
+                      <option value="Frozen">Frozen</option>
+                      <option value="Dry Storage">Dry Storage</option>
+                      <option value="Prep Area">Prep Area</option>
+                      <option value="Banquet Kitchen">Banquet Kitchen</option>
+                      <option value="Bar Storage">Bar Storage</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="button" id="add-sub-recipe-ingredient-btn" class="secondary-btn ingredient-add-btn">Add Ingredient</button>
+              </div>
+
+              <div class="selected-ingredients-card">
+                <div class="mini-section-title">
+                  <h4>Selected Prep Ingredients</h4>
+                  <span>Live prep recipe build</span>
+                </div>
+                <div id="selected-sub-recipe-ingredients-list" class="selected-ingredients-list">
+                  No ingredients added yet.
+                </div>
+              </div>
+
+              <small class="field-hint recipe-conversion-hint">Example: Inventory has Tomatoes in lb, but the prep recipe can use 8 oz. BEOFlow converts it automatically.</small>
             </div>
-            <small class="field-hint">Example: Inventory has Romaine Lettuce in lb, but the recipe can use 5 oz per portion. BEOFlow converts it automatically.</small>
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" id="add-recipe-btn" class="primary-btn">Add Recipe</button>
+        <div class="recipe-save-panel sub-recipe-save-panel">
+          <div>
+            <h3>Save Prep Recipe</h3>
+            <p>BEOFlow will calculate Total Prep Cost and Cost per Yield Unit automatically from inventory ingredients.</p>
+          </div>
+          <button type="button" id="add-sub-recipe-btn" class="primary-btn">Add Prep Recipe</button>
         </div>
 
-        <table class="recipes-table">
-          <thead>
-            <tr>
-              <th>Recipe Name</th>
-              <th>Category</th>
-              <th>Ingredients</th>
-              <th>Cost / Portion</th>
-              <th>Portions</th>
-              <th>Total Batch Cost</th>
-              <th>Notes</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="recipes-table-body"></tbody>
-        </table>
+        <div class="recipe-section-spacer" aria-hidden="true"></div>
+
+        <div class="recipe-table-panel">
+          <div class="recipe-panel-header">
+            <span class="recipe-step-badge">3</span>
+            <div>
+              <h3>Saved Prep Recipes</h3>
+              <p>Review prep recipe ingredients, batch yield, cost per yield unit, total prep cost, and notes.</p>
+            </div>
+          </div>
+
+          <table class="recipes-table sub-recipes-table">
+            <thead>
+              <tr>
+                <th>Prep Recipe Name</th>
+                <th>Category</th>
+                <th>Ingredients</th>
+                <th>Batch Yield</th>
+                <th>Cost / Yield Unit</th>
+                <th>Total Prep Cost</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sub-recipes-table-body"></tbody>
+          </table>
+        </div>
       </section>
 
       <section id="inventory-section" class="table-section" hidden>
@@ -264,28 +600,56 @@
         <div class="form-grid">
           <div class="form-group">
             <label for="inventoryItemName">Item Name</label>
-            <input type="text" id="inventoryItemName" placeholder="Example: Chicken Breast" />
+            <input type="text" id="inventoryItemName" placeholder="Example: Rice" />
+          </div>
+
+          <div class="form-group">
+            <label for="inventoryCategory">Category</label>
+            <select id="inventoryCategory">
+              <option value="produce">Vegetables & Fruit</option>
+              <option value="meat">Meat & Poultry</option>
+              <option value="fish">Fish & Seafood</option>
+              <option value="dairy">Dairy</option>
+              <option value="dry">Dry Goods</option>
+              <option value="bakery">Bakery</option>
+              <option value="beverage">Beverages</option>
+              <option value="pickled">Pickles & Ferments</option>
+              <option value="prep">Prep Recipes</option>
+              <option value="other">Other</option>
+            </select>
           </div>
 
           <div class="form-group">
             <label for="inventoryQuantity">Quantity</label>
-            <input type="number" id="inventoryQuantity" placeholder="Example: 50" step="0.01" />
+            <input type="number" id="inventoryQuantity" placeholder="Example: 20" step="0.01" />
           </div>
 
           <div class="form-group">
             <label for="inventoryUnit">Unit</label>
             <select id="inventoryUnit">
-              <option>lb</option>
-              <option>oz</option>
-              <option>units</option>
-              <option>gallons</option>
-              <option>quarts</option>
+              <option value="lb">lb</option>
+              <option value="oz">oz</option>
+              <option value="units">units</option>
+              <option value="gallons">gallons</option>
+              <option value="quarts">quarts</option>
             </select>
           </div>
 
           <div class="form-group">
-            <label for="inventoryCost">Presentation Cost</label>
-            <input type="number" id="inventoryCost" placeholder="Example: 20.00" step="0.01" />
+            <label for="inventoryTotalCost">Total Cost</label>
+            <input type="number" id="inventoryTotalCost" placeholder="Example: 16.00" step="0.01" />
+          </div>
+
+          <div class="form-group">
+            <label for="inventoryStorageArea">Storage Area</label>
+            <select id="inventoryStorageArea">
+              <option value="Refrigerated">Refrigerated</option>
+              <option value="Frozen">Frozen</option>
+              <option value="Dry Storage">Dry Storage</option>
+              <option value="Prep Area">Prep Area</option>
+              <option value="Banquet Kitchen">Banquet Kitchen</option>
+              <option value="Bar Storage">Bar Storage</option>
+            </select>
           </div>
         </div>
 
@@ -293,20 +657,43 @@
           <button type="button" id="add-inventory-btn" class="primary-btn">Add Inventory Item</button>
         </div>
 
-        <table class="inventory-table">
-          <thead>
-            <tr>
-              <th>Item Name</th>
-              <th>Quantity</th>
-              <th>Unit</th>
-              <th>Presentation Cost</th>
-              <th>Stock Value</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="inventory-table-body"></tbody>
-        </table>
+        <div class="table-toolbar">
+          <div class="form-group search-field">
+            <label for="inventorySearch">Search Inventory</label>
+            <input type="search" id="inventorySearch" placeholder="Search by item name, category, unit, or storage area..." />
+          </div>
+
+          <div class="form-group search-field">
+            <label for="inventoryCategoryFilter">Category</label>
+            <select id="inventoryCategoryFilter">
+              <option value="">All Categories</option>
+              <option value="produce">Vegetables & Fruit</option>
+              <option value="meat">Meat & Poultry</option>
+              <option value="fish">Fish & Seafood</option>
+              <option value="dairy">Dairy</option>
+              <option value="dry">Dry Goods</option>
+              <option value="bakery">Bakery</option>
+              <option value="beverage">Beverages</option>
+              <option value="pickled">Pickles & Ferments</option>
+              <option value="prep">Prep Recipes</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="inventory-category-summary" class="inventory-category-summary"></div>
+        <div id="inventory-sections" class="inventory-sections"></div>
+
+        <div class="inventory-prep-panel">
+          <div class="inventory-prep-header">
+            <div>
+              <h3>Prep Recipes in Inventory</h3>
+              <p>Prepared batches saved from Prep Recipes appear here as inventory items.</p>
+            </div>
+            <button type="button" id="inventory-go-prep-recipes" class="secondary-btn">Open Prep Recipes</button>
+          </div>
+          <div id="inventory-prep-recipes-list" class="inventory-prep-recipes-list"></div>
+        </div>
       </section>
 
       <section id="production-section" class="table-section" hidden>
@@ -466,6 +853,306 @@
       </div>
     </div>
   </div>
+
+  <div id="wasteGuideModal" class="modal-overlay" hidden>
+    <div class="modal-card waste-guide-modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>📖 Waste % Guide / Merma Manual</h3>
+          <p>Use this guide to choose a realistic waste percentage for each recipe.</p>
+        </div>
+        <button type="button" id="closeWasteGuideBtn" class="icon-btn delete" title="Close">×</button>
+      </div>
+
+      <div class="modal-body waste-guide-modal-body">
+        <p class="waste-guide-intro">
+          Click a category to apply the suggested midpoint waste percentage to this recipe.
+          You can still edit the Waste % manually after selecting a preset.
+        </p>
+
+        <div class="waste-guide-table" role="table" aria-label="Suggested waste percentages by recipe category">
+          <div class="waste-guide-row waste-guide-head" role="row">
+            <span role="columnheader">Category</span>
+            <span role="columnheader">Suggested Waste %</span>
+            <span role="columnheader">Reason</span>
+            <span role="columnheader">Apply</span>
+          </div>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="10" data-category="Salad" role="row">
+            <span role="cell">Salad</span>
+            <span role="cell">8% – 12%</span>
+            <span role="cell">Cleaning lettuce, removing damaged leaves, trimming, washing, drying.</span>
+            <strong role="cell">Use 10%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="12" data-category="Entree" role="row">
+            <span role="cell">Entree</span>
+            <span role="cell">10% – 18%</span>
+            <span role="cell">Cooking loss, trimming, portion control, protein shrinkage.</span>
+            <strong role="cell">Use 12%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="8" data-category="Side" role="row">
+            <span role="cell">Side</span>
+            <span role="cell">5% – 10%</span>
+            <span role="cell">Basic prep loss, peeling, trimming, small cooking loss.</span>
+            <strong role="cell">Use 8%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="5" data-category="Dessert" role="row">
+            <span role="cell">Dessert</span>
+            <span role="cell">3% – 8%</span>
+            <span role="cell">Cutting, plating, decoration, portion adjustments.</span>
+            <strong role="cell">Use 5%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="5" data-category="Sauce" role="row">
+            <span role="cell">Sauce</span>
+            <span role="cell">2% – 6%</span>
+            <span role="cell">Container residue, reduction, transfer loss.</span>
+            <strong role="cell">Use 5%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="3" data-category="Beverage" role="row">
+            <span role="cell">Beverage</span>
+            <span role="cell">1% – 5%</span>
+            <span role="cell">Spillage, garnish, ice/liquid variation.</span>
+            <strong role="cell">Use 3%</strong>
+          </button>
+
+          <button type="button" class="waste-guide-row waste-guide-choice" data-waste="10" data-category="Buffet / Banquet Safety" role="row">
+            <span role="cell">Buffet / Banquet Safety</span>
+            <span role="cell">5% – 15%</span>
+            <span role="cell">Extra production for service safety and guest count changes.</span>
+            <strong role="cell">Use 10%</strong>
+          </button>
+        </div>
+
+        <div class="waste-example-box">
+          <strong>Example:</strong>
+          If you buy 10 lb of lettuce and lose 1 lb after cleaning, the waste is 10%.
+          That means only 9 lb are usable.
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const calendarGrid = document.getElementById("dashboard-calendar-grid");
+      const monthLabel = document.getElementById("calendar-month-label");
+      const prevBtn = document.getElementById("calendar-prev-month");
+      const nextBtn = document.getElementById("calendar-next-month");
+      const eventsPanel = document.getElementById("calendar-events-panel");
+      const eventsTitle = document.getElementById("calendar-events-title");
+      const eventsSubtitle = document.getElementById("calendar-events-subtitle");
+      const eventsList = document.getElementById("calendar-events-list");
+      const goEventsBtn = document.getElementById("calendar-go-events");
+      const openWasteGuideBtn = document.getElementById("openWasteGuideBtn");
+      const closeWasteGuideBtn = document.getElementById("closeWasteGuideBtn");
+      const wasteGuideModal = document.getElementById("wasteGuideModal");
+      const recipeYieldInput = document.getElementById("recipeYield");
+      const recipeCategorySelect = document.getElementById("recipeCategory");
+      const wasteGuideChoices = document.querySelectorAll(".waste-guide-choice");
+      let calendarDate = new Date();
+      let selectedDate = "";
+
+      const getStoredEvents = () => {
+        const possibleKeys = ["beoflowEvents", "events", "beoflow-events", "savedEvents"];
+        for (const key of possibleKeys) {
+          try {
+            const value = JSON.parse(localStorage.getItem(key) || "[]");
+            if (Array.isArray(value) && value.length > 0) return value;
+          } catch (error) {}
+        }
+
+        for (let index = 0; index < localStorage.length; index += 1) {
+          const key = localStorage.key(index);
+          try {
+            const value = JSON.parse(localStorage.getItem(key) || "[]");
+            if (Array.isArray(value) && value.some((event) => event && (event.date || event.eventDate))) {
+              return value;
+            }
+          } catch (error) {}
+        }
+
+        return [];
+      };
+
+      const formatDateKey = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const getEventDate = (event) => event.date || event.eventDate || event.event_date || "";
+      const getEventName = (event) => event.name || event.eventName || event.title || "Untitled Event";
+      const getEventVenue = (event) => event.venue || event.location || "No venue";
+      const getEventGuests = (event) => event.guests || event.guestCount || event.guest_count || 0;
+
+      const renderEventCards = (events) => {
+        eventsList.innerHTML = "";
+
+        if (events.length === 0) {
+          eventsList.innerHTML = `
+            <div class="calendar-empty-state">
+              No events scheduled yet. Create a new event to start planning production, menus, and staffing.
+            </div>
+          `;
+          return;
+        }
+
+        events.forEach((event) => {
+          const card = document.createElement("button");
+          card.type = "button";
+          card.className = "calendar-event-card";
+          card.innerHTML = `
+            <strong>${getEventName(event)}</strong>
+            <span>${getEventDate(event) || "No date"}</span>
+            <span>${getEventVenue(event)} · ${getEventGuests(event)} guests</span>
+          `;
+          card.addEventListener("click", () => {
+            document.getElementById("nav-events")?.click();
+          });
+          eventsList.appendChild(card);
+        });
+      };
+
+      const renderUpcomingEventPanel = () => {
+        if (!eventsPanel || !eventsTitle || !eventsSubtitle || !eventsList) return;
+
+        const todayKey = formatDateKey(new Date());
+        const upcomingEvents = getStoredEvents()
+          .filter((event) => getEventDate(event) && getEventDate(event) >= todayKey)
+          .sort((a, b) => getEventDate(a).localeCompare(getEventDate(b)));
+
+        eventsPanel.hidden = false;
+        eventsTitle.textContent = "Next Event";
+        eventsSubtitle.textContent = upcomingEvents.length
+          ? "No date selected. Showing the next scheduled event."
+          : "No events found in your schedule.";
+        renderEventCards(upcomingEvents.slice(0, 1));
+      };
+
+      const renderSelectedDateEvents = (dateKey) => {
+        selectedDate = dateKey;
+        const events = getStoredEvents().filter((event) => getEventDate(event) === dateKey);
+        eventsPanel.hidden = false;
+        eventsTitle.textContent = `Events on ${dateKey}`;
+        eventsSubtitle.textContent = events.length ? `${events.length} event(s) scheduled` : "No events scheduled for this date.";
+        renderEventCards(events);
+      };
+
+      const renderDashboardCalendar = () => {
+        if (!calendarGrid || !monthLabel) return;
+        if (!selectedDate) renderUpcomingEventPanel();
+
+        const year = calendarDate.getFullYear();
+        const month = calendarDate.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const events = getStoredEvents();
+
+        monthLabel.textContent = calendarDate.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric"
+        });
+
+        calendarGrid.innerHTML = "";
+
+        for (let blank = 0; blank < firstDay.getDay(); blank += 1) {
+          const emptyCell = document.createElement("div");
+          emptyCell.className = "calendar-day empty";
+          calendarGrid.appendChild(emptyCell);
+        }
+
+        for (let day = 1; day <= lastDay.getDate(); day += 1) {
+          const date = new Date(year, month, day);
+          const dateKey = formatDateKey(date);
+          const dayEvents = events.filter((event) => getEventDate(event) === dateKey);
+          const dayCell = document.createElement("button");
+          dayCell.type = "button";
+          dayCell.className = "calendar-day";
+          if (dateKey === formatDateKey(new Date())) dayCell.classList.add("today");
+          if (dateKey === selectedDate) dayCell.classList.add("selected");
+
+          dayCell.innerHTML = `
+            <span class="calendar-day-number">${day}</span>
+            ${dayEvents.length ? `<span class="calendar-event-pill">${dayEvents.length} event${dayEvents.length > 1 ? "s" : ""}</span>` : ""}
+          `;
+
+          dayCell.addEventListener("click", () => {
+            renderSelectedDateEvents(dateKey);
+            renderDashboardCalendar();
+          });
+
+          calendarGrid.appendChild(dayCell);
+        }
+      };
+
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
+          renderDashboardCalendar();
+        });
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+          renderDashboardCalendar();
+        });
+      }
+
+      if (goEventsBtn) {
+        goEventsBtn.addEventListener("click", () => {
+          document.getElementById("nav-events")?.click();
+        });
+      }
+
+      if (openWasteGuideBtn && closeWasteGuideBtn && wasteGuideModal) {
+        openWasteGuideBtn.addEventListener("click", () => {
+          wasteGuideModal.hidden = false;
+        });
+
+        closeWasteGuideBtn.addEventListener("click", () => {
+          wasteGuideModal.hidden = true;
+        });
+
+        wasteGuideModal.addEventListener("click", (event) => {
+          if (event.target === wasteGuideModal) {
+            wasteGuideModal.hidden = true;
+          }
+        });
+      }
+
+      wasteGuideChoices.forEach((choice) => {
+        choice.addEventListener("click", () => {
+          const wasteValue = choice.dataset.waste || "0";
+          const categoryValue = choice.dataset.category || "";
+
+          if (recipeYieldInput) {
+            recipeYieldInput.value = wasteValue;
+            recipeYieldInput.dispatchEvent(new Event("input", { bubbles: true }));
+            recipeYieldInput.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+
+          if (recipeCategorySelect && categoryValue && categoryValue !== "Buffet / Banquet Safety") {
+            recipeCategorySelect.value = categoryValue;
+            recipeCategorySelect.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+
+          if (wasteGuideModal) {
+            wasteGuideModal.hidden = true;
+          }
+        });
+      });
+
+      window.addEventListener("storage", renderDashboardCalendar);
+      document.addEventListener("DOMContentLoaded", renderDashboardCalendar);
+      setInterval(renderDashboardCalendar, 1500);
+    })();
+  </script>
   <script src="script.js"></script>
 </body>
 </html>
