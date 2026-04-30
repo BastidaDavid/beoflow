@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const smartSetupProgressCount = document.getElementById("smart-setup-progress-count");
   const smartSetupProgressBar = document.getElementById("smart-setup-progress-bar");
   const smartSetupWarning = document.getElementById("smart-setup-warning");
+  const smartSetupNotice = document.getElementById("smart-setup-notice");
   const smartSetupTaskList = document.getElementById("smart-setup-task-list");
   const smartSetupCloseBtn = document.getElementById("smart-setup-close");
   const smartSetupLauncher = document.getElementById("smart-setup-launcher");
@@ -560,6 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
           label: "View Dashboard",
           description: "Review KPIs, events, calendar, and setup progress.",
           module: "dashboard",
+          manualComplete: true,
           isAutoComplete: () => false
         }
       ]
@@ -601,6 +603,7 @@ document.addEventListener("DOMContentLoaded", () => {
           label: "View Dashboard",
           description: "Track setup progress and operational KPIs.",
           module: "dashboard",
+          manualComplete: true,
           isAutoComplete: () => false
         }
       ]
@@ -623,8 +626,50 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem(SMART_SETUP_KEY, JSON.stringify(state));
   };
 
-  const getSmartSetupTaskStatus = (task, state) =>
-    Boolean(state.completed[task.key] || task.isAutoComplete?.());
+  const getSmartSetupTaskRawStatus = (task, state) =>
+    Boolean((task.manualComplete && state.completed[task.key]) || task.isAutoComplete?.());
+
+  const getSmartSetupProgress = (tasks, state) => {
+    let completedCount = 0;
+
+    for (const task of tasks) {
+      if (!getSmartSetupTaskRawStatus(task, state)) break;
+      completedCount += 1;
+    }
+
+    return {
+      completedCount,
+      currentIndex: completedCount < tasks.length ? completedCount : -1,
+      currentTask: tasks[completedCount] || null,
+      isComplete: completedCount === tasks.length
+    };
+  };
+
+  const getSmartSetupTaskAccess = (tasks, state, taskKey) => {
+    const taskIndex = tasks.findIndex((item) => item.key === taskKey);
+    if (taskIndex === -1) return null;
+
+    const progress = getSmartSetupProgress(tasks, state);
+
+    return {
+      task: tasks[taskIndex],
+      taskIndex,
+      progress,
+      isComplete: taskIndex < progress.completedCount,
+      isCurrent: taskIndex === progress.currentIndex,
+      isLocked: progress.currentIndex !== -1 && taskIndex > progress.currentIndex
+    };
+  };
+
+  const setSmartSetupNotice = (message = "") => {
+    if (!smartSetupNotice) return;
+    smartSetupNotice.textContent = message;
+    smartSetupNotice.hidden = !message;
+  };
+
+  const showSmartSetupNotice = (message) => {
+    setSmartSetupNotice(message);
+  };
 
   const openSmartSetupPanel = () => {
     if (!smartSetupSection) return;
@@ -660,7 +705,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const tasks = flow.tasks;
-    const completedCount = tasks.filter((task) => getSmartSetupTaskStatus(task, state)).length;
+    const progress = getSmartSetupProgress(tasks, state);
+    const completedCount = progress.completedCount;
     const progressPercent = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
     if (smartSetupChecklist) smartSetupChecklist.hidden = false;
@@ -669,25 +715,38 @@ document.addEventListener("DOMContentLoaded", () => {
     if (smartSetupProgressLabel) smartSetupProgressLabel.textContent = `${completedCount}/${tasks.length} completed`;
     if (smartSetupProgressCount) smartSetupProgressCount.textContent = `${completedCount}/${tasks.length} completed`;
     if (smartSetupProgressBar) smartSetupProgressBar.style.width = `${progressPercent}%`;
-    if (smartSetupLauncherCount) smartSetupLauncherCount.textContent = `${completedCount}/${tasks.length}`;
+    if (smartSetupLauncherCount) {
+      smartSetupLauncherCount.textContent = progress.currentTask
+        ? `Next: ${progress.currentTask.label}`
+        : "Setup complete";
+    }
     if (smartSetupLauncherBar) smartSetupLauncherBar.style.width = `${progressPercent}%`;
     if (smartSetupWarning) smartSetupWarning.hidden = state.flow !== "recipe";
+    setSmartSetupNotice(progress.currentTask
+      ? `Next: ${progress.currentTask.label}. Complete this step before the next steps unlock.`
+      : "Setup complete. Your core workflow is ready."
+    );
 
     if (!smartSetupTaskList) return;
 
-    smartSetupTaskList.innerHTML = tasks.map((task) => {
-      const isComplete = getSmartSetupTaskStatus(task, state);
+    smartSetupTaskList.innerHTML = tasks.map((task, index) => {
+      const isComplete = index < completedCount;
+      const isCurrent = index === progress.currentIndex;
+      const isLocked = progress.currentIndex !== -1 && index > progress.currentIndex;
+      const description = isLocked
+        ? "Locked until the previous step is complete."
+        : task.description;
 
       return `
-        <div class="smart-setup-task ${isComplete ? "is-complete" : ""}">
-          <button type="button" class="smart-setup-task-toggle" data-smart-task="${task.key}">
+        <div class="smart-setup-task ${isComplete ? "is-complete" : ""} ${isCurrent ? "is-current" : ""} ${isLocked ? "is-locked" : ""}">
+          <button type="button" class="smart-setup-task-toggle" data-smart-task="${task.key}" aria-disabled="${isLocked}" ${isCurrent ? 'aria-current="step"' : ""}>
             <span class="smart-setup-task-check">${isComplete ? "✓" : ""}</span>
             <span>
               <span class="smart-setup-task-title">${task.label}</span>
-              <span class="smart-setup-task-meta">${task.description}</span>
+              <span class="smart-setup-task-meta">${description}</span>
             </span>
           </button>
-          <button type="button" class="smart-setup-task-action" data-smart-action="${task.key}">Open</button>
+          <button type="button" class="smart-setup-task-action" data-smart-action="${task.key}" aria-disabled="${isLocked}">${isLocked ? "Locked" : "Open"}</button>
         </div>
       `;
     }).join("");
@@ -707,32 +766,36 @@ document.addEventListener("DOMContentLoaded", () => {
     const flow = smartSetupFlows[state.flow];
     if (!flow) return;
 
-    const task = flow.tasks.find((item) => item.key === taskKey);
-    if (!task) return;
+    const access = getSmartSetupTaskAccess(flow.tasks, state, taskKey);
+    if (!access) return;
 
-    const isComplete = getSmartSetupTaskStatus(task, state);
-    saveSmartSetupState({
-      ...state,
-      completed: {
-        ...state.completed,
-        [taskKey]: !isComplete
-      }
-    });
-    renderSmartSetup();
+    if (access.isLocked) {
+      showSmartSetupNotice(`Complete ${access.progress.currentTask.label} first to unlock ${access.task.label}.`);
+      return;
+    }
+
+    openSmartSetupTask(taskKey);
   };
 
   const openSmartSetupTask = (taskKey) => {
     const state = getSmartSetupState();
     const flow = smartSetupFlows[state.flow];
-    const task = flow?.tasks.find((item) => item.key === taskKey);
+    const access = flow ? getSmartSetupTaskAccess(flow.tasks, state, taskKey) : null;
+    const task = access?.task;
     if (!task?.module) return;
 
-    if (task.key === "viewDashboard") {
+    if (access.isLocked) {
+      openSmartSetupPanel();
+      showSmartSetupNotice(`Complete ${access.progress.currentTask.label} first to unlock ${task.label}.`);
+      return;
+    }
+
+    if (task.manualComplete && !access.isComplete) {
       saveSmartSetupState({
         ...state,
         completed: {
           ...state.completed,
-          viewDashboard: true
+          [task.key]: true
         }
       });
     }
@@ -740,6 +803,20 @@ document.addEventListener("DOMContentLoaded", () => {
     showModuleByKey(task.module);
     closeSmartSetupPanel();
     renderSmartSetup();
+  };
+
+  const openSmartSetupIfIncomplete = () => {
+    const state = getSmartSetupState();
+    const flow = smartSetupFlows[state.flow];
+
+    if (!flow) {
+      openSmartSetupPanel();
+      return;
+    }
+
+    if (!getSmartSetupProgress(flow.tasks, state).isComplete) {
+      openSmartSetupPanel();
+    }
   };
 
   const moduleHeaders = {
@@ -3493,4 +3570,5 @@ ${staffSuggestion}
   renderStaff();
   renderProduction();
   renderSmartSetup();
+  openSmartSetupIfIncomplete();
 });

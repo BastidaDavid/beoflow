@@ -482,6 +482,22 @@ body {
   display: none;
 }
 
+.smart-setup-notice {
+  margin-top: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 11px 12px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.smart-setup-notice[hidden] {
+  display: none;
+}
+
 .smart-setup-task-list {
   display: grid;
   gap: 10px;
@@ -504,6 +520,20 @@ body {
   background: #f0fdf4;
 }
 
+.smart-setup-task.is-current {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.08);
+}
+
+.smart-setup-task.is-locked {
+  background: #f8fafc;
+}
+
+.smart-setup-task.is-locked .smart-setup-task-title,
+.smart-setup-task.is-locked .smart-setup-task-meta {
+  color: #94a3b8;
+}
+
 .smart-setup-task-toggle,
 .smart-setup-task-action {
   border: 0;
@@ -519,6 +549,10 @@ body {
   gap: 12px;
   min-width: 0;
   text-align: left;
+}
+
+.smart-setup-task-toggle[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 .smart-setup-task-check {
@@ -579,6 +613,18 @@ body {
   border-color: #2563eb;
   background: #eff6ff;
   outline: none;
+}
+
+.smart-setup-task-action[aria-disabled="true"] {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.smart-setup-task-action[aria-disabled="true"]:hover,
+.smart-setup-task-action[aria-disabled="true"]:focus-visible {
+  border-color: var(--border);
+  background: transparent;
+  transform: none;
 }
 
 @media (max-width: 760px) {
