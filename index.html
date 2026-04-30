@@ -956,12 +956,39 @@
       let calendarDate = new Date();
       let selectedDate = "";
 
+      const formatDateKey = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      };
+
+      const normalizeDateKey = (value) => {
+        const text = String(value || "").trim();
+        if (!text) return "";
+
+        const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+
+        const usMatch = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+        if (usMatch) {
+          const month = String(usMatch[1]).padStart(2, "0");
+          const day = String(usMatch[2]).padStart(2, "0");
+          return `${usMatch[3]}-${month}-${day}`;
+        }
+
+        const parsedDate = new Date(text);
+        return Number.isNaN(parsedDate.getTime()) ? "" : formatDateKey(parsedDate);
+      };
+
+      const getEventDate = (event) => normalizeDateKey(event.date || event.eventDate || event.event_date || "");
+
       const getStoredEvents = () => {
-        const possibleKeys = ["beoflowEvents", "events", "beoflow-events", "savedEvents"];
+        const possibleKeys = ["beoflow_events", "beoflowEvents", "events", "beoflow-events", "savedEvents"];
         for (const key of possibleKeys) {
           try {
             const value = JSON.parse(localStorage.getItem(key) || "[]");
-            if (Array.isArray(value) && value.length > 0) return value;
+            if (Array.isArray(value) && value.some((event) => event && getEventDate(event))) return value;
           } catch (error) {}
         }
 
@@ -969,7 +996,7 @@
           const key = localStorage.key(index);
           try {
             const value = JSON.parse(localStorage.getItem(key) || "[]");
-            if (Array.isArray(value) && value.some((event) => event && (event.date || event.eventDate))) {
+            if (Array.isArray(value) && value.some((event) => event && getEventDate(event))) {
               return value;
             }
           } catch (error) {}
@@ -978,14 +1005,6 @@
         return [];
       };
 
-      const formatDateKey = (date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      };
-
-      const getEventDate = (event) => event.date || event.eventDate || event.event_date || "";
       const getEventName = (event) => event.name || event.eventName || event.title || "Untitled Event";
       const getEventVenue = (event) => event.venue || event.location || "No venue";
       const getEventGuests = (event) => event.guests || event.guestCount || event.guest_count || 0;
@@ -1148,7 +1167,9 @@
         });
       });
 
+      window.renderDashboardCalendar = renderDashboardCalendar;
       window.addEventListener("storage", renderDashboardCalendar);
+      window.addEventListener("beoflow:events-updated", renderDashboardCalendar);
       document.addEventListener("DOMContentLoaded", renderDashboardCalendar);
       setInterval(renderDashboardCalendar, 1500);
     })();

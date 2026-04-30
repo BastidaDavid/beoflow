@@ -436,6 +436,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveEvents = (events) => {
     localStorage.setItem("beoflow_events", JSON.stringify(events));
+    window.dispatchEvent(new CustomEvent("beoflow:events-updated"));
   };
 
   const getMenus = () => {
@@ -1143,6 +1144,7 @@ ${staffSuggestion}
       showSection(dashboardCalendarSection, "grid");
       setActiveNav(navDashboard);
       renderKpis();
+      window.renderDashboardCalendar?.();
       if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
