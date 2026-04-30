@@ -29,11 +29,13 @@ async function initDB() {
       start_time TEXT,
       end_time TEXT,
       guests INTEGER,
+      menu_id TEXT,
       venue TEXT,
       status TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS menu_id TEXT;");
   console.log("✅ Database ready");
 }
 
@@ -126,14 +128,15 @@ app.post("/events", async (req, res) => {
       start_time,
       end_time,
       guests,
+      menu_id,
       venue,
       status
     } = req.body;
 
     const result = await pool.query(
       `INSERT INTO events 
-      (event_name, client_name, event_date, start_time, end_time, guests, venue, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      (event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *`,
       [
         event_name,
@@ -142,6 +145,7 @@ app.post("/events", async (req, res) => {
         start_time,
         end_time,
         guests,
+        menu_id || null,
         venue,
         status || "Draft"
       ]
@@ -177,6 +181,7 @@ app.put("/events/:id", async (req, res) => {
       start_time,
       end_time,
       guests,
+      menu_id,
       venue,
       status
     } = req.body;
@@ -189,9 +194,10 @@ app.put("/events/:id", async (req, res) => {
         start_time = $4,
         end_time = $5,
         guests = $6,
-        venue = $7,
-        status = $8
-      WHERE id = $9
+        menu_id = $7,
+        venue = $8,
+        status = $9
+      WHERE id = $10
       RETURNING *`,
       [
         event_name,
@@ -200,6 +206,7 @@ app.put("/events/:id", async (req, res) => {
         start_time,
         end_time,
         guests,
+        menu_id || null,
         venue,
         status || "Draft",
         id

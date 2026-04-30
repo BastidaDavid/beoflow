@@ -252,7 +252,36 @@ document.addEventListener("DOMContentLoaded", () => {
     status: event.status || "Draft"
   });
 
+  const findMatchingLocalEvent = (apiEvent, localEvents) => {
+    const apiId = apiEvent.id != null ? String(apiEvent.id) : "";
+
+    if (apiId) {
+      const idMatch = localEvents.find((eventData) => eventData.id != null && String(eventData.id) === apiId);
+      if (idMatch) return idMatch;
+    }
+
+    return localEvents.find((eventData) =>
+      (eventData.name || "") === (apiEvent.name || "") &&
+      (eventData.client || "") === (apiEvent.client || "") &&
+      (eventData.date || "") === (apiEvent.date || "") &&
+      (eventData.startTime || "") === (apiEvent.startTime || "") &&
+      (eventData.endTime || "") === (apiEvent.endTime || "") &&
+      (eventData.venue || "") === (apiEvent.venue || "")
+    );
+  };
+
+  const mergeApiEventsWithLocalEvents = (apiEvents, localEvents) =>
+    apiEvents.map((apiEvent) => {
+      const localEvent = findMatchingLocalEvent(apiEvent, localEvents);
+
+      return {
+        ...apiEvent,
+        menuId: apiEvent.menuId || localEvent?.menuId || ""
+      };
+    });
+
   const fetchEventsFromApi = async () => {
+    const localEvents = getEvents();
     const response = await fetch(`${API_BASE_URL}/events`);
 
     if (!response.ok) {
@@ -261,8 +290,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const events = await response.json();
     const mappedEvents = Array.isArray(events) ? events.map(mapApiEventToUiEvent) : [];
-    saveEvents(mappedEvents);
-    return mappedEvents;
+    const mergedEvents = mergeApiEventsWithLocalEvents(mappedEvents, localEvents);
+    saveEvents(mergedEvents);
+    return mergedEvents;
   };
 
   const createEventInApi = async (eventData) => {
@@ -278,6 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
         start_time: eventData.startTime,
         end_time: eventData.endTime,
         guests: eventData.guests ? Number(eventData.guests) : null,
+        menu_id: eventData.menuId || null,
         venue: eventData.venue,
         status: eventData.status || "Draft"
       })
@@ -288,7 +319,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const result = await response.json();
-    return mapApiEventToUiEvent(result.event);
+    const savedEvent = mapApiEventToUiEvent(result.event);
+    return {
+      ...savedEvent,
+      menuId: savedEvent.menuId || eventData.menuId || ""
+    };
   };
 
   const updateEventInApi = async (eventId, eventData) => {
@@ -308,6 +343,7 @@ document.addEventListener("DOMContentLoaded", () => {
         start_time: eventData.startTime,
         end_time: eventData.endTime,
         guests: eventData.guests ? Number(eventData.guests) : null,
+        menu_id: eventData.menuId || null,
         venue: eventData.venue,
         status: eventData.status || "Draft"
       })
@@ -318,7 +354,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const result = await response.json();
-    return mapApiEventToUiEvent(result.event);
+    const updatedEvent = mapApiEventToUiEvent(result.event);
+    return {
+      ...updatedEvent,
+      menuId: updatedEvent.menuId || eventData.menuId || ""
+    };
   };
 
   const deleteEventInApi = async (eventId) => {
@@ -698,6 +738,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const populateFormForEdit = (eventData, index) => {
     if (!eventData) return;
+
+    populateEventMenuOptions();
 
     if (eventNameInput) eventNameInput.value = eventData.name || "";
     if (clientNameInput) clientNameInput.value = eventData.client || "";
