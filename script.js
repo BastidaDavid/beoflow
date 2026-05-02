@@ -863,7 +863,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const header = moduleHeaders[moduleKey] || moduleHeaders.dashboard;
     if (topbarTitle) topbarTitle.textContent = header.title;
     if (topbarSubtitle) topbarSubtitle.textContent = header.subtitle;
-    if (topbarActions) topbarActions.hidden = !["dashboard", "events"].includes(moduleKey);
+    if (topbarActions) topbarActions.hidden = !["dashboard", "events", "eventForm"].includes(moduleKey);
   };
 
   const eventFilterLabels = {
