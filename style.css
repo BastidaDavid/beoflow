@@ -115,6 +115,7 @@ body {
 /* Main */
 .main-content {
   padding: 32px;
+  min-width: 0;
 }
 
 .topbar {
@@ -762,6 +763,8 @@ body {
 
 /* Table Section */
 .table-section {
+  width: 100%;
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 22px;
@@ -784,6 +787,16 @@ table {
   width: 100%;
   border-collapse: collapse;
   overflow: hidden;
+}
+
+.events-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.events-table {
+  min-width: 1320px;
+  table-layout: auto;
 }
 
 thead th {
