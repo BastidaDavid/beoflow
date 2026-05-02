@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const subRecipesSection = document.getElementById("sub-recipes-section");
   const topbarTitle = document.querySelector(".topbar h1");
   const topbarSubtitle = document.querySelector(".topbar p");
+  const topbarActions = document.querySelector(".topbar-actions");
   const addMenuBtn = document.getElementById("add-menu-btn");
   const menusTableBody = document.getElementById("menus-table-body");
   const menuNameInput = document.getElementById("menuName");
@@ -862,6 +863,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const header = moduleHeaders[moduleKey] || moduleHeaders.dashboard;
     if (topbarTitle) topbarTitle.textContent = header.title;
     if (topbarSubtitle) topbarSubtitle.textContent = header.subtitle;
+    if (topbarActions) topbarActions.hidden = !["dashboard", "events"].includes(moduleKey);
   };
 
   const eventFilterLabels = {
@@ -1453,7 +1455,7 @@ ${staffSuggestion}
   };
 
   const showModuleByKey = (moduleKey, options = {}) => {
-    const { scroll = true } = options;
+    const { scroll = false } = options;
 
     hideAllMainSections();
     activeModuleKey = moduleKey;
@@ -1466,7 +1468,7 @@ ${staffSuggestion}
       renderKpis();
       renderSmartSetup();
       window.renderDashboardCalendar?.();
-      if (scroll) window.scrollTo({ top: 0, behavior: "smooth" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1475,7 +1477,7 @@ ${staffSuggestion}
       showSection(eventsSection);
       setActiveNav(navEvents);
       renderEvents().then(renderKpis);
-      if (scroll) eventsSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1484,7 +1486,7 @@ ${staffSuggestion}
       setActiveNav(navMenus);
       populateMenuRecipeOptions();
       renderMenus();
-      if (scroll) menusSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1494,7 +1496,7 @@ ${staffSuggestion}
       populateRecipeIngredientOptions();
       renderSelectedIngredients();
       renderRecipes();
-      if (scroll) recipesSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1504,7 +1506,7 @@ ${staffSuggestion}
       populateSubRecipeIngredientOptions();
       renderSelectedSubRecipeIngredients();
       renderSubRecipes();
-      if (scroll) subRecipesSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1512,7 +1514,7 @@ ${staffSuggestion}
       showSection(inventorySection);
       setActiveNav(navInventory);
       renderInventory();
-      if (scroll) inventorySection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1520,7 +1522,7 @@ ${staffSuggestion}
       showSection(productionSection);
       setActiveNav(navProduction);
       renderProduction();
-      if (scroll) productionSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 
@@ -1528,7 +1530,7 @@ ${staffSuggestion}
       showSection(staffSection);
       setActiveNav(navStaff);
       renderStaff();
-      if (scroll) staffSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
 

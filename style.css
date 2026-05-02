@@ -989,6 +989,10 @@ tbody tr:hover {
   align-items: center;
 }
 
+.topbar-actions[hidden] {
+  display: none;
+}
+
 /* Form panel */
 .form-panel {
   margin-top: 28px;
