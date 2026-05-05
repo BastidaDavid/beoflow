@@ -3942,7 +3942,7 @@ ${staffSuggestion}
     setScheduleImportStatus(`Showing ${getShiftDayLabel(activeShiftDay)} assignments.`, "info");
   };
 
-  const buildAssignmentPrintHtml = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+  const buildAssignmentPrintMarkup = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
     const generatedAt = new Date().toLocaleString([], {
       month: "short",
       day: "numeric",
@@ -4010,36 +4010,7 @@ ${staffSuggestion}
       : '<tr><td colspan="4" class="empty">No shift handoffs within 60 minutes.</td></tr>';
 
     return `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <title>BEOFlow Station Assignment Sheet</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { margin: 0; padding: 28px; color: #0f172a; font-family: Arial, sans-serif; }
-          header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 3px solid #0f172a; padding-bottom: 14px; margin-bottom: 22px; }
-          .brand { display: flex; align-items: center; gap: 12px; }
-          .brand img { width: 54px; height: 54px; object-fit: contain; }
-          h1 { margin: 0; font-size: 28px; }
-          header p { margin: 6px 0 0; color: #475569; font-size: 14px; }
-          .meta { text-align: right; font-size: 13px; color: #475569; }
-          .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-          .handoff-summary { margin-bottom: 18px; border: 2px solid #0f172a; border-radius: 10px; overflow: hidden; }
-          section { break-inside: avoid; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
-          h2 { margin: 0; padding: 10px 12px; background: #0f172a; color: #ffffff; font-size: 17px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
-          th { background: #f8fafc; color: #334155; font-weight: 700; }
-          tr:last-child td { border-bottom: 0; }
-          .empty { color: #64748b; font-style: italic; }
-          @media print {
-            body { padding: 18px; }
-            button { display: none; }
-          }
-        </style>
-      </head>
-      <body>
+      <div id="assignment-print-sheet" class="assignment-print-sheet">
         <header>
           <div class="brand">
             <img src="img/logobeoflow.png" alt="Bastida Systems logo" />
@@ -4068,27 +4039,22 @@ ${staffSuggestion}
           </table>
         </section>
         <main class="grid">${stationSections}</main>
-        <script>
-          window.addEventListener("load", () => {
-            window.print();
-          });
-        <\/script>
-      </body>
-      </html>
+      </div>
     `;
   };
 
   const openAssignmentPrintWindow = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
-    const printWindow = window.open("", "_blank", "width=1000,height=800");
-    if (!printWindow) {
-      setScheduleImportStatus("Popup blocked. Allow popups to print the assignment sheet.", "error");
-      return false;
-    }
+    document.getElementById("assignment-print-root")?.remove();
 
-    printWindow.document.open();
-    printWindow.document.write(buildAssignmentPrintHtml(staff, title, appliesTo));
-    printWindow.document.close();
-    setScheduleImportStatus("Assignment sheet opened. Use Print or Save as PDF.", "success");
+    const printRoot = document.createElement("div");
+    printRoot.id = "assignment-print-root";
+    printRoot.innerHTML = buildAssignmentPrintMarkup(staff, title, appliesTo);
+    document.body.appendChild(printRoot);
+
+    setScheduleImportStatus("Opening print dialog. Choose Print or Save as PDF.", "success");
+    requestAnimationFrame(() => {
+      window.print();
+    });
     return true;
   };
 
