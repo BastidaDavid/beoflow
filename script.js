@@ -3489,6 +3489,16 @@ ${staffSuggestion}
     return `${absMinutes} min`;
   };
 
+  const formatGapMinutes = (minutes) => {
+    const absMinutes = Math.abs(minutes);
+    const hours = Math.floor(absMinutes / 60);
+    const remainingMinutes = absMinutes % 60;
+
+    if (!hours) return formatDurationMinutes(absMinutes);
+    if (!remainingMinutes) return `${hours} hr`;
+    return `${hours} hr ${remainingMinutes} min`;
+  };
+
   const getStationHandoffs = (staff = [], station = "") => {
     const stationStaff = staff
       .filter((person) => person.station === station)
@@ -3561,17 +3571,26 @@ ${staffSuggestion}
       }))
       .filter((item) => item.shift)
       .sort((a, b) => a.shift.end - b.shift.end);
-    const stationHandoffs = getStationHandoffs(staff, station);
 
-    return stationStaff.map(({ person }) => {
-      const nextHandoff = stationHandoffs
-        .filter((handoff) => handoff.outgoing.id === person.id)
-        .sort((a, b) => Math.abs(a.startDelta) - Math.abs(b.startDelta))[0];
+    return stationStaff.map((outgoing) => {
+      const nextShift = stationStaff
+        .filter((incoming) => incoming.person.id !== outgoing.person.id)
+        .map((incoming) => {
+          let startDelta = incoming.shift.start - outgoing.shift.end;
+          if (startDelta < 0) startDelta += 24 * 60;
+          return {
+            ...incoming,
+            startDelta
+          };
+        })
+        .filter((incoming) => incoming.startDelta >= 0)
+        .sort((a, b) => a.startDelta - b.startDelta)[0];
 
       return {
         station,
-        person,
-        verifyBy: nextHandoff?.incoming || null
+        person: outgoing.person,
+        verifyBy: nextShift?.person || null,
+        nextCheckDelta: nextShift?.startDelta ?? null
       };
     });
   };
@@ -3591,7 +3610,7 @@ ${staffSuggestion}
           .map((closeout) => `
             <div class="shift-closeout-card">
               <strong>${escapeHtml(closeout.person.name || "-")} cleans and fills before ${escapeHtml(closeout.person.shiftEnd || "--:--")}</strong>
-              <span>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival` : "No immediate next shift assigned"}</span>
+              <span>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival${closeout.nextCheckDelta ? ` (${formatGapMinutes(closeout.nextCheckDelta)} later)` : ""}` : "Last shift for this station"}</span>
             </div>
           `)
           .join("")}
@@ -4085,7 +4104,7 @@ ${staffSuggestion}
               <td>${escapeHtml(closeout.station)}</td>
               <td>${escapeHtml(closeout.person.name || "-")}</td>
               <td>${escapeHtml(closeout.person.shiftEnd || "--:--")}</td>
-              <td>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival` : "No immediate next shift assigned"}</td>
+              <td>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival${closeout.nextCheckDelta ? ` (${formatGapMinutes(closeout.nextCheckDelta)} later)` : ""}` : "Last shift for this station"}</td>
             </tr>
           `)
           .join("")
