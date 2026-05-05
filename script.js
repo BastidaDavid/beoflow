@@ -3401,6 +3401,21 @@ ${staffSuggestion}
       return assignments;
     }, {});
 
+  const getHandoffKey = (station, outgoingId, incomingId, dayKey = activeShiftDay) =>
+    `${dayKey}|${station}|${outgoingId}|${incomingId}`;
+
+  const getHandoffAssignments = () => {
+    try {
+      return JSON.parse(localStorage.getItem("beoflow_shift_handoff_assignments")) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const saveHandoffAssignments = (assignments) => {
+    localStorage.setItem("beoflow_shift_handoff_assignments", JSON.stringify(assignments));
+  };
+
   const timeToMinutes = (time = "") => {
     const [hours, minutes] = String(time).split(":").map(Number);
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
@@ -3533,6 +3548,51 @@ ${staffSuggestion}
     `;
   };
 
+  const getStationCloseouts = (staff = [], station = "") => {
+    const stationStaff = staff
+      .filter((person) => person.station === station)
+      .map((person) => ({
+        person,
+        shift: getShiftMinutes(person)
+      }))
+      .filter((item) => item.shift)
+      .sort((a, b) => a.shift.end - b.shift.end);
+    const stationHandoffs = getStationHandoffs(staff, station);
+
+    return stationStaff.map(({ person }) => {
+      const nextHandoff = stationHandoffs
+        .filter((handoff) => handoff.outgoing.id === person.id)
+        .sort((a, b) => Math.abs(a.startDelta) - Math.abs(b.startDelta))[0];
+
+      return {
+        station,
+        person,
+        verifyBy: nextHandoff?.incoming || null
+      };
+    });
+  };
+
+  const getAllStationCloseouts = (staff = []) =>
+    shiftStations.flatMap((station) => getStationCloseouts(staff, station));
+
+  const renderStationCloseouts = (closeouts = []) => {
+    if (!closeouts.length) return "";
+
+    return `
+      <div class="shift-closeout-list">
+        <h4>Clean + fill by schedule</h4>
+        ${closeouts
+          .map((closeout) => `
+            <div class="shift-closeout-card">
+              <strong>${escapeHtml(closeout.person.name || "-")} cleans and fills before ${escapeHtml(closeout.person.shiftEnd || "--:--")}</strong>
+              <span>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival` : "No immediate next shift assigned"}</span>
+            </div>
+          `)
+          .join("")}
+      </div>
+    `;
+  };
+
   const renderStaff = () => {
     const staff = getStaffForDay();
     const assignedCount = staff.filter((person) => shiftStations.includes(person.station)).length;
@@ -3549,6 +3609,7 @@ ${staffSuggestion}
       .map((station) => {
         const stationStaff = staff.filter((person) => person.station === station);
         const stationHandoffs = getStationHandoffs(staff, station);
+        const stationCloseouts = getStationCloseouts(staff, station);
         const stationCards = stationStaff.length
           ? stationStaff.map(renderStaffCard).join("")
           : '<div class="shift-empty-state">No employees assigned.</div>';
@@ -3562,6 +3623,7 @@ ${staffSuggestion}
             <div class="shift-station-cards">
               ${stationCards}
             </div>
+            ${renderStationCloseouts(stationCloseouts)}
             ${renderStationHandoffs(stationHandoffs)}
           </section>
         `;
@@ -3952,6 +4014,7 @@ ${staffSuggestion}
     });
     const printStaff = getStaffForDay(staff, activeShiftDay);
     const handoffs = getAllStationHandoffs(printStaff);
+    const closeouts = getAllStationCloseouts(printStaff);
 
     const stationSections = shiftStations
       .map((station) => {
@@ -4009,6 +4072,19 @@ ${staffSuggestion}
           .join("")
       : '<tr><td colspan="4" class="empty">No shift handoffs within 60 minutes.</td></tr>';
 
+    const closeoutRows = closeouts.length
+      ? closeouts
+          .map((closeout) => `
+            <tr>
+              <td>${escapeHtml(closeout.station)}</td>
+              <td>${escapeHtml(closeout.person.name || "-")}</td>
+              <td>${escapeHtml(closeout.person.shiftEnd || "--:--")}</td>
+              <td>${closeout.verifyBy ? `${escapeHtml(closeout.verifyBy.name || "-")} verifies on arrival` : "No immediate next shift assigned"}</td>
+            </tr>
+          `)
+          .join("")
+      : '<tr><td colspan="4" class="empty">No clean/fill responsibilities for this day.</td></tr>';
+
     return `
       <div id="assignment-print-sheet" class="assignment-print-sheet">
         <header>
@@ -4024,6 +4100,20 @@ ${staffSuggestion}
             Generated ${escapeHtml(generatedAt)}
           </div>
         </header>
+        <section class="handoff-summary">
+          <h2>Clean + Fill By Schedule</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Station</th>
+                <th>Employee cleans + fills</th>
+                <th>Before</th>
+                <th>Next check</th>
+              </tr>
+            </thead>
+            <tbody>${closeoutRows}</tbody>
+          </table>
+        </section>
         <section class="handoff-summary">
           <h2>Shift Change Handoffs</h2>
           <table>
