@@ -136,6 +136,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const assignmentPresetAppliesToInput = document.getElementById("assignmentPresetAppliesTo");
   const saveAssignmentPresetBtn = document.getElementById("save-assignment-preset-btn");
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
+  const assignmentPreviewPanel = document.getElementById("assignment-preview-panel");
+  const assignmentPreviewBody = document.getElementById("assignment-preview-body");
+  const confirmPrintAssignmentsBtn = document.getElementById("confirm-print-assignments-btn");
+  const closeAssignmentPreviewBtn = document.getElementById("close-assignment-preview-btn");
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
@@ -3575,6 +3579,8 @@ ${staffSuggestion}
   const getAllStationCloseouts = (staff = []) =>
     shiftStations.flatMap((station) => getStationCloseouts(staff, station));
 
+  let currentPrintPreview = null;
+
   const renderStationCloseouts = (closeouts = []) => {
     if (!closeouts.length) return "";
 
@@ -3980,7 +3986,7 @@ ${staffSuggestion}
     const preset = getAssignmentPresets().find((item) => item.id === presetId);
     if (!preset || !Array.isArray(preset.staff)) return;
 
-    openAssignmentPrintWindow(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
+    showAssignmentPrintPreview(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
   };
 
   const deleteAssignmentPreset = (presetId) => {
@@ -4133,19 +4139,43 @@ ${staffSuggestion}
     `;
   };
 
-  const openAssignmentPrintWindow = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+  const renderAssignmentPrintRoot = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
     document.getElementById("assignment-print-root")?.remove();
 
     const printRoot = document.createElement("div");
     printRoot.id = "assignment-print-root";
     printRoot.innerHTML = buildAssignmentPrintMarkup(staff, title, appliesTo);
     document.body.appendChild(printRoot);
+  };
 
+  const printAssignmentPreview = () => {
+    if (!currentPrintPreview) return;
+    renderAssignmentPrintRoot(currentPrintPreview.staff, currentPrintPreview.title, currentPrintPreview.appliesTo);
     setScheduleImportStatus("Opening print dialog. Choose Print or Save as PDF.", "success");
     requestAnimationFrame(() => {
       window.print();
     });
     return true;
+  };
+
+  const showAssignmentPrintPreview = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+    if (!assignmentPreviewPanel || !assignmentPreviewBody) {
+      currentPrintPreview = { staff, title, appliesTo };
+      printAssignmentPreview();
+      return;
+    }
+
+    currentPrintPreview = { staff, title, appliesTo };
+    assignmentPreviewBody.innerHTML = buildAssignmentPrintMarkup(staff, title, appliesTo);
+    assignmentPreviewPanel.hidden = false;
+    assignmentPreviewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    setScheduleImportStatus("Preview ready. Review it, then press Print Now.", "success");
+  };
+
+  const closeAssignmentPrintPreview = () => {
+    if (assignmentPreviewPanel) assignmentPreviewPanel.hidden = true;
+    if (assignmentPreviewBody) assignmentPreviewBody.innerHTML = "";
+    currentPrintPreview = null;
   };
 
   const printAssignmentSheet = () => {
@@ -4155,7 +4185,7 @@ ${staffSuggestion}
       return;
     }
 
-    openAssignmentPrintWindow(staff);
+    showAssignmentPrintPreview(staff);
   };
 
   const renderProduction = () => {
@@ -4407,6 +4437,14 @@ ${staffSuggestion}
 
   if (printAssignmentsBtn) {
     printAssignmentsBtn.addEventListener("click", printAssignmentSheet);
+  }
+
+  if (confirmPrintAssignmentsBtn) {
+    confirmPrintAssignmentsBtn.addEventListener("click", printAssignmentPreview);
+  }
+
+  if (closeAssignmentPreviewBtn) {
+    closeAssignmentPreviewBtn.addEventListener("click", closeAssignmentPrintPreview);
   }
 
   if (saveAssignmentPresetBtn) {
