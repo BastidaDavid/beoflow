@@ -3939,7 +3939,7 @@ ${staffSuggestion}
             </div>
             <div class="assignment-preset-actions">
               <button type="button" class="secondary-btn" data-load-preset="${escapeHtml(preset.id)}">Load</button>
-              <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Print</button>
+              <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Preview</button>
               <button type="button" class="secondary-btn preset-delete-btn" data-delete-preset="${escapeHtml(preset.id)}">Delete</button>
             </div>
           </article>
@@ -4160,8 +4160,7 @@ ${staffSuggestion}
 
   const showAssignmentPrintPreview = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
     if (!assignmentPreviewPanel || !assignmentPreviewBody) {
-      currentPrintPreview = { staff, title, appliesTo };
-      printAssignmentPreview();
+      setScheduleImportStatus("Print preview is unavailable. Refresh the page and try again.", "error");
       return;
     }
 
