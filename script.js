@@ -8,7 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadBtn = document.getElementById("upload-event-btn");
   const eventImageInput = document.getElementById("eventImage");
   const uploadStatus = document.getElementById("upload-status");
-  const API_BASE_URL = "https://beoflow-api.onrender.com";
+  const API_BASE_URL = ["localhost", "127.0.0.1", ""].includes(window.location.hostname)
+    ? "http://localhost:3001"
+    : "https://beoflow-api.onrender.com";
 
   const eventNameInput = document.getElementById("eventName");
   const clientNameInput = document.getElementById("clientName");
@@ -125,9 +127,28 @@ document.addEventListener("DOMContentLoaded", () => {
   const productionTableBody = document.getElementById("production-table-body");
   const staffSection = document.getElementById("staff-section");
   const addStaffBtn = document.getElementById("add-staff-btn");
-  const staffTableBody = document.getElementById("staff-table-body");
+  const importScheduleBtn = document.getElementById("import-schedule-btn");
+  const autoAssignStationsBtn = document.getElementById("auto-assign-stations-btn");
+  const resetOriginalStationsBtn = document.getElementById("reset-original-stations-btn");
+  const printAssignmentsBtn = document.getElementById("print-assignments-btn");
+  const clearShiftReadinessBtn = document.getElementById("clear-shift-readiness-btn");
+  const assignmentPresetNameInput = document.getElementById("assignmentPresetName");
+  const assignmentPresetAppliesToInput = document.getElementById("assignmentPresetAppliesTo");
+  const saveAssignmentPresetBtn = document.getElementById("save-assignment-preset-btn");
+  const assignmentPresetsList = document.getElementById("assignment-presets-list");
+  const scheduleImageInput = document.getElementById("scheduleImage");
+  const scheduleImportStatus = document.getElementById("schedule-import-status");
+  const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
+  const shiftReadinessBoard = document.getElementById("shift-readiness-board");
+  const shiftKpiEmployees = document.getElementById("shift-kpi-employees");
+  const shiftKpiReady = document.getElementById("shift-kpi-ready");
+  const shiftKpiNotReady = document.getElementById("shift-kpi-not-ready");
+  const shiftKpiHandoffs = document.getElementById("shift-kpi-handoffs");
   const staffNameInput = document.getElementById("staffName");
   const staffRoleInput = document.getElementById("staffRole");
+  const staffStationInput = document.getElementById("staffStation");
+  const staffShiftStartInput = document.getElementById("staffShiftStart");
+  const staffShiftEndInput = document.getElementById("staffShiftEnd");
   const addInventoryBtn = document.getElementById("add-inventory-btn");
   const inventoryTableBody = document.getElementById("inventory-table-body");
   const inventoryItemNameInput = document.getElementById("inventoryItemName");
@@ -449,6 +470,103 @@ document.addEventListener("DOMContentLoaded", () => {
     return response.json();
   };
 
+  const mapApiInventoryItemToUiItem = (item = {}) => {
+    const quantity = Number(item.quantity || 0);
+    const totalCost = Number(item.total_cost || item.totalCost || 0);
+    const costPerUnit = quantity > 0 ? totalCost / quantity : 0;
+
+    return {
+      id: item.id != null ? String(item.id) : Date.now().toString(),
+      apiId: item.id,
+      name: item.name || "",
+      category: item.category || "other",
+      quantity,
+      unit: item.unit || "units",
+      totalCost,
+      storageArea: item.storage_area || item.storageArea || "Refrigerated",
+      costPerUnit,
+      cost: costPerUnit,
+      stockValue: totalCost
+    };
+  };
+
+  const mapUiInventoryItemToApiItem = (item = {}) => ({
+    name: item.name || "",
+    category: item.category || inferInventoryCategoryId(item),
+    quantity: Number(item.quantity || 0),
+    unit: item.unit || "units",
+    total_cost: Number(item.totalCost || item.stockValue || 0),
+    storage_area: item.storageArea || "Refrigerated"
+  });
+
+  const fetchInventoryFromApi = async () => {
+    const response = await fetch(`${API_BASE_URL}/inventory`);
+
+    if (!response.ok) {
+      throw new Error("Failed to load inventory from API.");
+    }
+
+    const inventory = await response.json();
+    const apiInventory = Array.isArray(inventory) ? inventory.map(mapApiInventoryItemToUiItem) : [];
+    const localPrepInventory = getInventory().filter((item) => item.sourceType === "prepRecipe");
+    saveInventory([...apiInventory, ...localPrepInventory]);
+    return apiInventory;
+  };
+
+  const createInventoryItemInApi = async (item) => {
+    const response = await fetch(`${API_BASE_URL}/inventory`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(mapUiInventoryItemToApiItem(item))
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to save inventory item to API.");
+    }
+
+    const result = await response.json();
+    return mapApiInventoryItemToUiItem(result.item);
+  };
+
+  const updateInventoryItemInApi = async (itemId, item) => {
+    if (!itemId) {
+      throw new Error("Missing inventory item ID for update request.");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/inventory/${itemId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(mapUiInventoryItemToApiItem(item))
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update inventory item in API.");
+    }
+
+    const result = await response.json();
+    return mapApiInventoryItemToUiItem(result.item);
+  };
+
+  const deleteInventoryItemInApi = async (itemId) => {
+    if (!itemId) {
+      throw new Error("Missing inventory item ID for delete request.");
+    }
+
+    const response = await fetch(`${API_BASE_URL}/inventory/${itemId}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete inventory item from API.");
+    }
+
+    return response.json();
+  };
+
   const notifySmartSetupDataChange = () => {
     window.dispatchEvent(new CustomEvent("beoflow:setup-updated"));
   };
@@ -510,16 +628,31 @@ document.addEventListener("DOMContentLoaded", () => {
     notifySmartSetupDataChange();
   };
 
+  const SHIFT_READINESS_KEY = "beoflow_shift_readiness";
+  const SHIFT_ASSIGNMENT_PRESETS_KEY = "beoflow_shift_assignment_presets";
+
   const getStaff = () => {
     try {
-      return JSON.parse(localStorage.getItem("beoflow_staff")) || [];
+      return JSON.parse(localStorage.getItem(SHIFT_READINESS_KEY)) || [];
     } catch {
       return [];
     }
   };
 
   const saveStaff = (staff) => {
-    localStorage.setItem("beoflow_staff", JSON.stringify(staff));
+    localStorage.setItem(SHIFT_READINESS_KEY, JSON.stringify(staff));
+  };
+
+  const getAssignmentPresets = () => {
+    try {
+      return JSON.parse(localStorage.getItem(SHIFT_ASSIGNMENT_PRESETS_KEY)) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveAssignmentPresets = (presets) => {
+    localStorage.setItem(SHIFT_ASSIGNMENT_PRESETS_KEY, JSON.stringify(presets));
   };
 
   const SMART_SETUP_KEY = "beoflow_smart_setup";
@@ -850,8 +983,8 @@ document.addEventListener("DOMContentLoaded", () => {
       subtitle: "Track what needs to be prepared and assigned"
     },
     staff: {
-      title: "Staff",
-      subtitle: "Manage team assignments and roles"
+      title: "Shift Readiness",
+      subtitle: "Assign kitchen stations and print the station sheet"
     },
     eventForm: {
       title: "Event Form",
@@ -3088,7 +3221,7 @@ ${staffSuggestion}
         }
 
         if (deleteBtn) {
-          deleteBtn.addEventListener("click", () => {
+          deleteBtn.addEventListener("click", async () => {
             if (isPrepRecipeItem) {
               const confirmDeletePrep = confirm(`Delete prep recipe ${item.name || "this prep recipe"}? This removes it from Prep Recipes and Inventory.`);
               if (!confirmDeletePrep) return;
@@ -3103,6 +3236,12 @@ ${staffSuggestion}
 
             const confirmDelete = confirm(`Delete ${item.name || "this inventory item"}?`);
             if (!confirmDelete) return;
+
+            try {
+              await deleteInventoryItemInApi(item.apiId || item.id);
+            } catch (error) {
+              console.warn("Inventory item deleted locally because API delete failed:", error);
+            }
 
             const updatedInventory = getInventory().filter((inventoryItem) => inventoryItem.id !== item.id);
             saveInventory(updatedInventory);
@@ -3134,7 +3273,7 @@ ${staffSuggestion}
     });
   };
 
-  const addInventoryItem = () => {
+  const addInventoryItem = async () => {
     const name = inventoryItemNameInput ? inventoryItemNameInput.value.trim() : "";
     const category = inventoryCategoryInput ? inventoryCategoryInput.value : "";
     const quantity = inventoryQuantityInput ? Number(inventoryQuantityInput.value) : 0;
@@ -3149,39 +3288,47 @@ ${staffSuggestion}
     }
 
     const inventory = getInventory();
+    const inventoryItem = {
+      id: editingInventoryItemId || Date.now().toString(),
+      name,
+      category: category || inferInventoryCategoryId({ name, storageArea, unit }),
+      quantity,
+      unit,
+      totalCost,
+      storageArea,
+      costPerUnit,
+      cost: costPerUnit,
+      stockValue: totalCost
+    };
 
     if (editingInventoryItemId) {
-      const updatedInventory = inventory.map((item) => {
-        if (item.id !== editingInventoryItemId) return item;
-        return {
-          ...item,
-          name,
-          category: category || inferInventoryCategoryId({ name, storageArea, unit }),
-          quantity,
-          unit,
-          totalCost,
-          storageArea,
-          costPerUnit,
-          cost: costPerUnit,
-          stockValue: totalCost
-        };
-      });
+      const existingItem = inventory.find((item) => item.id === editingInventoryItemId) || {};
+      let savedItem = {
+        ...existingItem,
+        ...inventoryItem,
+        apiId: existingItem.apiId
+      };
+
+      try {
+        savedItem = await updateInventoryItemInApi(existingItem.apiId || existingItem.id, savedItem);
+      } catch (error) {
+        console.warn("Inventory item updated locally because API update failed:", error);
+      }
+
+      const updatedInventory = inventory.map((item) => item.id === editingInventoryItemId ? savedItem : item);
       saveInventory(updatedInventory);
       editingInventoryItemId = null;
       if (addInventoryBtn) addInventoryBtn.textContent = "Add Inventory Item";
     } else {
-      inventory.push({
-        id: Date.now().toString(),
-        name,
-        category: category || inferInventoryCategoryId({ name, storageArea, unit }),
-        quantity,
-        unit,
-        totalCost,
-        storageArea,
-        costPerUnit,
-        cost: costPerUnit,
-        stockValue: totalCost
-      });
+      let savedItem = inventoryItem;
+
+      try {
+        savedItem = await createInventoryItemInApi(inventoryItem);
+      } catch (error) {
+        console.warn("Inventory item saved locally because API create failed:", error);
+      }
+
+      inventory.push(savedItem);
       saveInventory(inventory);
     }
 
@@ -3199,43 +3346,243 @@ ${staffSuggestion}
     if (inventoryTotalCostInput) inventoryTotalCostInput.value = "";
     if (inventoryStorageAreaInput) inventoryStorageAreaInput.value = "Refrigerated";
   };
-  const renderStaff = () => {
-    const staff = getStaff();
+  const shiftStations = ["Flat Top", "Broiler/Grill", "Fry", "Pantry", "Prep", "Expo", "Line Support"];
+  const shiftHandoffWindowMinutes = 60;
+  const shiftDays = [
+    { key: "mon", label: "Mon" },
+    { key: "tue", label: "Tue" },
+    { key: "wed", label: "Wed" },
+    { key: "thu", label: "Thu" },
+    { key: "fri", label: "Fri" },
+    { key: "sat", label: "Sat" },
+    { key: "sun", label: "Sun" }
+  ];
+  let activeShiftDay = "mon";
 
-    if (!staffTableBody) return;
+  const escapeHtml = (value = "") =>
+    String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
 
-    staffTableBody.innerHTML = "";
+  const getShiftDayLabel = (dayKey = activeShiftDay) =>
+    shiftDays.find((day) => day.key === dayKey)?.label || "Mon";
 
-    if (staff.length === 0) {
-      staffTableBody.innerHTML = `
-        <tr>
-          <td colspan="3" style="color:#64748b; text-align:center; padding:20px;">
-            No staff added yet.
-          </td>
-        </tr>
-      `;
-      return;
-    }
+  const getPersonDayAssignment = (person = {}, dayKey = activeShiftDay) => {
+    const dayAssignment = person.assignments?.[dayKey];
+    if (dayAssignment) return dayAssignment;
 
-    staff.forEach((person) => {
-      const row = document.createElement("tr");
+    return {
+      station: person.station || "Flat Top",
+      shiftStart: person.shiftStart || "",
+      shiftEnd: person.shiftEnd || ""
+    };
+  };
 
-      row.innerHTML = `
-        <td>${person.name || "-"}</td>
-        <td>${person.role || "-"}</td>
-        <td>${person.tasks || "No tasks yet"}</td>
-      `;
+  const normalizePersonForDay = (person = {}, dayKey = activeShiftDay) => {
+    const dayAssignment = getPersonDayAssignment(person, dayKey);
 
-      staffTableBody.appendChild(row);
+    return {
+      ...person,
+      station: dayAssignment.station || person.station || "Flat Top",
+      shiftStart: dayAssignment.shiftStart || person.shiftStart || "",
+      shiftEnd: dayAssignment.shiftEnd || person.shiftEnd || ""
+    };
+  };
+
+  const getStaffForDay = (staff = getStaff(), dayKey = activeShiftDay) =>
+    staff.map((person) => normalizePersonForDay(person, dayKey));
+
+  const buildAssignmentsForAllDays = ({ station, shiftStart, shiftEnd }) =>
+    shiftDays.reduce((assignments, day) => {
+      assignments[day.key] = { station, shiftStart, shiftEnd };
+      return assignments;
+    }, {});
+
+  const timeToMinutes = (time = "") => {
+    const [hours, minutes] = String(time).split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const getShiftMinutes = (person = {}) => {
+    const start = timeToMinutes(person.shiftStart);
+    let end = timeToMinutes(person.shiftEnd);
+
+    if (start == null || end == null) return null;
+    if (end <= start) end += 24 * 60;
+
+    return { start, end };
+  };
+
+  const isOvernightShift = (person = {}) => {
+    const start = timeToMinutes(person.shiftStart);
+    const end = timeToMinutes(person.shiftEnd);
+    return start != null && end != null && end <= start;
+  };
+
+  const formatShiftTimeRange = (person = {}) => {
+    const range = `${person.shiftStart || "--:--"} - ${person.shiftEnd || "--:--"}`;
+    return isOvernightShift(person) ? `${range} (next day)` : range;
+  };
+
+  const renderStaffCard = (person) => {
+    return `
+      <article class="shift-employee-card" data-staff-id="${escapeHtml(person.id)}">
+        <div class="shift-card-header">
+          <div>
+            <h4>${escapeHtml(person.name || "Unnamed employee")}</h4>
+            <p>${escapeHtml(person.role || "Role not set")} · ${getShiftDayLabel(activeShiftDay)}</p>
+          </div>
+        </div>
+        <div class="shift-time-row">
+          <span>${escapeHtml(formatShiftTimeRange(person))}</span>
+        </div>
+        <div class="shift-card-times">
+          <label>
+            <span>Start</span>
+            <input type="time" data-day-start value="${escapeHtml(person.shiftStart || "")}" />
+          </label>
+          <label>
+            <span>End</span>
+            <input type="time" data-day-end value="${escapeHtml(person.shiftEnd || "")}" />
+          </label>
+        </div>
+        <label class="shift-card-station">
+          <span>Station assignment</span>
+          <select data-station-assignment>
+            ${shiftStations
+              .map((station) => `<option value="${escapeHtml(station)}" ${person.station === station ? "selected" : ""}>${escapeHtml(station)}</option>`)
+              .join("")}
+          </select>
+        </label>
+        <button type="button" class="secondary-btn shift-delete-btn" data-delete-staff="${escapeHtml(person.id)}">Delete employee</button>
+      </article>
+    `;
+  };
+
+  const formatDurationMinutes = (minutes) => {
+    const absMinutes = Math.abs(minutes);
+    if (absMinutes === 0) return "same time";
+    if (absMinutes === 1) return "1 min";
+    return `${absMinutes} min`;
+  };
+
+  const getStationHandoffs = (staff = [], station = "") => {
+    const stationStaff = staff
+      .filter((person) => person.station === station)
+      .map((person) => ({
+        person,
+        shift: getShiftMinutes(person)
+      }))
+      .filter((item) => item.shift)
+      .sort((a, b) => a.shift.start - b.shift.start);
+
+    const handoffs = [];
+
+    stationStaff.forEach((outgoing) => {
+      stationStaff.forEach((incoming) => {
+        if (outgoing.person.id === incoming.person.id) return;
+
+        let startDelta = incoming.shift.start - outgoing.shift.end;
+        if (startDelta < -12 * 60) startDelta += 24 * 60;
+        if (startDelta > 12 * 60) startDelta -= 24 * 60;
+
+        if (Math.abs(startDelta) <= shiftHandoffWindowMinutes) {
+          handoffs.push({
+            station,
+            outgoing: outgoing.person,
+            incoming: incoming.person,
+            startDelta
+          });
+        }
+      });
     });
+
+    return handoffs;
+  };
+
+  const getAllStationHandoffs = (staff = []) =>
+    shiftStations.flatMap((station) => getStationHandoffs(staff, station));
+
+  const renderStationHandoffs = (handoffs = []) => {
+    if (!handoffs.length) return "";
+
+    return `
+      <div class="shift-handoff-list">
+        <h4>Shift change handoff</h4>
+        ${handoffs
+          .map((handoff) => {
+            const timing = handoff.startDelta === 0
+              ? "same time"
+              : handoff.startDelta > 0
+                ? `${formatDurationMinutes(handoff.startDelta)} after`
+                : `${formatDurationMinutes(handoff.startDelta)} overlap`;
+
+            return `
+              <div class="shift-handoff-card">
+                <strong>${escapeHtml(handoff.outgoing.name || "-")} fills station before leaving</strong>
+                <span>${escapeHtml(handoff.incoming.name || "-")} verifies on arrival (${timing})</span>
+              </div>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  };
+
+  const renderStaff = () => {
+    const staff = getStaffForDay();
+    const assignedCount = staff.filter((person) => shiftStations.includes(person.station)).length;
+    const openStationsCount = shiftStations.filter((station) => !staff.some((person) => person.station === station)).length;
+    const handoffs = getAllStationHandoffs(staff);
+
+    if (shiftKpiEmployees) shiftKpiEmployees.textContent = staff.length;
+    if (shiftKpiReady) shiftKpiReady.textContent = assignedCount;
+    if (shiftKpiNotReady) shiftKpiNotReady.textContent = openStationsCount;
+    if (shiftKpiHandoffs) shiftKpiHandoffs.textContent = handoffs.length;
+    if (!shiftReadinessBoard) return;
+
+    shiftReadinessBoard.innerHTML = shiftStations
+      .map((station) => {
+        const stationStaff = staff.filter((person) => person.station === station);
+        const stationHandoffs = getStationHandoffs(staff, station);
+        const stationCards = stationStaff.length
+          ? stationStaff.map(renderStaffCard).join("")
+          : '<div class="shift-empty-state">No employees assigned.</div>';
+
+        return `
+          <section class="shift-station-column">
+            <div class="shift-station-header">
+              <h3>${station}</h3>
+              <span>${stationStaff.length}</span>
+            </div>
+            <div class="shift-station-cards">
+              ${stationCards}
+            </div>
+            ${renderStationHandoffs(stationHandoffs)}
+          </section>
+        `;
+      })
+      .join("");
   };
 
   const addStaff = () => {
     const name = staffNameInput ? staffNameInput.value.trim() : "";
     const role = staffRoleInput ? staffRoleInput.value : "Chef";
+    const station = staffStationInput ? staffStationInput.value : "Flat Top";
+    const shiftStart = staffShiftStartInput ? staffShiftStartInput.value : "";
+    const shiftEnd = staffShiftEndInput ? staffShiftEndInput.value : "";
 
     if (!name) {
-      alert("Enter staff name.");
+      alert("Enter employee name.");
+      return;
+    }
+
+    if (!shiftStart || !shiftEnd) {
+      alert("Enter shift start and shift end.");
       return;
     }
 
@@ -3245,7 +3592,11 @@ ${staffSuggestion}
       id: Date.now().toString(),
       name,
       role,
-      tasks: ""
+      station,
+      originalStation: station,
+      shiftStart,
+      shiftEnd,
+      assignments: buildAssignmentsForAllDays({ station, shiftStart, shiftEnd })
     });
 
     saveStaff(staff);
@@ -3253,6 +3604,502 @@ ${staffSuggestion}
 
     if (staffNameInput) staffNameInput.value = "";
     if (staffRoleInput) staffRoleInput.value = "Chef";
+    if (staffStationInput) staffStationInput.value = "Flat Top";
+    if (staffShiftStartInput) staffShiftStartInput.value = "";
+    if (staffShiftEndInput) staffShiftEndInput.value = "";
+  };
+
+  const updateStaffStation = (staffId, station) => {
+    if (!shiftStations.includes(station)) return;
+
+    const staff = getStaff();
+    const updatedStaff = staff.map((person) => {
+      if (person.id !== staffId) return person;
+      const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
+      return {
+        ...person,
+        station,
+        originalStation: person.originalStation || station,
+        assignments: {
+          ...person.assignments,
+          [activeShiftDay]: {
+            ...currentAssignment,
+            station
+          }
+        }
+      };
+    });
+
+    saveStaff(updatedStaff);
+    renderStaff();
+    setScheduleImportStatus("Station assignment updated.", "success");
+  };
+
+  const updateStaffDayTime = (staffId, field, value) => {
+    if (!["shiftStart", "shiftEnd"].includes(field)) return;
+
+    const staff = getStaff();
+    const updatedStaff = staff.map((person) => {
+      if (person.id !== staffId) return person;
+      const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
+      return {
+        ...person,
+        [field]: value,
+        assignments: {
+          ...person.assignments,
+          [activeShiftDay]: {
+            ...currentAssignment,
+            [field]: value
+          }
+        }
+      };
+    });
+
+    saveStaff(updatedStaff);
+    renderStaff();
+    setScheduleImportStatus(`${getShiftDayLabel(activeShiftDay)} shift time updated.`, "success");
+  };
+
+  const deleteStaff = (staffId) => {
+    saveStaff(getStaff().filter((person) => person.id !== staffId));
+    renderStaff();
+  };
+
+  const getStationCombinationCount = (employeeCount) => {
+    if (!employeeCount) return "0";
+
+    const combinations = BigInt(shiftStations.length) ** BigInt(employeeCount);
+    return combinations.toLocaleString("en-US");
+  };
+
+  const setScheduleImportStatus = (message, type = "info") => {
+    if (!scheduleImportStatus) return;
+    scheduleImportStatus.textContent = message;
+    scheduleImportStatus.dataset.type = type;
+    scheduleImportStatus.hidden = !message;
+  };
+
+  const getBalancedRandomStation = (staff = []) => {
+    const stationCounts = shiftStations.reduce((counts, station) => {
+      counts[station] = staff.filter((person) => person.station === station).length;
+      return counts;
+    }, {});
+    const lowestCount = Math.min(...Object.values(stationCounts));
+    const availableStations = shiftStations.filter((station) => stationCounts[station] === lowestCount);
+    return availableStations[Math.floor(Math.random() * availableStations.length)] || "Line Support";
+  };
+
+  const normalizeImportedEmployee = (employee = {}, existingStaff = []) => {
+    const name = String(employee.name || "").trim();
+    if (!name) return null;
+    const station = shiftStations.includes(employee.station) ? employee.station : getBalancedRandomStation(existingStaff);
+
+    return {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name,
+      role: employee.role || "Line Cook",
+      station,
+      originalStation: station,
+      shiftStart: employee.shiftStart || "",
+      shiftEnd: employee.shiftEnd || "",
+      assignments: buildAssignmentsForAllDays({
+        station,
+        shiftStart: employee.shiftStart || "",
+        shiftEnd: employee.shiftEnd || ""
+      }),
+      sourceLabel: employee.sourceLabel || "Imported schedule"
+    };
+  };
+
+  const getImageMimeType = (file) => {
+    if (file?.type) return file.type;
+
+    const filename = String(file?.name || "").toLowerCase();
+    if (filename.endsWith(".heic")) return "image/heic";
+    if (filename.endsWith(".heif")) return "image/heif";
+    if (filename.endsWith(".png")) return "image/png";
+    if (filename.endsWith(".webp")) return "image/webp";
+    if (filename.endsWith(".gif")) return "image/gif";
+    return "image/jpeg";
+  };
+
+  const importScheduleImage = async (file) => {
+    if (!file) return;
+
+    setScheduleImportStatus(`Reading ${file.name}...`, "info");
+    if (importScheduleBtn) importScheduleBtn.disabled = true;
+
+    try {
+      const imageBase64 = await fileToBase64(file);
+      const response = await fetch(`${API_BASE_URL}/api/extract-shift-schedule`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          imageBase64,
+          mimeType: getImageMimeType(file)
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Schedule image could not be read.");
+      }
+
+      const staff = getStaff();
+      const importedStaff = (result.employees || []).reduce((items, employee) => {
+        const normalizedEmployee = normalizeImportedEmployee(employee, [...staff, ...items]);
+        if (normalizedEmployee && normalizedEmployee.shiftStart && normalizedEmployee.shiftEnd) {
+          items.push(normalizedEmployee);
+        }
+        return items;
+      }, []);
+
+      if (!importedStaff.length) {
+        setScheduleImportStatus("No readable working shifts were found. Try a clearer photo or crop around the schedule grid.", "warning");
+        return;
+      }
+
+      saveStaff([...staff, ...importedStaff]);
+      renderStaff();
+
+      const notes = Array.isArray(result.notes) && result.notes.length ? ` ${result.notes.slice(0, 2).join(" ")}` : "";
+      setScheduleImportStatus(`Imported ${importedStaff.length} employees from the schedule.${notes}`, "success");
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof TypeError && error.message === "Failed to fetch"
+        ? "Backend is not running. Start it with `node server.js`, then try importing the schedule again."
+        : error.message || "Schedule image could not be read.";
+      setScheduleImportStatus(message, "error");
+    } finally {
+      if (importScheduleBtn) importScheduleBtn.disabled = false;
+      if (scheduleImageInput) scheduleImageInput.value = "";
+    }
+  };
+
+  const autoAssignStaffStations = () => {
+    const staff = getStaff();
+    if (!staff.length) {
+      setScheduleImportStatus("There are no employees to assign yet.", "warning");
+      return;
+    }
+
+    const assignedStaff = staff.map((person) => {
+      const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
+      const station = shiftStations[Math.floor(Math.random() * shiftStations.length)];
+
+      return {
+        ...person,
+        originalStation: person.originalStation || currentAssignment.station || "Line Support",
+        station,
+        assignments: {
+          ...person.assignments,
+          [activeShiftDay]: {
+            ...currentAssignment,
+            station
+          }
+        }
+      };
+    });
+
+    saveStaff(assignedStaff);
+    renderStaff();
+    setScheduleImportStatus(
+      `New ${getShiftDayLabel(activeShiftDay)} random station assignment created. Repeats are allowed. Possible combinations: ${getStationCombinationCount(staff.length)}.`,
+      "success"
+    );
+  };
+
+  const resetOriginalStaffStations = () => {
+    const staff = getStaff();
+    if (!staff.length) {
+      setScheduleImportStatus("There are no employees to reset.", "warning");
+      return;
+    }
+
+    const resetStaff = staff.map((person) => {
+      const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
+      const station = person.originalStation || currentAssignment.station || "Line Support";
+
+      return {
+        ...person,
+        station,
+        assignments: {
+          ...person.assignments,
+          [activeShiftDay]: {
+            ...currentAssignment,
+            station
+          }
+        }
+      };
+    });
+
+    saveStaff(resetStaff);
+    renderStaff();
+    setScheduleImportStatus("Stations restored to the original imported/manual assignment.", "success");
+  };
+
+  const clearShiftReadiness = () => {
+    saveStaff([]);
+    renderStaff();
+    setScheduleImportStatus("Shift Readiness table cleared.", "success");
+  };
+
+  const renderAssignmentPresets = () => {
+    if (!assignmentPresetsList) return;
+
+    const presets = getAssignmentPresets();
+
+    if (!presets.length) {
+      assignmentPresetsList.innerHTML = '<div class="assignment-preset-empty">No saved assignments yet.</div>';
+      return;
+    }
+
+    assignmentPresetsList.innerHTML = presets
+      .map((preset) => {
+        const createdAt = preset.createdAt
+          ? new Date(preset.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
+          : "Saved";
+
+        return `
+          <article class="assignment-preset-card">
+            <div>
+              <h4>${escapeHtml(preset.name || "Saved assignment")}</h4>
+              <p>${escapeHtml(createdAt)} · ${Array.isArray(preset.staff) ? preset.staff.length : 0} employees${preset.appliesTo ? ` · ${escapeHtml(preset.appliesTo)}` : ""}</p>
+            </div>
+            <div class="assignment-preset-actions">
+              <button type="button" class="secondary-btn" data-load-preset="${escapeHtml(preset.id)}">Load</button>
+              <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Print</button>
+              <button type="button" class="secondary-btn preset-delete-btn" data-delete-preset="${escapeHtml(preset.id)}">Delete</button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  };
+
+  const saveCurrentAssignmentPreset = () => {
+    const staff = getStaff();
+    if (!staff.length) {
+      setScheduleImportStatus("Add or import employees before saving an assignment.", "warning");
+      return;
+    }
+
+    const presets = getAssignmentPresets();
+    const name = assignmentPresetNameInput?.value.trim() || `Assignment ${presets.length + 1}`;
+    const appliesTo = assignmentPresetAppliesToInput?.value.trim() || "";
+    const preset = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name,
+      appliesTo,
+      createdAt: new Date().toISOString(),
+      staff: staff.map((person) => ({ ...person }))
+    };
+
+    saveAssignmentPresets([preset, ...presets]);
+    if (assignmentPresetNameInput) assignmentPresetNameInput.value = "";
+    if (assignmentPresetAppliesToInput) assignmentPresetAppliesToInput.value = "";
+    renderAssignmentPresets();
+    setScheduleImportStatus(`Saved assignment "${name}".`, "success");
+  };
+
+  const loadAssignmentPreset = (presetId) => {
+    const preset = getAssignmentPresets().find((item) => item.id === presetId);
+    if (!preset || !Array.isArray(preset.staff)) return;
+
+    saveStaff(preset.staff.map((person) => ({ ...person })));
+    renderStaff();
+    setScheduleImportStatus(`Loaded assignment "${preset.name || "Saved assignment"}"${preset.appliesTo ? ` for ${preset.appliesTo}` : ""}.`, "success");
+  };
+
+  const printAssignmentPreset = (presetId) => {
+    const preset = getAssignmentPresets().find((item) => item.id === presetId);
+    if (!preset || !Array.isArray(preset.staff)) return;
+
+    openAssignmentPrintWindow(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
+  };
+
+  const deleteAssignmentPreset = (presetId) => {
+    const presets = getAssignmentPresets();
+    const preset = presets.find((item) => item.id === presetId);
+    saveAssignmentPresets(presets.filter((item) => item.id !== presetId));
+    renderAssignmentPresets();
+    setScheduleImportStatus(`Deleted assignment "${preset?.name || "Saved assignment"}".`, "success");
+  };
+
+  const setActiveShiftDay = (dayKey) => {
+    if (!shiftDays.some((day) => day.key === dayKey)) return;
+
+    activeShiftDay = dayKey;
+    shiftDayTabs.forEach((tab) => {
+      const isActive = tab.dataset.shiftDay === activeShiftDay;
+      tab.classList.toggle("is-active", isActive);
+      tab.setAttribute("aria-selected", String(isActive));
+    });
+    renderStaff();
+    setScheduleImportStatus(`Showing ${getShiftDayLabel(activeShiftDay)} assignments.`, "info");
+  };
+
+  const buildAssignmentPrintHtml = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+    const generatedAt = new Date().toLocaleString([], {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    });
+    const printStaff = getStaffForDay(staff, activeShiftDay);
+    const handoffs = getAllStationHandoffs(printStaff);
+
+    const stationSections = shiftStations
+      .map((station) => {
+        const stationStaff = printStaff.filter((person) => person.station === station);
+        const rows = stationStaff.length
+          ? stationStaff
+              .map(
+                (person) => `
+                  <tr>
+                    <td>${escapeHtml(person.name || "-")}</td>
+                    <td>${escapeHtml(person.role || "-")}</td>
+                    <td>${escapeHtml(formatShiftTimeRange(person))}</td>
+                  </tr>
+                `
+              )
+              .join("")
+          : '<tr><td colspan="3" class="empty">No one assigned</td></tr>';
+
+        return `
+          <section>
+            <h2>${escapeHtml(station)}</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Role</th>
+                  <th>Shift</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </section>
+        `;
+      })
+      .join("");
+
+    const handoffRows = handoffs.length
+      ? handoffs
+          .map((handoff) => {
+            const timing = handoff.startDelta === 0
+              ? "Same time"
+              : handoff.startDelta > 0
+                ? `${formatDurationMinutes(handoff.startDelta)} after`
+                : `${formatDurationMinutes(handoff.startDelta)} overlap`;
+
+            return `
+              <tr>
+                <td>${escapeHtml(handoff.station)}</td>
+                <td>${escapeHtml(handoff.outgoing.name || "-")}</td>
+                <td>${escapeHtml(handoff.incoming.name || "-")}</td>
+                <td>${timing}</td>
+              </tr>
+            `;
+          })
+          .join("")
+      : '<tr><td colspan="4" class="empty">No shift handoffs within 60 minutes.</td></tr>';
+
+    return `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <title>BEOFlow Station Assignment Sheet</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { margin: 0; padding: 28px; color: #0f172a; font-family: Arial, sans-serif; }
+          header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 3px solid #0f172a; padding-bottom: 14px; margin-bottom: 22px; }
+          .brand { display: flex; align-items: center; gap: 12px; }
+          .brand img { width: 54px; height: 54px; object-fit: contain; }
+          h1 { margin: 0; font-size: 28px; }
+          header p { margin: 6px 0 0; color: #475569; font-size: 14px; }
+          .meta { text-align: right; font-size: 13px; color: #475569; }
+          .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+          .handoff-summary { margin-bottom: 18px; border: 2px solid #0f172a; border-radius: 10px; overflow: hidden; }
+          section { break-inside: avoid; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+          h2 { margin: 0; padding: 10px 12px; background: #0f172a; color: #ffffff; font-size: 17px; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 13px; }
+          th { background: #f8fafc; color: #334155; font-weight: 700; }
+          tr:last-child td { border-bottom: 0; }
+          .empty { color: #64748b; font-style: italic; }
+          @media print {
+            body { padding: 18px; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <header>
+          <div class="brand">
+            <img src="img/logobeoflow.png" alt="Bastida Systems logo" />
+            <div>
+            <h1>${escapeHtml(title)}</h1>
+              <p>BEOFlow Shift Readiness · Bastida Systems · ${getShiftDayLabel(activeShiftDay)}${appliesTo ? ` · ${escapeHtml(appliesTo)}` : ""}</p>
+            </div>
+          </div>
+          <div class="meta">
+            <strong>${staff.length}</strong> employees<br />
+            Generated ${escapeHtml(generatedAt)}
+          </div>
+        </header>
+        <section class="handoff-summary">
+          <h2>Shift Change Handoffs</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Station</th>
+                <th>Leaving fills station</th>
+                <th>Arriving verifies station</th>
+                <th>Timing</th>
+              </tr>
+            </thead>
+            <tbody>${handoffRows}</tbody>
+          </table>
+        </section>
+        <main class="grid">${stationSections}</main>
+        <script>
+          window.addEventListener("load", () => {
+            window.print();
+          });
+        <\/script>
+      </body>
+      </html>
+    `;
+  };
+
+  const openAssignmentPrintWindow = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+    const printWindow = window.open("", "_blank", "width=1000,height=800");
+    if (!printWindow) {
+      setScheduleImportStatus("Popup blocked. Allow popups to print the assignment sheet.", "error");
+      return false;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(buildAssignmentPrintHtml(staff, title, appliesTo));
+    printWindow.document.close();
+    setScheduleImportStatus("Assignment sheet opened. Use Print or Save as PDF.", "success");
+    return true;
+  };
+
+  const printAssignmentSheet = () => {
+    const staff = getStaff();
+    if (!staff.length) {
+      setScheduleImportStatus("Add or import employees before printing the assignment sheet.", "warning");
+      return;
+    }
+
+    openAssignmentPrintWindow(staff);
   };
 
   const renderProduction = () => {
@@ -3478,6 +4325,118 @@ ${staffSuggestion}
     addStaffBtn.addEventListener("click", addStaff);
   }
 
+  shiftDayTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      setActiveShiftDay(tab.dataset.shiftDay);
+    });
+  });
+
+  if (importScheduleBtn && scheduleImageInput) {
+    importScheduleBtn.addEventListener("click", () => {
+      scheduleImageInput.click();
+    });
+
+    scheduleImageInput.addEventListener("change", () => {
+      importScheduleImage(scheduleImageInput.files?.[0]);
+    });
+  }
+
+  if (autoAssignStationsBtn) {
+    autoAssignStationsBtn.addEventListener("click", autoAssignStaffStations);
+  }
+
+  if (resetOriginalStationsBtn) {
+    resetOriginalStationsBtn.addEventListener("click", resetOriginalStaffStations);
+  }
+
+  if (printAssignmentsBtn) {
+    printAssignmentsBtn.addEventListener("click", printAssignmentSheet);
+  }
+
+  if (saveAssignmentPresetBtn) {
+    saveAssignmentPresetBtn.addEventListener("click", saveCurrentAssignmentPreset);
+  }
+
+  if (assignmentPresetNameInput) {
+    assignmentPresetNameInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveCurrentAssignmentPreset();
+      }
+    });
+  }
+
+  if (assignmentPresetAppliesToInput) {
+    assignmentPresetAppliesToInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveCurrentAssignmentPreset();
+      }
+    });
+  }
+
+  if (assignmentPresetsList) {
+    assignmentPresetsList.addEventListener("click", (e) => {
+      const loadButton = e.target.closest("[data-load-preset]");
+      if (loadButton) {
+        loadAssignmentPreset(loadButton.dataset.loadPreset);
+        return;
+      }
+
+      const printButton = e.target.closest("[data-print-preset]");
+      if (printButton) {
+        printAssignmentPreset(printButton.dataset.printPreset);
+        return;
+      }
+
+      const deleteButton = e.target.closest("[data-delete-preset]");
+      if (deleteButton) {
+        deleteAssignmentPreset(deleteButton.dataset.deletePreset);
+      }
+    });
+  }
+
+  if (clearShiftReadinessBtn) {
+    clearShiftReadinessBtn.addEventListener("click", clearShiftReadiness);
+  }
+
+  if (shiftReadinessBoard) {
+    shiftReadinessBoard.addEventListener("change", (e) => {
+      const startInput = e.target.closest("[data-day-start]");
+      if (startInput) {
+        const card = startInput.closest("[data-staff-id]");
+        if (!card) return;
+
+        updateStaffDayTime(card.dataset.staffId, "shiftStart", startInput.value);
+        return;
+      }
+
+      const endInput = e.target.closest("[data-day-end]");
+      if (endInput) {
+        const card = endInput.closest("[data-staff-id]");
+        if (!card) return;
+
+        updateStaffDayTime(card.dataset.staffId, "shiftEnd", endInput.value);
+        return;
+      }
+
+      const stationSelect = e.target.closest("[data-station-assignment]");
+      if (stationSelect) {
+        const card = stationSelect.closest("[data-staff-id]");
+        if (!card) return;
+
+        updateStaffStation(card.dataset.staffId, stationSelect.value);
+      }
+    });
+
+    shiftReadinessBoard.addEventListener("click", (e) => {
+      const deleteButton = e.target.closest("[data-delete-staff]");
+      if (!deleteButton) return;
+
+      deleteStaff(deleteButton.dataset.deleteStaff);
+    });
+  }
+
   if (createBtn) {
     createBtn.addEventListener("click", () => {
       resetFormState();
@@ -3568,8 +4527,14 @@ ${staffSuggestion}
   renderMenus();
   renderRecipes();
   renderSubRecipes();
-  renderInventory();
+  fetchInventoryFromApi()
+    .catch((error) => {
+      console.warn("Using local inventory because API is unavailable:", error);
+    })
+    .finally(renderInventory);
   renderStaff();
+  renderAssignmentPresets();
+  setInterval(renderStaff, 60000);
   renderProduction();
   renderSmartSetup();
   openSmartSetupIfIncomplete();

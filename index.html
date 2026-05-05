@@ -28,7 +28,7 @@
         <a href="#" id="nav-sub-recipes">Prep Recipes</a>
         <a href="#" id="nav-inventory">Inventory</a>
         <a href="#" id="nav-production">Production</a>
-        <a href="#" id="nav-staff">Staff</a>
+        <a href="#" id="nav-staff">Shift Readiness</a>
         <a href="#">Reports</a>
       </nav>
     </aside>
@@ -788,13 +788,71 @@
 
       <section id="staff-section" class="table-section" hidden>
         <div class="section-header">
-          <h2>Staff</h2>
-          <p>Manage team assignments and roles</p>
+          <h2>Shift Readiness</h2>
+          <p>Assign each employee to a kitchen station, then print the station sheet for the line.</p>
         </div>
 
-        <div class="form-grid">
+        <div class="shift-day-tabs" role="tablist" aria-label="Schedule day">
+          <button type="button" class="shift-day-tab is-active" data-shift-day="mon">Mon</button>
+          <button type="button" class="shift-day-tab" data-shift-day="tue">Tue</button>
+          <button type="button" class="shift-day-tab" data-shift-day="wed">Wed</button>
+          <button type="button" class="shift-day-tab" data-shift-day="thu">Thu</button>
+          <button type="button" class="shift-day-tab" data-shift-day="fri">Fri</button>
+          <button type="button" class="shift-day-tab" data-shift-day="sat">Sat</button>
+          <button type="button" class="shift-day-tab" data-shift-day="sun">Sun</button>
+        </div>
+
+        <div class="shift-kpi-grid" aria-label="Station assignment KPIs">
+          <div class="shift-kpi-card">
+            <span id="shift-kpi-employees">0</span>
+            <small>Employees on shift</small>
+          </div>
+          <div class="shift-kpi-card assigned">
+            <span id="shift-kpi-ready">0</span>
+            <small>Assigned employees</small>
+          </div>
+          <div class="shift-kpi-card unassigned">
+            <span id="shift-kpi-not-ready">0</span>
+            <small>Open stations</small>
+          </div>
+          <div class="shift-kpi-card handoff">
+            <span id="shift-kpi-handoffs">0</span>
+            <small>Shift handoffs</small>
+          </div>
+        </div>
+
+        <div class="shift-import-panel">
+          <div>
+            <h3>Read schedule image</h3>
+            <p>Upload a kitchen schedule photo, then assign imported employees to stations manually or at random.</p>
+          </div>
+          <div class="shift-import-actions">
+            <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
+            <button type="button" id="import-schedule-btn" class="secondary-btn">Import Schedule Image</button>
+            <button type="button" id="auto-assign-stations-btn" class="secondary-btn">Auto Assign Stations</button>
+            <button type="button" id="reset-original-stations-btn" class="secondary-btn">Reset Original</button>
+            <button type="button" id="print-assignments-btn" class="primary-btn print-assignments-btn">Print Assignment Sheet</button>
+            <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear Table</button>
+          </div>
+          <div id="schedule-import-status" class="schedule-import-status" role="status" hidden></div>
+        </div>
+
+        <div class="shift-preset-panel">
+          <div>
+            <h3>Saved assignments</h3>
+            <p>Save station setups that work well and load them again later.</p>
+          </div>
+          <div class="shift-preset-save">
+            <input type="text" id="assignmentPresetName" placeholder="Example: Friday PM line" />
+            <input type="text" id="assignmentPresetAppliesTo" placeholder="Applies to: Mon 10p-6a" />
+            <button type="button" id="save-assignment-preset-btn" class="primary-btn">Save Current</button>
+          </div>
+          <div id="assignment-presets-list" class="assignment-presets-list"></div>
+        </div>
+
+        <div class="form-grid shift-readiness-form">
           <div class="form-group">
-            <label for="staffName">Staff Name</label>
+            <label for="staffName">Employee Name</label>
             <input type="text" id="staffName" placeholder="Example: Juan" />
           </div>
 
@@ -804,30 +862,41 @@
               <option>Chef</option>
               <option>Line Cook</option>
               <option>Prep Cook</option>
-              <option>Dishwasher</option>
-              <option>Server</option>
+              <option>Sous Chef</option>
+              <option>Cook</option>
+              <option>Lead Cook</option>
             </select>
+          </div>
+
+          <div class="form-group">
+            <label for="staffStation">Station</label>
+            <select id="staffStation">
+              <option>Flat Top</option>
+              <option>Broiler/Grill</option>
+              <option>Fry</option>
+              <option>Pantry</option>
+              <option>Prep</option>
+              <option>Expo</option>
+              <option>Line Support</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="staffShiftStart">Shift Start</label>
+            <input type="time" id="staffShiftStart" />
+          </div>
+
+          <div class="form-group">
+            <label for="staffShiftEnd">Shift End</label>
+            <input type="time" id="staffShiftEnd" />
           </div>
         </div>
 
         <div class="form-actions">
-          <button type="button" id="add-staff-btn" class="primary-btn">Add Staff</button>
+          <button type="button" id="add-staff-btn" class="primary-btn">Add Employee</button>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Assigned Tasks</th>
-            </tr>
-          </thead>
-          <tbody id="staff-table-body">
-            <tr>
-              <td colspan="3">No staff added yet.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div id="shift-readiness-board" class="shift-readiness-board"></div>
       </section>
 
       <section id="create-event-section" class="table-section form-panel" hidden>
