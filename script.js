@@ -143,6 +143,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
+  const shiftWeekSchedule = document.getElementById("shift-week-schedule");
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
   const shiftOffBoard = document.getElementById("shift-off-board");
   const shiftKpiEmployees = document.getElementById("shift-kpi-employees");
@@ -3751,6 +3752,70 @@ ${staffSuggestion}
     });
   };
 
+  const renderWeeklySchedule = () => {
+    if (!shiftWeekSchedule) return;
+
+    const staff = getStaff();
+
+    if (!staff.length) {
+      shiftWeekSchedule.innerHTML = '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
+      return;
+    }
+
+    const dayHeaders = shiftDays
+      .map((day) => {
+        const dayCount = getStaffForDay(staff, day.key).length;
+        return `
+          <button type="button" class="shift-week-day ${day.key === activeShiftDay ? "is-active" : ""}" data-week-day="${day.key}">
+            <strong>${escapeHtml(day.label)}</strong>
+            <span>${dayCount} on shift</span>
+          </button>
+        `;
+      })
+      .join("");
+
+    const rows = staff
+      .map((person) => {
+        const cells = shiftDays
+          .map((day) => {
+            const assignment = normalizePersonForDay(person, day.key);
+            const isWorking = isAssignmentWorking(assignment);
+            const dayBreaks = isWorking ? getSmartBreaks(getStaffForDay(staff, day.key)).filter((breakItem) => breakItem.person.id === person.id) : [];
+            const statusLabel = assignment.absent ? "Absent" : assignment.off || !isWorking ? "Off" : assignment.station || "Unassigned";
+
+            return `
+              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"}" data-week-day="${day.key}">
+                <strong>${escapeHtml(statusLabel)}</strong>
+                <span>${isWorking ? escapeHtml(formatShiftTimeRange(assignment)) : "No shift"}</span>
+                ${assignment.substituteFor ? `<em>Covers ${escapeHtml(assignment.substituteFor)}</em>` : ""}
+                ${assignment.replacedBy ? `<em>Covered by ${escapeHtml(assignment.replacedBy)}</em>` : ""}
+                ${dayBreaks.length ? `<small>${dayBreaks.map((breakItem) => `${breakItem.type} ${formatBreakRange(breakItem)}`).join(" · ")}</small>` : ""}
+              </button>
+            `;
+          })
+          .join("");
+
+        return `
+          <div class="shift-week-row">
+            <div class="shift-week-employee">
+              <strong>${escapeHtml(person.name || "Unnamed employee")}</strong>
+              <span>${escapeHtml(person.role || "Role not set")}</span>
+            </div>
+            ${cells}
+          </div>
+        `;
+      })
+      .join("");
+
+    shiftWeekSchedule.innerHTML = `
+      <div class="shift-week-grid">
+        <div class="shift-week-corner">Employee</div>
+        ${dayHeaders}
+        ${rows}
+      </div>
+    `;
+  };
+
   const renderStationCloseouts = (closeouts = []) => {
     if (!closeouts.length) return "";
 
@@ -3778,6 +3843,7 @@ ${staffSuggestion}
     const smartBreaks = getSmartBreaks(staff);
 
     renderShiftDayCounts();
+    renderWeeklySchedule();
     if (shiftKpiEmployees) shiftKpiEmployees.textContent = staff.length;
     if (shiftKpiReady) shiftKpiReady.textContent = assignedCount;
     if (shiftKpiNotReady) shiftKpiNotReady.textContent = openStationsCount;
@@ -4730,6 +4796,15 @@ ${staffSuggestion}
       setActiveShiftDay(tab.dataset.shiftDay);
     });
   });
+
+  if (shiftWeekSchedule) {
+    shiftWeekSchedule.addEventListener("click", (e) => {
+      const dayButton = e.target.closest("[data-week-day]");
+      if (!dayButton) return;
+
+      setActiveShiftDay(dayButton.dataset.weekDay);
+    });
+  }
 
   if (importScheduleBtn && scheduleImageInput) {
     importScheduleBtn.addEventListener("click", () => {
