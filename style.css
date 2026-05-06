@@ -1504,6 +1504,24 @@ tbody tr:hover {
   margin-top: 10px;
 }
 
+.shift-break-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.shift-break-list span {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 5px 9px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
 .shift-card-times {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1572,11 +1590,23 @@ tbody tr:hover {
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
 
-.shift-delete-btn {
-  width: 100%;
+.shift-card-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 14px;
-  padding: 11px 14px;
+}
+
+.shift-card-actions .secondary-btn {
+  min-width: 0;
+  padding: 10px 8px;
+  font-size: 0.78rem;
   box-shadow: none;
+}
+
+.shift-delete-btn {
+  padding: 11px 14px;
+  color: #991b1b;
 }
 
 .shift-empty-state {
@@ -1657,6 +1687,71 @@ tbody tr:hover {
   font-size: 0.8rem;
   font-weight: 700;
   line-height: 1.35;
+}
+
+.shift-off-board {
+  margin-top: 22px;
+}
+
+.shift-off-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+}
+
+.shift-off-panel h3 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.shift-off-panel p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.shift-off-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.shift-off-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  padding: 12px;
+}
+
+.shift-off-card strong,
+.shift-off-card span {
+  display: block;
+}
+
+.shift-off-card strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.shift-off-card span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.shift-off-card .secondary-btn {
+  flex: 0 0 auto;
+  padding: 9px 12px;
 }
 
 #assignment-print-root {
