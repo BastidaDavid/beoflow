@@ -3825,8 +3825,10 @@ ${staffSuggestion}
     shiftWeekSchedule.innerHTML = `
       <div class="shift-week-legend">${stationLegend}</div>
       <div class="shift-week-grid">
-        <div class="shift-week-corner">Employee</div>
-        ${dayHeaders}
+        <div class="shift-week-header-row">
+          <div class="shift-week-corner">Employee</div>
+          ${dayHeaders}
+        </div>
         ${rows}
       </div>
     `;

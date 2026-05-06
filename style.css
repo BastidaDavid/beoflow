@@ -1277,12 +1277,10 @@ body.modal-open {
   border-radius: 999px;
   background: currentColor;
 }
-}
 
 .shift-week-grid {
   min-width: 980px;
-  display: grid;
-  grid-template-columns: 160px repeat(7, minmax(112px, 1fr));
+  display: block;
 }
 
 .shift-week-corner,
@@ -1297,11 +1295,12 @@ body.modal-open {
   text-align: left;
 }
 
-.shift-week-corner,
-.shift-week-day {
+.shift-week-header-row {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 160px repeat(7, minmax(112px, 1fr));
   background: #e2e8f0;
 }
 
@@ -1352,7 +1351,8 @@ body.modal-open {
 }
 
 .shift-week-row {
-  display: contents;
+  display: grid;
+  grid-template-columns: 160px repeat(7, minmax(112px, 1fr));
 }
 
 .shift-week-employee {
