@@ -148,7 +148,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const printWeekViewBtn = document.getElementById("print-week-view-btn");
   const shiftWeekModal = document.getElementById("shift-week-modal");
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
-  const weekSizeButtons = Array.from(document.querySelectorAll("[data-week-size]"));
+  const weekSizeActionButtons = Array.from(document.querySelectorAll("[data-week-size-action]"));
+  const weekSizeIndicator = document.getElementById("week-size-indicator");
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
   const shiftOffBoard = document.getElementById("shift-off-board");
   const shiftKpiEmployees = document.getElementById("shift-kpi-employees");
@@ -3747,6 +3748,12 @@ ${staffSuggestion}
 
   let currentPrintPreview = null;
   let activeWeekSize = "small";
+  const weekSizeOrder = ["small", "normal", "large"];
+  const weekSizeLabels = {
+    small: "1x",
+    normal: "2x",
+    large: "3x"
+  };
 
   const getStationClass = (station = "") =>
     String(station || "off").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "off";
@@ -3845,15 +3852,26 @@ ${staffSuggestion}
     if (!["small", "normal", "large"].includes(size)) return;
 
     activeWeekSize = size;
-    weekSizeButtons.forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.weekSize === activeWeekSize);
+    const activeIndex = weekSizeOrder.indexOf(activeWeekSize);
+    weekSizeActionButtons.forEach((button) => {
+      button.disabled =
+        (button.dataset.weekSizeAction === "decrease" && activeIndex === 0)
+        || (button.dataset.weekSizeAction === "increase" && activeIndex === weekSizeOrder.length - 1);
     });
+    if (weekSizeIndicator) weekSizeIndicator.textContent = weekSizeLabels[activeWeekSize] || "1x";
     if (shiftWeekSchedule) shiftWeekSchedule.dataset.weekSize = activeWeekSize;
+  };
+
+  const adjustWeeklyScheduleSize = (direction = "increase") => {
+    const currentIndex = weekSizeOrder.indexOf(activeWeekSize);
+    const nextIndex = direction === "decrease" ? currentIndex - 1 : currentIndex + 1;
+    setWeeklyScheduleSize(weekSizeOrder[Math.min(Math.max(nextIndex, 0), weekSizeOrder.length - 1)]);
   };
 
   const openWeeklyScheduleView = () => {
     if (!shiftWeekModal) return;
 
+    setWeeklyScheduleSize(activeWeekSize);
     renderWeeklySchedule();
     shiftWeekModal.hidden = false;
     document.body.classList.add("modal-open");
@@ -4880,9 +4898,9 @@ ${staffSuggestion}
     printWeekViewBtn.addEventListener("click", printWeeklyScheduleView);
   }
 
-  weekSizeButtons.forEach((button) => {
+  weekSizeActionButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      setWeeklyScheduleSize(button.dataset.weekSize);
+      adjustWeeklyScheduleSize(button.dataset.weekSizeAction);
     });
   });
 

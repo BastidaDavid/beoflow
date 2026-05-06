@@ -1181,10 +1181,7 @@ tbody tr:hover {
   z-index: 90;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.34), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.26), transparent 30%),
-    rgba(15, 23, 42, 0.66);
+  background: rgba(15, 23, 42, 0.62);
   padding: 24px;
 }
 
@@ -1202,9 +1199,9 @@ body.modal-open {
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 22px;
-  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.34);
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
   overflow: hidden;
 }
 
@@ -1214,8 +1211,8 @@ body.modal-open {
   align-items: flex-start;
   gap: 16px;
   padding: 14px 18px;
-  border-bottom: 0;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 46%, #166534 100%);
+  border-bottom: 1px solid #dbe3ef;
+  background: #0f172a;
 }
 
 .shift-week-header h3 {
@@ -1234,8 +1231,8 @@ body.modal-open {
 }
 
 .shift-week-header .secondary-btn {
-  border-color: rgba(255, 255, 255, 0.42);
-  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.08);
   color: #ffffff;
 }
 
@@ -1248,6 +1245,7 @@ body.modal-open {
 
 .shift-week-size-controls {
   display: inline-flex;
+  align-items: center;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.42);
   border-radius: 14px;
@@ -1256,13 +1254,36 @@ body.modal-open {
 .shift-week-size-controls .secondary-btn {
   border: 0;
   border-radius: 0;
-  min-width: 74px;
+  min-width: 42px;
   padding: 10px 12px;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
-.shift-week-size-controls .secondary-btn.is-active {
+.shift-week-size-controls .secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.week-size-indicator {
+  min-width: 46px;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: #ffffff;
   color: #0f172a;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.icon-only-btn {
+  width: 44px;
+  min-width: 44px;
+  padding: 10px;
+  text-align: center;
+  font-weight: 900;
 }
 
 .shift-week-schedule {
@@ -1418,7 +1439,7 @@ body.modal-open {
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: #ffffff;
   box-shadow: 1px 0 0 var(--border);
 }
 
@@ -1503,42 +1524,42 @@ body.modal-open {
 }
 
 .shift-week-cell.station-flat-top {
-  background: linear-gradient(135deg, #ffedd5 0%, #fed7aa 100%);
+  background: #ffedd5;
   border-left: 5px solid #f97316;
 }
 
 .shift-week-cell.station-broiler-grill {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  background: #fee2e2;
   border-left: 5px solid #ef4444;
 }
 
 .shift-week-cell.station-fry {
-  background: linear-gradient(135deg, #fef9c3 0%, #fde68a 100%);
+  background: #fef3c7;
   border-left: 5px solid #eab308;
 }
 
 .shift-week-cell.station-pantry {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  background: #dcfce7;
   border-left: 5px solid #22c55e;
 }
 
 .shift-week-cell.station-prep {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  background: #dbeafe;
   border-left: 5px solid #3b82f6;
 }
 
 .shift-week-cell.station-expo {
-  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  background: #ede9fe;
   border-left: 5px solid #8b5cf6;
 }
 
 .shift-week-cell.station-line-support {
-  background: linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%);
+  background: #ccfbf1;
   border-left: 5px solid #14b8a6;
 }
 
 .shift-week-cell.station-off {
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: #f1f5f9;
   border-left: 5px solid #94a3b8;
 }
 
