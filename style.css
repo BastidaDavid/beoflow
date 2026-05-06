@@ -1221,18 +1221,6 @@ tbody tr:hover {
   margin-top: 18px;
 }
 
-.report-email-panel {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 16px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: #f8fafc;
-  padding: 14px;
-}
-
 .report-email-status {
   margin-bottom: 16px;
   border-radius: 14px;
@@ -2800,8 +2788,7 @@ body.modal-open {
 @media (max-width: 760px) {
   .reports-kpi-grid,
   .reports-summary-grid,
-  .report-feedback-form,
-  .report-email-panel {
+  .report-feedback-form {
     grid-template-columns: 1fr;
   }
 
