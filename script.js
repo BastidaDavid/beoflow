@@ -3779,6 +3779,16 @@ ${staffSuggestion}
         `;
       })
       .join("");
+    const stationLegend = [
+      ...shiftStations.map((station) => ({ label: station, className: getStationClass(station) })),
+      { label: "Off / Absent", className: "off" }
+    ]
+      .map((item) => `
+        <span class="shift-week-legend-item station-${escapeHtml(item.className)}">
+          <i></i>${escapeHtml(item.label)}
+        </span>
+      `)
+      .join("");
 
     const rows = staff
       .map((person) => {
@@ -3813,6 +3823,7 @@ ${staffSuggestion}
       .join("");
 
     shiftWeekSchedule.innerHTML = `
+      <div class="shift-week-legend">${stationLegend}</div>
       <div class="shift-week-grid">
         <div class="shift-week-corner">Employee</div>
         ${dayHeaders}
