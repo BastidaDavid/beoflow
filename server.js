@@ -155,6 +155,15 @@ Return ONLY valid JSON in this exact shape:
       "station": "",
       "shiftStart": "",
       "shiftEnd": "",
+      "assignments": {
+        "mon": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "tue": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "wed": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "thu": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "fri": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "sat": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true },
+        "sun": { "station": "", "shiftStart": "", "shiftEnd": "", "off": true }
+      },
       "sourceLabel": ""
     }
   ],
@@ -162,10 +171,12 @@ Return ONLY valid JSON in this exact shape:
 }
 
 Rules:
-- Ignore rows or day cells that only say off/Off or have no working shift.
-- Return one best visible working shift per employee. If the row has multiple shifts, choose the first clear working shift in the row.
+- Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
+- Day cells that say off/Off or have no working shift must be returned with off true and empty shiftStart/shiftEnd.
+- For working day cells, set off false and include shiftStart and shiftEnd.
+- Keep top-level shiftStart and shiftEnd as the first clear working shift found for that employee, for backward compatibility.
 - Many schedules use two visual lines per employee: the top line has start/end/hours, and the lower line has labels like LINE or PT'S. Treat those two lines as the same employee and keep both the time and the label.
-- Return an employee only when both shiftStart and shiftEnd are visible. If a label is visible but the time is not visible, do not include that employee; add a note instead.
+- Return an employee when at least one working day has both shiftStart and shiftEnd visible. If a label is visible but the time is not visible, mark that day off true and add a note.
 - Normalize times to 24-hour HH:MM.
 - Interpret A/a as AM and P/p as PM. If end time is earlier than start time, keep the normalized overnight end time.
 - Do not include hours as a separate field.
