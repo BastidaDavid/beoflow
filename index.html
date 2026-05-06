@@ -792,14 +792,17 @@
           <p>Assign each employee to a kitchen station, then print the station sheet for the line.</p>
         </div>
 
-        <div class="shift-day-tabs" role="tablist" aria-label="Schedule day">
-          <button type="button" class="shift-day-tab is-active" data-shift-day="mon">Mon</button>
-          <button type="button" class="shift-day-tab" data-shift-day="tue">Tue</button>
-          <button type="button" class="shift-day-tab" data-shift-day="wed">Wed</button>
-          <button type="button" class="shift-day-tab" data-shift-day="thu">Thu</button>
-          <button type="button" class="shift-day-tab" data-shift-day="fri">Fri</button>
-          <button type="button" class="shift-day-tab" data-shift-day="sat">Sat</button>
-          <button type="button" class="shift-day-tab" data-shift-day="sun">Sun</button>
+        <div class="shift-day-toolbar">
+          <div class="shift-day-tabs" role="tablist" aria-label="Schedule day">
+            <button type="button" class="shift-day-tab is-active" data-shift-day="mon">Mon</button>
+            <button type="button" class="shift-day-tab" data-shift-day="tue">Tue</button>
+            <button type="button" class="shift-day-tab" data-shift-day="wed">Wed</button>
+            <button type="button" class="shift-day-tab" data-shift-day="thu">Thu</button>
+            <button type="button" class="shift-day-tab" data-shift-day="fri">Fri</button>
+            <button type="button" class="shift-day-tab" data-shift-day="sat">Sat</button>
+            <button type="button" class="shift-day-tab" data-shift-day="sun">Sun</button>
+          </div>
+          <button type="button" id="open-week-view-btn" class="secondary-btn full-week-btn">Full Week View</button>
         </div>
 
         <div class="shift-kpi-grid" aria-label="Station assignment KPIs">
@@ -837,14 +840,17 @@
           <div id="schedule-import-status" class="schedule-import-status" role="status" hidden></div>
         </div>
 
-        <div class="shift-week-panel">
-          <div class="shift-week-header">
-            <div>
-              <h3>Weekly schedule view</h3>
-              <p>Digital view of the imported schedule with stations, substitutions, off days, and smart breaks.</p>
+        <div id="shift-week-modal" class="shift-week-modal" hidden>
+          <div class="shift-week-dialog" role="dialog" aria-modal="true" aria-labelledby="shift-week-title">
+            <div class="shift-week-header">
+              <div>
+                <h3 id="shift-week-title">Full Week Schedule</h3>
+                <p>Digital view of imported shifts, stations, substitutions, off days, and smart breaks.</p>
+              </div>
+              <button type="button" id="close-week-view-btn" class="secondary-btn">Close</button>
             </div>
+            <div id="shift-week-schedule" class="shift-week-schedule"></div>
           </div>
-          <div id="shift-week-schedule" class="shift-week-schedule"></div>
         </div>
 
         <div id="assignment-preview-panel" class="assignment-preview-panel" hidden>

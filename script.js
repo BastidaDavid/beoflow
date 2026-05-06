@@ -143,6 +143,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
+  const openWeekViewBtn = document.getElementById("open-week-view-btn");
+  const closeWeekViewBtn = document.getElementById("close-week-view-btn");
+  const shiftWeekModal = document.getElementById("shift-week-modal");
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
   const shiftOffBoard = document.getElementById("shift-off-board");
@@ -3816,6 +3819,21 @@ ${staffSuggestion}
     `;
   };
 
+  const openWeeklyScheduleView = () => {
+    if (!shiftWeekModal) return;
+
+    renderWeeklySchedule();
+    shiftWeekModal.hidden = false;
+    document.body.classList.add("modal-open");
+  };
+
+  const closeWeeklyScheduleView = () => {
+    if (!shiftWeekModal) return;
+
+    shiftWeekModal.hidden = true;
+    document.body.classList.remove("modal-open");
+  };
+
   const renderStationCloseouts = (closeouts = []) => {
     if (!closeouts.length) return "";
 
@@ -3843,7 +3861,7 @@ ${staffSuggestion}
     const smartBreaks = getSmartBreaks(staff);
 
     renderShiftDayCounts();
-    renderWeeklySchedule();
+    if (shiftWeekModal && !shiftWeekModal.hidden) renderWeeklySchedule();
     if (shiftKpiEmployees) shiftKpiEmployees.textContent = staff.length;
     if (shiftKpiReady) shiftKpiReady.textContent = assignedCount;
     if (shiftKpiNotReady) shiftKpiNotReady.textContent = openStationsCount;
@@ -4795,6 +4813,26 @@ ${staffSuggestion}
     tab.addEventListener("click", () => {
       setActiveShiftDay(tab.dataset.shiftDay);
     });
+  });
+
+  if (openWeekViewBtn) {
+    openWeekViewBtn.addEventListener("click", openWeeklyScheduleView);
+  }
+
+  if (closeWeekViewBtn) {
+    closeWeekViewBtn.addEventListener("click", closeWeeklyScheduleView);
+  }
+
+  if (shiftWeekModal) {
+    shiftWeekModal.addEventListener("click", (e) => {
+      if (e.target === shiftWeekModal) closeWeeklyScheduleView();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && shiftWeekModal && !shiftWeekModal.hidden) {
+      closeWeeklyScheduleView();
+    }
   });
 
   if (shiftWeekSchedule) {

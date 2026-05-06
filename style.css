@@ -1073,11 +1073,24 @@ tbody tr:hover {
 }
 
 /* Shift Readiness */
+.shift-day-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
 .shift-day-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 18px;
+}
+
+.full-week-btn {
+  flex: 0 0 auto;
+  padding: 10px 16px;
+  white-space: nowrap;
 }
 
 .shift-day-tab {
@@ -1162,12 +1175,34 @@ tbody tr:hover {
   color: #1d4ed8;
 }
 
-.shift-week-panel {
+.shift-week-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.56);
+  padding: 24px;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.shift-week-modal[hidden] {
+  display: none;
+}
+
+.shift-week-dialog {
+  width: min(1320px, 100%);
+  max-height: min(86vh, 900px);
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 18px;
-  margin-bottom: 26px;
+  border-radius: 22px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+  overflow: hidden;
 }
 
 .shift-week-header {
@@ -1175,7 +1210,9 @@ tbody tr:hover {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff;
 }
 
 .shift-week-header h3 {
@@ -1194,13 +1231,13 @@ tbody tr:hover {
 
 .shift-week-schedule {
   overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  overflow-y: auto;
+  min-height: 260px;
   background: #ffffff;
 }
 
 .shift-week-grid {
-  min-width: 1060px;
+  min-width: 1120px;
   display: grid;
   grid-template-columns: 190px repeat(7, minmax(124px, 1fr));
 }
@@ -2060,6 +2097,29 @@ tbody tr:hover {
   .shift-readiness-form,
   .shift-readiness-board {
     grid-template-columns: 1fr;
+  }
+
+  .shift-day-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .full-week-btn {
+    width: 100%;
+  }
+
+  .shift-week-modal {
+    padding: 10px;
+  }
+
+  .shift-week-dialog {
+    max-height: 92vh;
+    border-radius: 18px;
+  }
+
+  .shift-week-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .shift-card-header {
