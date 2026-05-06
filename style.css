@@ -1221,6 +1221,46 @@ tbody tr:hover {
   margin-top: 18px;
 }
 
+.report-email-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.report-email-status {
+  margin-bottom: 16px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.report-email-status[data-type="success"] {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.report-email-status[data-type="warning"] {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.report-email-status[data-type="error"] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.report-email-status[data-type="info"] {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
 .report-feedback-form {
   grid-template-columns: minmax(260px, 1.4fr) repeat(3, minmax(150px, 0.5fr));
 }
@@ -2760,7 +2800,8 @@ body.modal-open {
 @media (max-width: 760px) {
   .reports-kpi-grid,
   .reports-summary-grid,
-  .report-feedback-form {
+  .report-feedback-form,
+  .report-email-panel {
     grid-template-columns: 1fr;
   }
 

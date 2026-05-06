@@ -140,7 +140,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const reportFeedbackPriorityInput = document.getElementById("reportFeedbackPriority");
   const reportFeedbackStatusInput = document.getElementById("reportFeedbackStatus");
   const reportFeedbackNotesInput = document.getElementById("reportFeedbackNotes");
+  const reportFeedbackEmailInput = document.getElementById("reportFeedbackEmail");
+  const reportEmailStatus = document.getElementById("report-email-status");
   const addReportFeedbackBtn = document.getElementById("add-report-feedback-btn");
+  const saveReportEmailBtn = document.getElementById("save-report-email-btn");
   const clearResolvedFeedbackBtn = document.getElementById("clear-resolved-feedback-btn");
   const printReportBtn = document.getElementById("print-report-btn");
   const addStaffBtn = document.getElementById("add-staff-btn");
@@ -660,6 +663,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const SHIFT_READINESS_KEY = "beoflow_shift_readiness";
   const SHIFT_ASSIGNMENT_PRESETS_KEY = "beoflow_shift_assignment_presets";
   const REPORT_FEEDBACK_KEY = "beoflow_reports_feedback";
+  const REPORT_FEEDBACK_EMAIL_KEY = "beoflow_reports_feedback_email";
 
   const getStaff = () => {
     try {
@@ -695,6 +699,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveReportFeedback = (items) => {
     localStorage.setItem(REPORT_FEEDBACK_KEY, JSON.stringify(items));
+  };
+
+  const getReportFeedbackEmail = () =>
+    localStorage.getItem(REPORT_FEEDBACK_EMAIL_KEY) || "";
+
+  const saveReportFeedbackEmail = (email = "") => {
+    localStorage.setItem(REPORT_FEEDBACK_EMAIL_KEY, email);
   };
 
   const SMART_SETUP_KEY = "beoflow_smart_setup";
@@ -4094,10 +4105,60 @@ ${staffSuggestion}
     if (reportUpcomingEvents) reportUpcomingEvents.textContent = snapshot.upcomingEvents.length;
     if (reportInventoryValue) reportInventoryValue.textContent = formatReportCurrency(snapshot.inventoryValue);
     if (reportOpenFeedback) reportOpenFeedback.textContent = snapshot.openFeedback.length;
+    if (reportFeedbackEmailInput) reportFeedbackEmailInput.value = getReportFeedbackEmail();
 
     renderReportsSummary(snapshot);
     renderShiftReportSummary();
     renderReportFeedback();
+  };
+
+  const setReportEmailStatus = (message = "", type = "info") => {
+    if (!reportEmailStatus) return;
+    reportEmailStatus.textContent = message;
+    reportEmailStatus.dataset.type = type;
+    reportEmailStatus.hidden = !message;
+  };
+
+  const saveReportEmailSetting = () => {
+    const email = reportFeedbackEmailInput?.value.trim() || "";
+    if (!email) {
+      saveReportFeedbackEmail("");
+      setReportEmailStatus("Feedback email cleared.", "info");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setReportEmailStatus("Enter a valid email address.", "error");
+      return;
+    }
+
+    saveReportFeedbackEmail(email);
+    setReportEmailStatus(`Feedback email saved: ${email}`, "success");
+  };
+
+  const emailReportFeedback = (item = {}) => {
+    const email = getReportFeedbackEmail();
+    if (!email) {
+      setReportEmailStatus("Save your feedback email to receive new items.", "warning");
+      return;
+    }
+
+    const subject = encodeURIComponent(`BEOFlow feedback: ${item.title || "New action item"}`);
+    const body = encodeURIComponent([
+      "New BEOFlow feedback/action item",
+      "",
+      `Area: ${item.module || "Other"}`,
+      `Priority: ${item.priority || "Medium"}`,
+      `Status: ${item.status || "Open"}`,
+      "",
+      `Feedback: ${item.title || ""}`,
+      item.notes ? `Notes: ${item.notes}` : "",
+      "",
+      `Created: ${new Date(item.createdAt || Date.now()).toLocaleString()}`
+    ].filter(Boolean).join("\n"));
+
+    window.location.href = `mailto:${encodeURIComponent(email)}?subject=${subject}&body=${body}`;
+    setReportEmailStatus("Email draft opened. Send it from your mail app.", "success");
   };
 
   const addReportFeedback = () => {
@@ -4108,7 +4169,7 @@ ${staffSuggestion}
     }
 
     const feedback = getReportFeedback();
-    feedback.unshift({
+    const feedbackItem = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       title,
       module: reportFeedbackModuleInput?.value || "Other",
@@ -4116,7 +4177,8 @@ ${staffSuggestion}
       status: reportFeedbackStatusInput?.value || "Open",
       notes: reportFeedbackNotesInput?.value.trim() || "",
       createdAt: new Date().toISOString()
-    });
+    };
+    feedback.unshift(feedbackItem);
 
     saveReportFeedback(feedback);
     if (reportFeedbackTitleInput) reportFeedbackTitleInput.value = "";
@@ -4124,6 +4186,7 @@ ${staffSuggestion}
     if (reportFeedbackPriorityInput) reportFeedbackPriorityInput.value = "Medium";
     if (reportFeedbackStatusInput) reportFeedbackStatusInput.value = "Open";
     renderReports();
+    emailReportFeedback(feedbackItem);
   };
 
   const updateReportFeedbackStatus = (feedbackId, status) => {
@@ -5287,6 +5350,19 @@ ${staffSuggestion}
 
   if (addReportFeedbackBtn) {
     addReportFeedbackBtn.addEventListener("click", addReportFeedback);
+  }
+
+  if (saveReportEmailBtn) {
+    saveReportEmailBtn.addEventListener("click", saveReportEmailSetting);
+  }
+
+  if (reportFeedbackEmailInput) {
+    reportFeedbackEmailInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveReportEmailSetting();
+      }
+    });
   }
 
   if (clearResolvedFeedbackBtn) {
