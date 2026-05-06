@@ -1194,8 +1194,8 @@ body.modal-open {
 }
 
 .shift-week-dialog {
-  width: min(1320px, 100%);
-  max-height: min(86vh, 900px);
+  width: min(1500px, 98vw);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   background: var(--surface);
@@ -1210,20 +1210,20 @@ body.modal-open {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   background: #ffffff;
 }
 
 .shift-week-header h3 {
   font-family: var(--font-display);
-  font-size: 1.02rem;
+  font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0;
 }
 
 .shift-week-header p {
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--muted);
   font-size: 0.88rem;
   font-weight: 600;
@@ -1237,9 +1237,9 @@ body.modal-open {
 }
 
 .shift-week-grid {
-  min-width: 1120px;
+  min-width: 980px;
   display: grid;
-  grid-template-columns: 190px repeat(7, minmax(124px, 1fr));
+  grid-template-columns: 160px repeat(7, minmax(112px, 1fr));
 }
 
 .shift-week-corner,
@@ -1263,9 +1263,11 @@ body.modal-open {
 }
 
 .shift-week-corner {
-  padding: 14px 16px;
+  left: 0;
+  z-index: 4;
+  padding: 10px 12px;
   font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 800;
   color: var(--muted);
   text-transform: uppercase;
@@ -1274,7 +1276,7 @@ body.modal-open {
 .shift-week-day {
   display: grid;
   gap: 4px;
-  padding: 12px;
+  padding: 10px;
   cursor: pointer;
 }
 
@@ -1288,18 +1290,17 @@ body.modal-open {
 
 .shift-week-day span,
 .shift-week-cell span,
-.shift-week-cell small,
 .shift-week-cell em,
 .shift-week-employee span {
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
 .shift-week-day.is-active {
-  background: #ecfdf5;
-  color: #166534;
+  background: #dbeafe;
+  color: #1e3a8a;
 }
 
 .shift-week-row {
@@ -1307,49 +1308,92 @@ body.modal-open {
 }
 
 .shift-week-employee {
+  position: sticky;
+  left: 0;
+  z-index: 2;
   display: grid;
   gap: 4px;
-  padding: 13px 16px;
-  background: #f8fafc;
+  padding: 10px 12px;
+  background: #ffffff;
+  box-shadow: 1px 0 0 var(--border);
 }
 
 .shift-week-cell {
   display: grid;
   align-content: start;
-  gap: 5px;
-  min-height: 94px;
-  padding: 12px;
+  gap: 4px;
+  min-height: 72px;
+  padding: 9px;
   cursor: pointer;
 }
 
 .shift-week-cell.is-working {
-  background: #ffffff;
-}
-
-.shift-week-cell.is-off {
   background: #f8fafc;
 }
 
+.shift-week-cell.is-off {
+  background: #f1f5f9;
+}
+
 .shift-week-cell.is-active {
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .shift-week-cell.is-working strong {
-  color: #166534;
+  color: #0f172a;
 }
 
 .shift-week-cell.is-off strong {
   color: #94a3b8;
 }
 
-.shift-week-cell em,
-.shift-week-cell small {
+.shift-week-cell em {
   font-style: normal;
   display: block;
+  color: #334155;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
-.shift-week-cell small {
-  color: #1d4ed8;
+.shift-week-cell.station-flat-top {
+  background: #fff7ed;
+  border-left: 4px solid #f97316;
+}
+
+.shift-week-cell.station-broiler-grill {
+  background: #fef2f2;
+  border-left: 4px solid #ef4444;
+}
+
+.shift-week-cell.station-fry {
+  background: #fefce8;
+  border-left: 4px solid #eab308;
+}
+
+.shift-week-cell.station-pantry {
+  background: #ecfdf5;
+  border-left: 4px solid #22c55e;
+}
+
+.shift-week-cell.station-prep {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+}
+
+.shift-week-cell.station-expo {
+  background: #f5f3ff;
+  border-left: 4px solid #8b5cf6;
+}
+
+.shift-week-cell.station-line-support {
+  background: #f0fdfa;
+  border-left: 4px solid #14b8a6;
+}
+
+.shift-week-cell.station-off {
+  background: #f8fafc;
+  border-left: 4px solid #cbd5e1;
 }
 
 .shift-week-empty {
@@ -2113,6 +2157,7 @@ body.modal-open {
   }
 
   .shift-week-dialog {
+    width: min(100%, 98vw);
     max-height: 92vh;
     border-radius: 18px;
   }

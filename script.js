@@ -3745,6 +3745,9 @@ ${staffSuggestion}
 
   let currentPrintPreview = null;
 
+  const getStationClass = (station = "") =>
+    String(station || "off").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "off";
+
   const renderShiftDayCounts = () => {
     const staff = getStaff();
     shiftDayTabs.forEach((tab) => {
@@ -3783,16 +3786,15 @@ ${staffSuggestion}
           .map((day) => {
             const assignment = normalizePersonForDay(person, day.key);
             const isWorking = isAssignmentWorking(assignment);
-            const dayBreaks = isWorking ? getSmartBreaks(getStaffForDay(staff, day.key)).filter((breakItem) => breakItem.person.id === person.id) : [];
             const statusLabel = assignment.absent ? "Absent" : assignment.off || !isWorking ? "Off" : assignment.station || "Unassigned";
+            const stationClass = isWorking ? getStationClass(assignment.station) : "off";
 
             return `
-              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"}" data-week-day="${day.key}">
+              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-day="${day.key}">
                 <strong>${escapeHtml(statusLabel)}</strong>
                 <span>${isWorking ? escapeHtml(formatShiftTimeRange(assignment)) : "No shift"}</span>
                 ${assignment.substituteFor ? `<em>Covers ${escapeHtml(assignment.substituteFor)}</em>` : ""}
                 ${assignment.replacedBy ? `<em>Covered by ${escapeHtml(assignment.replacedBy)}</em>` : ""}
-                ${dayBreaks.length ? `<small>${dayBreaks.map((breakItem) => `${breakItem.type} ${formatBreakRange(breakItem)}`).join(" · ")}</small>` : ""}
               </button>
             `;
           })
