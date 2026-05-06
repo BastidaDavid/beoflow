@@ -122,10 +122,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const navInventory = document.getElementById("nav-inventory");
   const navProduction = document.getElementById("nav-production");
   const navStaff = document.getElementById("nav-staff");
+  const navReports = document.getElementById("nav-reports");
   const inventorySection = document.getElementById("inventory-section");
   const productionSection = document.getElementById("production-section");
   const productionTableBody = document.getElementById("production-table-body");
   const staffSection = document.getElementById("staff-section");
+  const reportsSection = document.getElementById("reports-section");
+  const reportTotalEvents = document.getElementById("report-total-events");
+  const reportUpcomingEvents = document.getElementById("report-upcoming-events");
+  const reportInventoryValue = document.getElementById("report-inventory-value");
+  const reportOpenFeedback = document.getElementById("report-open-feedback");
+  const reportsSummaryGrid = document.getElementById("reports-summary-grid");
+  const shiftReportSummary = document.getElementById("shift-report-summary");
+  const reportsFeedbackList = document.getElementById("reports-feedback-list");
+  const reportFeedbackTitleInput = document.getElementById("reportFeedbackTitle");
+  const reportFeedbackModuleInput = document.getElementById("reportFeedbackModule");
+  const reportFeedbackPriorityInput = document.getElementById("reportFeedbackPriority");
+  const reportFeedbackStatusInput = document.getElementById("reportFeedbackStatus");
+  const reportFeedbackNotesInput = document.getElementById("reportFeedbackNotes");
+  const addReportFeedbackBtn = document.getElementById("add-report-feedback-btn");
+  const clearResolvedFeedbackBtn = document.getElementById("clear-resolved-feedback-btn");
+  const printReportBtn = document.getElementById("print-report-btn");
   const addStaffBtn = document.getElementById("add-staff-btn");
   const importScheduleBtn = document.getElementById("import-schedule-btn");
   const autoAssignStationsBtn = document.getElementById("auto-assign-stations-btn");
@@ -642,6 +659,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const SHIFT_READINESS_KEY = "beoflow_shift_readiness";
   const SHIFT_ASSIGNMENT_PRESETS_KEY = "beoflow_shift_assignment_presets";
+  const REPORT_FEEDBACK_KEY = "beoflow_reports_feedback";
 
   const getStaff = () => {
     try {
@@ -665,6 +683,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveAssignmentPresets = (presets) => {
     localStorage.setItem(SHIFT_ASSIGNMENT_PRESETS_KEY, JSON.stringify(presets));
+  };
+
+  const getReportFeedback = () => {
+    try {
+      return JSON.parse(localStorage.getItem(REPORT_FEEDBACK_KEY)) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const saveReportFeedback = (items) => {
+    localStorage.setItem(REPORT_FEEDBACK_KEY, JSON.stringify(items));
   };
 
   const SMART_SETUP_KEY = "beoflow_smart_setup";
@@ -997,6 +1027,10 @@ document.addEventListener("DOMContentLoaded", () => {
     staff: {
       title: "Shift Readiness",
       subtitle: "Assign kitchen stations and print the station sheet"
+    },
+    reports: {
+      title: "Reports",
+      subtitle: "Review operations, feedback, and action items"
     },
     eventForm: {
       title: "Event Form",
@@ -1588,12 +1622,13 @@ ${staffSuggestion}
       inventorySection,
       productionSection,
       staffSection,
+      reportsSection,
       createEventSection
     ].forEach(hideSection);
   };
 
   const setActiveNav = (activeNav) => {
-    [navDashboard, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff].forEach((navItem) => {
+    [navDashboard, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff, navReports].forEach((navItem) => {
       if (!navItem) return;
       navItem.classList.toggle("active", navItem === activeNav);
     });
@@ -1675,6 +1710,14 @@ ${staffSuggestion}
       showSection(staffSection);
       setActiveNav(navStaff);
       renderStaff();
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    if (moduleKey === "reports") {
+      showSection(reportsSection);
+      setActiveNav(navReports);
+      renderReports();
       if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
@@ -3905,6 +3948,239 @@ ${staffSuggestion}
     requestAnimationFrame(() => window.print());
   };
 
+  const formatReportCurrency = (amount = 0) =>
+    `$${Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  const getUpcomingEvents = (events = getEvents()) => {
+    const todayString = new Date().toISOString().split("T")[0];
+    const today = new Date(`${todayString}T00:00:00`);
+    return events.filter((eventData) => {
+      if (!eventData.date) return false;
+      return new Date(`${eventData.date}T00:00:00`) >= today;
+    });
+  };
+
+  const getProductionTaskCount = () => {
+    const events = getEvents();
+    const menus = getMenus();
+    let taskCount = 0;
+
+    events.forEach((eventData) => {
+      const selectedMenu = menus.find((menu) => menu.id === getEventMenuId(eventData));
+      if (!selectedMenu || Number(eventData.guests || 0) <= 0) return;
+      taskCount += (selectedMenu.recipeIds || []).length;
+    });
+
+    return taskCount;
+  };
+
+  const getReportSnapshot = () => {
+    const events = getEvents();
+    const inventory = getInventory();
+    const staff = getStaff();
+    const feedback = getReportFeedback();
+    const upcomingEvents = getUpcomingEvents(events);
+    const inventoryValue = inventory.reduce((sum, item) => sum + getInventoryStockValue(item), 0);
+    const lowStockItems = inventory.filter((item) => ["Low Stock", "Out of Stock"].includes(getInventoryStatus(item.quantity).label));
+    const openFeedback = feedback.filter((item) => item.status !== "Resolved");
+    const allDayStaff = shiftDays.reduce((total, day) => total + getStaffForDay(staff, day.key).length, 0);
+
+    return {
+      events,
+      inventory,
+      staff,
+      feedback,
+      upcomingEvents,
+      inventoryValue,
+      lowStockItems,
+      openFeedback,
+      productionTasks: getProductionTaskCount(),
+      allDayStaff
+    };
+  };
+
+  const renderReportsSummary = (snapshot = getReportSnapshot()) => {
+    if (!reportsSummaryGrid) return;
+
+    const confirmedEvents = snapshot.events.filter((eventData) => eventData.status === "Confirmed").length;
+    const draftEvents = snapshot.events.filter((eventData) => eventData.status === "Draft").length;
+    const highPriorityFeedback = snapshot.feedback.filter((item) => item.priority === "High" && item.status !== "Resolved").length;
+
+    const summaryItems = [
+      { label: "Confirmed events", value: confirmedEvents, tone: "green" },
+      { label: "Draft events", value: draftEvents, tone: "yellow" },
+      { label: "Low stock items", value: snapshot.lowStockItems.length, tone: snapshot.lowStockItems.length ? "red" : "green" },
+      { label: "Production tasks", value: snapshot.productionTasks, tone: "blue" },
+      { label: "Shift assignments", value: snapshot.allDayStaff, tone: "green" },
+      { label: "High priority feedback", value: highPriorityFeedback, tone: highPriorityFeedback ? "red" : "blue" }
+    ];
+
+    reportsSummaryGrid.innerHTML = summaryItems
+      .map((item) => `
+        <article class="report-summary-card ${item.tone}">
+          <strong>${escapeHtml(item.value)}</strong>
+          <span>${escapeHtml(item.label)}</span>
+        </article>
+      `)
+      .join("");
+  };
+
+  const renderShiftReportSummary = () => {
+    if (!shiftReportSummary) return;
+
+    const staff = getStaff();
+    if (!staff.length) {
+      shiftReportSummary.innerHTML = '<div class="report-empty-state">No Shift Readiness data yet.</div>';
+      return;
+    }
+
+    shiftReportSummary.innerHTML = shiftDays
+      .map((day) => {
+        const dayStaff = getStaffForDay(staff, day.key);
+        const offStaff = getOffStaffForDay(staff, day.key);
+        const openStations = shiftStations.filter((station) => !dayStaff.some((person) => person.station === station)).length;
+        const substitutions = dayStaff.filter((person) => person.substituteFor).length;
+        const absences = offStaff.filter((person) => person.absent).length;
+
+        return `
+          <article class="shift-report-day ${day.key === activeShiftDay ? "is-active" : ""}">
+            <strong>${escapeHtml(day.label)}</strong>
+            <span>${dayStaff.length} employees</span>
+            <span>${openStations} open stations</span>
+            <span>${substitutions} subs · ${absences} absent</span>
+          </article>
+        `;
+      })
+      .join("");
+  };
+
+  const renderReportFeedback = () => {
+    if (!reportsFeedbackList) return;
+
+    const feedback = getReportFeedback();
+    if (!feedback.length) {
+      reportsFeedbackList.innerHTML = '<div class="report-empty-state">No feedback yet. Add the first action item above.</div>';
+      return;
+    }
+
+    reportsFeedbackList.innerHTML = feedback
+      .map((item) => `
+        <article class="report-feedback-card priority-${escapeHtml(String(item.priority || "Medium").toLowerCase())}">
+          <div>
+            <div class="report-feedback-meta">
+              <span>${escapeHtml(item.module || "Other")}</span>
+              <span>${escapeHtml(item.priority || "Medium")}</span>
+              <span>${escapeHtml(item.status || "Open")}</span>
+            </div>
+            <h4>${escapeHtml(item.title || "Untitled feedback")}</h4>
+            ${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ""}
+            <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Saved")}</small>
+          </div>
+          <div class="report-feedback-actions">
+            <select data-feedback-status="${escapeHtml(item.id)}">
+              ${["Open", "In Review", "Resolved"].map((status) => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
+            </select>
+            <button type="button" class="secondary-btn" data-delete-feedback="${escapeHtml(item.id)}">Delete</button>
+          </div>
+        </article>
+      `)
+      .join("");
+  };
+
+  const renderReports = () => {
+    const snapshot = getReportSnapshot();
+
+    if (reportTotalEvents) reportTotalEvents.textContent = snapshot.events.length;
+    if (reportUpcomingEvents) reportUpcomingEvents.textContent = snapshot.upcomingEvents.length;
+    if (reportInventoryValue) reportInventoryValue.textContent = formatReportCurrency(snapshot.inventoryValue);
+    if (reportOpenFeedback) reportOpenFeedback.textContent = snapshot.openFeedback.length;
+
+    renderReportsSummary(snapshot);
+    renderShiftReportSummary();
+    renderReportFeedback();
+  };
+
+  const addReportFeedback = () => {
+    const title = reportFeedbackTitleInput?.value.trim() || "";
+    if (!title) {
+      alert("Add feedback before saving.");
+      return;
+    }
+
+    const feedback = getReportFeedback();
+    feedback.unshift({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title,
+      module: reportFeedbackModuleInput?.value || "Other",
+      priority: reportFeedbackPriorityInput?.value || "Medium",
+      status: reportFeedbackStatusInput?.value || "Open",
+      notes: reportFeedbackNotesInput?.value.trim() || "",
+      createdAt: new Date().toISOString()
+    });
+
+    saveReportFeedback(feedback);
+    if (reportFeedbackTitleInput) reportFeedbackTitleInput.value = "";
+    if (reportFeedbackNotesInput) reportFeedbackNotesInput.value = "";
+    if (reportFeedbackPriorityInput) reportFeedbackPriorityInput.value = "Medium";
+    if (reportFeedbackStatusInput) reportFeedbackStatusInput.value = "Open";
+    renderReports();
+  };
+
+  const updateReportFeedbackStatus = (feedbackId, status) => {
+    const feedback = getReportFeedback().map((item) =>
+      item.id === feedbackId ? { ...item, status } : item
+    );
+    saveReportFeedback(feedback);
+    renderReports();
+  };
+
+  const deleteReportFeedback = (feedbackId) => {
+    saveReportFeedback(getReportFeedback().filter((item) => item.id !== feedbackId));
+    renderReports();
+  };
+
+  const clearResolvedFeedback = () => {
+    saveReportFeedback(getReportFeedback().filter((item) => item.status !== "Resolved"));
+    renderReports();
+  };
+
+  const printReports = () => {
+    document.getElementById("assignment-print-root")?.remove();
+    const snapshot = getReportSnapshot();
+    const printRoot = document.createElement("div");
+    printRoot.id = "assignment-print-root";
+    printRoot.innerHTML = `
+      <div class="reports-print-sheet">
+        <header>
+          <h1>BEOFlow Operations Report</h1>
+          <p>Bastida Systems · ${escapeHtml(new Date().toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }))}</p>
+        </header>
+        <div class="reports-print-grid">
+          <div><strong>${snapshot.events.length}</strong><span>Total events</span></div>
+          <div><strong>${snapshot.upcomingEvents.length}</strong><span>Upcoming events</span></div>
+          <div><strong>${formatReportCurrency(snapshot.inventoryValue)}</strong><span>Inventory value</span></div>
+          <div><strong>${snapshot.openFeedback.length}</strong><span>Open feedback</span></div>
+        </div>
+        <h2>Open Feedback</h2>
+        <table>
+          <thead><tr><th>Area</th><th>Priority</th><th>Status</th><th>Feedback</th></tr></thead>
+          <tbody>
+            ${snapshot.feedback.length ? snapshot.feedback.map((item) => `
+              <tr>
+                <td>${escapeHtml(item.module || "Other")}</td>
+                <td>${escapeHtml(item.priority || "Medium")}</td>
+                <td>${escapeHtml(item.status || "Open")}</td>
+                <td>${escapeHtml(item.title || "")}${item.notes ? `<br><small>${escapeHtml(item.notes)}</small>` : ""}</td>
+              </tr>
+            `).join("") : '<tr><td colspan="4">No feedback saved.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+    document.body.appendChild(printRoot);
+    requestAnimationFrame(() => window.print());
+  };
+
   const renderStationCloseouts = (closeouts = []) => {
     if (!closeouts.length) return "";
 
@@ -4726,6 +5002,13 @@ ${staffSuggestion}
     });
   }
 
+  if (navReports && reportsSection) {
+    navReports.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("reports");
+    });
+  }
+
   if (navDashboard && dashboardSection) {
     navDashboard.addEventListener("click", (e) => {
       e.preventDefault();
@@ -5000,6 +5283,34 @@ ${staffSuggestion}
 
   if (clearShiftReadinessBtn) {
     clearShiftReadinessBtn.addEventListener("click", clearShiftReadiness);
+  }
+
+  if (addReportFeedbackBtn) {
+    addReportFeedbackBtn.addEventListener("click", addReportFeedback);
+  }
+
+  if (clearResolvedFeedbackBtn) {
+    clearResolvedFeedbackBtn.addEventListener("click", clearResolvedFeedback);
+  }
+
+  if (printReportBtn) {
+    printReportBtn.addEventListener("click", printReports);
+  }
+
+  if (reportsFeedbackList) {
+    reportsFeedbackList.addEventListener("change", (e) => {
+      const statusSelect = e.target.closest("[data-feedback-status]");
+      if (!statusSelect) return;
+
+      updateReportFeedbackStatus(statusSelect.dataset.feedbackStatus, statusSelect.value);
+    });
+
+    reportsFeedbackList.addEventListener("click", (e) => {
+      const deleteButton = e.target.closest("[data-delete-feedback]");
+      if (!deleteButton) return;
+
+      deleteReportFeedback(deleteButton.dataset.deleteFeedback);
+    });
   }
 
   if (shiftReadinessBoard) {

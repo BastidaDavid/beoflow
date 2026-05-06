@@ -29,7 +29,7 @@
         <a href="#" id="nav-inventory">Inventory</a>
         <a href="#" id="nav-production">Production</a>
         <a href="#" id="nav-staff">Shift Readiness</a>
-        <a href="#">Reports</a>
+        <a href="#" id="nav-reports">Reports</a>
       </nav>
     </aside>
 
@@ -936,6 +936,114 @@
 
         <div id="shift-readiness-board" class="shift-readiness-board"></div>
         <div id="shift-off-board" class="shift-off-board"></div>
+      </section>
+
+      <section id="reports-section" class="table-section reports-section" hidden>
+        <div class="section-header">
+          <h2>Reports</h2>
+          <p>Review operations, capture feedback, and turn issues into action items.</p>
+        </div>
+
+        <div class="reports-kpi-grid" aria-label="Reports overview">
+          <div class="reports-kpi-card">
+            <span id="report-total-events">0</span>
+            <small>Total events</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="report-upcoming-events">0</span>
+            <small>Upcoming events</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="report-inventory-value">$0</span>
+            <small>Inventory value</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="report-open-feedback">0</span>
+            <small>Open feedback</small>
+          </div>
+        </div>
+
+        <div class="reports-layout">
+          <section class="reports-panel">
+            <div class="reports-panel-header">
+              <div>
+                <h3>Operations Summary</h3>
+                <p>Snapshot across Events, Inventory, Production, and Shift Readiness.</p>
+              </div>
+              <button type="button" id="print-report-btn" class="secondary-btn">Print Report</button>
+            </div>
+            <div id="reports-summary-grid" class="reports-summary-grid"></div>
+          </section>
+
+          <section class="reports-panel">
+            <div class="reports-panel-header">
+              <div>
+                <h3>Shift Readiness Summary</h3>
+                <p>Coverage, substitutions, absences, and open stations by day.</p>
+              </div>
+            </div>
+            <div id="shift-report-summary" class="shift-report-summary"></div>
+          </section>
+        </div>
+
+        <section class="reports-panel feedback-panel">
+          <div class="reports-panel-header">
+            <div>
+              <h3>Feedback & Action Items</h3>
+              <p>Capture what needs to be fixed, reviewed, or improved in BEOFlow operations.</p>
+            </div>
+            <button type="button" id="clear-resolved-feedback-btn" class="secondary-btn">Clear Resolved</button>
+          </div>
+
+          <div class="form-grid report-feedback-form">
+            <div class="form-group">
+              <label for="reportFeedbackTitle">Feedback</label>
+              <input type="text" id="reportFeedbackTitle" placeholder="Example: Need station coverage for Friday PM" />
+            </div>
+
+            <div class="form-group">
+              <label for="reportFeedbackModule">Area</label>
+              <select id="reportFeedbackModule">
+                <option>Shift Readiness</option>
+                <option>Events</option>
+                <option>Inventory</option>
+                <option>Production</option>
+                <option>Menu</option>
+                <option>Recipes</option>
+                <option>Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="reportFeedbackPriority">Priority</label>
+              <select id="reportFeedbackPriority">
+                <option>Medium</option>
+                <option>High</option>
+                <option>Low</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="reportFeedbackStatus">Status</label>
+              <select id="reportFeedbackStatus">
+                <option>Open</option>
+                <option>In Review</option>
+                <option>Resolved</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group report-feedback-notes">
+            <label for="reportFeedbackNotes">Notes</label>
+            <textarea id="reportFeedbackNotes" rows="3" placeholder="Add detail, decision, or update request..."></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="add-report-feedback-btn" class="primary-btn">Add Feedback</button>
+          </div>
+
+          <div id="reports-feedback-list" class="reports-feedback-list"></div>
+        </section>
       </section>
 
       <section id="create-event-section" class="table-section form-panel" hidden>
