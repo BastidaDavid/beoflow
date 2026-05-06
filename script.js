@@ -145,8 +145,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
   const openWeekViewBtn = document.getElementById("open-week-view-btn");
   const closeWeekViewBtn = document.getElementById("close-week-view-btn");
+  const printWeekViewBtn = document.getElementById("print-week-view-btn");
   const shiftWeekModal = document.getElementById("shift-week-modal");
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
+  const weekSizeButtons = Array.from(document.querySelectorAll("[data-week-size]"));
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
   const shiftOffBoard = document.getElementById("shift-off-board");
   const shiftKpiEmployees = document.getElementById("shift-kpi-employees");
@@ -3744,6 +3746,7 @@ ${staffSuggestion}
     shiftStations.flatMap((station) => getStationCloseouts(staff, station));
 
   let currentPrintPreview = null;
+  let activeWeekSize = "small";
 
   const getStationClass = (station = "") =>
     String(station || "off").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "off";
@@ -3758,14 +3761,11 @@ ${staffSuggestion}
     });
   };
 
-  const renderWeeklySchedule = () => {
-    if (!shiftWeekSchedule) return;
-
+  const buildWeeklyScheduleMarkup = () => {
     const staff = getStaff();
 
     if (!staff.length) {
-      shiftWeekSchedule.innerHTML = '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
-      return;
+      return '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
     }
 
     const dayHeaders = shiftDays
@@ -3822,7 +3822,7 @@ ${staffSuggestion}
       })
       .join("");
 
-    shiftWeekSchedule.innerHTML = `
+    return `
       <div class="shift-week-legend">${stationLegend}</div>
       <div class="shift-week-grid">
         <div class="shift-week-header-row">
@@ -3832,6 +3832,23 @@ ${staffSuggestion}
         ${rows}
       </div>
     `;
+  };
+
+  const renderWeeklySchedule = () => {
+    if (!shiftWeekSchedule) return;
+
+    shiftWeekSchedule.dataset.weekSize = activeWeekSize;
+    shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup();
+  };
+
+  const setWeeklyScheduleSize = (size = "small") => {
+    if (!["small", "normal", "large"].includes(size)) return;
+
+    activeWeekSize = size;
+    weekSizeButtons.forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.weekSize === activeWeekSize);
+    });
+    if (shiftWeekSchedule) shiftWeekSchedule.dataset.weekSize = activeWeekSize;
   };
 
   const openWeeklyScheduleView = () => {
@@ -3847,6 +3864,27 @@ ${staffSuggestion}
 
     shiftWeekModal.hidden = true;
     document.body.classList.remove("modal-open");
+  };
+
+  const printWeeklyScheduleView = () => {
+    document.getElementById("assignment-print-root")?.remove();
+
+    const printRoot = document.createElement("div");
+    printRoot.id = "assignment-print-root";
+    printRoot.className = "week-print-root";
+    printRoot.innerHTML = `
+      <div class="shift-week-print-sheet">
+        <header>
+          <h1>Full Week Schedule</h1>
+          <p>BEOFlow Shift Readiness · Bastida Systems</p>
+        </header>
+        <div class="shift-week-schedule" data-week-size="small">
+          ${buildWeeklyScheduleMarkup()}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(printRoot);
+    requestAnimationFrame(() => window.print());
   };
 
   const renderStationCloseouts = (closeouts = []) => {
@@ -4837,6 +4875,16 @@ ${staffSuggestion}
   if (closeWeekViewBtn) {
     closeWeekViewBtn.addEventListener("click", closeWeeklyScheduleView);
   }
+
+  if (printWeekViewBtn) {
+    printWeekViewBtn.addEventListener("click", printWeeklyScheduleView);
+  }
+
+  weekSizeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      setWeeklyScheduleSize(button.dataset.weekSize);
+    });
+  });
 
   if (shiftWeekModal) {
     shiftWeekModal.addEventListener("click", (e) => {

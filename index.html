@@ -847,7 +847,15 @@
                 <h3 id="shift-week-title">Full Week Schedule</h3>
                 <p>Digital view of imported shifts, stations, substitutions, off days, and smart breaks.</p>
               </div>
-              <button type="button" id="close-week-view-btn" class="secondary-btn">Close</button>
+              <div class="shift-week-actions">
+                <div class="shift-week-size-controls" aria-label="Week view size">
+                  <button type="button" class="secondary-btn is-active" data-week-size="small">Small</button>
+                  <button type="button" class="secondary-btn" data-week-size="normal">Normal</button>
+                  <button type="button" class="secondary-btn" data-week-size="large">Large</button>
+                </div>
+                <button type="button" id="print-week-view-btn" class="secondary-btn">Print Week</button>
+                <button type="button" id="close-week-view-btn" class="secondary-btn">Close</button>
+              </div>
             </div>
             <div id="shift-week-schedule" class="shift-week-schedule"></div>
           </div>
