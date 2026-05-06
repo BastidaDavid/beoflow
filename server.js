@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const OpenAI = require("openai");
+const nodemailer = require("nodemailer");
 const { Pool } = require("pg");
 const fs = require("fs/promises");
 const os = require("os");
@@ -29,6 +30,36 @@ const pool = hasDatabase
 
 const execFileAsync = promisify(execFile);
 const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
+const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
+  .split(",")
+  .map((email) => email.trim())
+  .filter(Boolean);
+
+function requireFeedbackEmailConfig() {
+  const requiredKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+  const missingKeys = requiredKeys.filter((key) => !process.env[key]);
+
+  if (!feedbackRecipients.length) missingKeys.push("FEEDBACK_EMAIL_RECIPIENTS");
+  if (!missingKeys.length) return;
+
+  const error = new Error(`Feedback email is not configured. Missing: ${missingKeys.join(", ")}`);
+  error.statusCode = 503;
+  throw error;
+}
+
+function createFeedbackTransport() {
+  requireFeedbackEmailConfig();
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: String(process.env.SMTP_SECURE || "").toLowerCase() === "true",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+}
 
 function requireOpenAI() {
   if (client) return;
@@ -212,6 +243,46 @@ Rules:
     console.error("SHIFT SCHEDULE EXTRACTION ERROR:", error);
     res.status(error.statusCode || 500).json({
       error: error.message || "Failed to extract shift schedule"
+    });
+  }
+});
+
+app.post("/api/report-feedback", async (req, res) => {
+  try {
+    const { title, module, priority, status, notes, createdAt } = req.body || {};
+    const feedbackTitle = String(title || "").trim();
+
+    if (!feedbackTitle) {
+      return res.status(400).json({ error: "Feedback title is required." });
+    }
+
+    const transport = createFeedbackTransport();
+    const createdDate = createdAt ? new Date(createdAt) : new Date();
+    const text = [
+      "New BEOFlow feedback/action item",
+      "",
+      `Area: ${module || "Other"}`,
+      `Priority: ${priority || "Medium"}`,
+      `Status: ${status || "Open"}`,
+      "",
+      `Feedback: ${feedbackTitle}`,
+      notes ? `Notes: ${notes}` : "",
+      "",
+      `Created: ${createdDate.toLocaleString()}`
+    ].filter(Boolean).join("\n");
+
+    await transport.sendMail({
+      from: process.env.SMTP_FROM,
+      to: feedbackRecipients,
+      subject: `BEOFlow feedback: ${feedbackTitle}`,
+      text
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("REPORT FEEDBACK EMAIL ERROR:", error);
+    res.status(error.statusCode || 500).json({
+      error: error.message || "Failed to send feedback email"
     });
   }
 });
