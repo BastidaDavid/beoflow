@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const createBtn = document.getElementById("create-event-btn");
   const cancelEventBtn = document.getElementById("cancel-event-btn");
   const createEventSection = document.getElementById("create-event-section");
@@ -8,9 +8,178 @@ document.addEventListener("DOMContentLoaded", () => {
   const uploadBtn = document.getElementById("upload-event-btn");
   const eventImageInput = document.getElementById("eventImage");
   const uploadStatus = document.getElementById("upload-status");
-  const API_BASE_URL = ["localhost", "127.0.0.1", ""].includes(window.location.hostname)
-    ? "http://localhost:3001"
-    : "https://beoflow-api.onrender.com";
+  const API_BASE_URL = window.BEOFLOW_API_BASE_URL ||
+    (window.location.protocol === "http:" || window.location.protocol === "https:"
+      ? window.location.origin
+      : "https://beoflow-api.onrender.com");
+  const AUTH_TOKEN_KEY = "beoflow_auth_token";
+  const AUTH_CLIENT_KEY = "beoflow_auth_client";
+  const CLIENT_DATA_KEYS = [
+    "beoflow_events",
+    "beoflow_event_menu_links",
+    "beoflow_menus",
+    "beoflow_recipes",
+    "beoflow_sub_recipes",
+    "beoflow_inventory",
+    "beoflow_shift_readiness",
+    "beoflow_shift_assignment_presets",
+    "beoflow_reports_feedback",
+    "beoflow_smart_setup",
+    "beoflow_shift_handoff_assignments"
+  ];
+  const CLIENT_DATA_KEY_SET = new Set(CLIENT_DATA_KEYS);
+  const loginScreen = document.getElementById("login-screen");
+  const appContainer = document.querySelector(".app-container");
+  const loginForm = document.getElementById("client-login-form");
+  const loginClientCodeInput = document.getElementById("loginClientCode");
+  const loginPasswordInput = document.getElementById("loginPassword");
+  const loginStatus = document.getElementById("login-status");
+  const logoutBtn = document.getElementById("logout-btn");
+  const syncTimers = new Map();
+  let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+
+  const getAuthHeaders = (headers = {}) => ({
+    ...headers,
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+  });
+
+  const showLogin = (message = "") => {
+    if (appContainer) appContainer.hidden = true;
+    if (loginScreen) loginScreen.hidden = false;
+    if (loginStatus) loginStatus.textContent = message;
+    if (loginClientCodeInput && !loginClientCodeInput.value) loginClientCodeInput.value = "Strat01";
+    loginClientCodeInput?.focus();
+  };
+
+  const showApp = () => {
+    if (loginScreen) loginScreen.hidden = true;
+    if (appContainer) appContainer.hidden = false;
+  };
+
+  const readClientDataSnapshot = () =>
+    CLIENT_DATA_KEYS.reduce((snapshot, key) => {
+      try {
+        snapshot[key] = JSON.parse(localStorage.getItem(key) || "null");
+      } catch {
+        snapshot[key] = null;
+      }
+      return snapshot;
+    }, {});
+
+  const saveClientDataNow = async (data) => {
+    if (!authToken) return;
+
+    await fetch(`${API_BASE_URL}/api/client-data`, {
+      method: "PUT",
+      headers: getAuthHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ data })
+    });
+  };
+
+  const hydrateClientData = async () => {
+    const localSnapshot = readClientDataSnapshot();
+    const response = await fetch(`${API_BASE_URL}/api/client-data`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_CLIENT_KEY);
+      authToken = "";
+      throw new Error("Session expired. Sign in again.");
+    }
+
+    if (!response.ok) {
+      throw new Error("Client data could not be loaded.");
+    }
+
+    const result = await response.json();
+    const remoteData = result.data || {};
+    const hasRemoteData = Object.keys(remoteData).length > 0;
+
+    if (!hasRemoteData) {
+      await saveClientDataNow(localSnapshot);
+      return;
+    }
+
+    Object.entries(remoteData).forEach(([key, value]) => {
+      if (!CLIENT_DATA_KEY_SET.has(key)) return;
+      localStorage.setItem(key, JSON.stringify(value));
+    });
+  };
+
+  const syncClientDataKey = (key, value) => {
+    if (!authToken || !CLIENT_DATA_KEY_SET.has(key)) return;
+
+    if (syncTimers.has(key)) clearTimeout(syncTimers.get(key));
+    syncTimers.set(
+      key,
+      setTimeout(async () => {
+        try {
+          await fetch(`${API_BASE_URL}/api/client-data/${encodeURIComponent(key)}`, {
+            method: "PUT",
+            headers: getAuthHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ value })
+          });
+        } catch (error) {
+          console.warn(`Could not sync ${key}:`, error);
+        }
+      }, 300)
+    );
+  };
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    if (loginStatus) loginStatus.textContent = "Signing in...";
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientCode: loginClientCodeInput?.value.trim(),
+          password: loginPasswordInput?.value || ""
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Client or password is incorrect.");
+      }
+
+      authToken = result.token;
+      localStorage.setItem(AUTH_TOKEN_KEY, result.token);
+      localStorage.setItem(AUTH_CLIENT_KEY, JSON.stringify(result.client || {}));
+      window.location.reload();
+    } catch (error) {
+      if (loginStatus) loginStatus.textContent = error.message || "Sign in failed.";
+      if (loginPasswordInput) loginPasswordInput.value = "";
+      loginPasswordInput?.focus();
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_CLIENT_KEY);
+    window.location.reload();
+  };
+
+  loginForm?.addEventListener("submit", handleLogin);
+  logoutBtn?.addEventListener("click", logout);
+
+  if (!authToken) {
+    showLogin();
+    return;
+  }
+
+  try {
+    await hydrateClientData();
+    showApp();
+  } catch (error) {
+    console.warn(error);
+    showLogin(error.message || "Sign in again.");
+    return;
+  }
 
   const eventNameInput = document.getElementById("eventName");
   const clientNameInput = document.getElementById("clientName");
@@ -329,6 +498,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveEventMenuLinks = (links) => {
     localStorage.setItem(EVENT_MENU_LINKS_KEY, JSON.stringify(links));
+    syncClientDataKey(EVENT_MENU_LINKS_KEY, links);
   };
 
   const getLinkedEventMenuId = (eventData = {}) => {
@@ -405,7 +575,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fetchEventsFromApi = async () => {
     const localEvents = getEvents();
-    const response = await fetch(`${API_BASE_URL}/events`);
+    const response = await fetch(`${API_BASE_URL}/events`, {
+      headers: getAuthHeaders()
+    });
 
     if (!response.ok) {
       throw new Error("Failed to load events from API.");
@@ -413,6 +585,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const events = await response.json();
     const mappedEvents = Array.isArray(events) ? events.map(mapApiEventToUiEvent) : [];
+    if (!mappedEvents.length && localEvents.length) return localEvents;
+
     const mergedEvents = mergeApiEventsWithLocalEvents(mappedEvents, localEvents);
     saveEvents(mergedEvents);
     return mergedEvents;
@@ -421,9 +595,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const createEventInApi = async (eventData) => {
     const response = await fetch(`${API_BASE_URL}/events`, {
       method: "POST",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json"
-      },
+      }),
       body: JSON.stringify({
         event_name: eventData.name,
         client_name: eventData.client,
@@ -456,9 +630,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
       method: "PUT",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json"
-      },
+      }),
       body: JSON.stringify({
         event_name: eventData.name,
         client_name: eventData.client,
@@ -490,7 +664,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const response = await fetch(`${API_BASE_URL}/events/${eventId}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: getAuthHeaders()
     });
 
     if (!response.ok) {
@@ -530,7 +705,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const fetchInventoryFromApi = async () => {
-    const response = await fetch(`${API_BASE_URL}/inventory`);
+    const localInventory = getInventory();
+    const response = await fetch(`${API_BASE_URL}/inventory`, {
+      headers: getAuthHeaders()
+    });
 
     if (!response.ok) {
       throw new Error("Failed to load inventory from API.");
@@ -538,6 +716,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const inventory = await response.json();
     const apiInventory = Array.isArray(inventory) ? inventory.map(mapApiInventoryItemToUiItem) : [];
+    if (!apiInventory.length && localInventory.length) return localInventory;
+
     const localPrepInventory = getInventory().filter((item) => item.sourceType === "prepRecipe");
     saveInventory([...apiInventory, ...localPrepInventory]);
     return apiInventory;
@@ -546,9 +726,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const createInventoryItemInApi = async (item) => {
     const response = await fetch(`${API_BASE_URL}/inventory`, {
       method: "POST",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json"
-      },
+      }),
       body: JSON.stringify(mapUiInventoryItemToApiItem(item))
     });
 
@@ -567,9 +747,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const response = await fetch(`${API_BASE_URL}/inventory/${itemId}`, {
       method: "PUT",
-      headers: {
+      headers: getAuthHeaders({
         "Content-Type": "application/json"
-      },
+      }),
       body: JSON.stringify(mapUiInventoryItemToApiItem(item))
     });
 
@@ -587,7 +767,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const response = await fetch(`${API_BASE_URL}/inventory/${itemId}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: getAuthHeaders()
     });
 
     if (!response.ok) {
@@ -603,6 +784,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveEvents = (events) => {
     localStorage.setItem("beoflow_events", JSON.stringify(events));
+    syncClientDataKey("beoflow_events", events);
     window.dispatchEvent(new CustomEvent("beoflow:events-updated"));
     notifySmartSetupDataChange();
   };
@@ -617,6 +799,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveMenus = (menus) => {
     localStorage.setItem("beoflow_menus", JSON.stringify(menus));
+    syncClientDataKey("beoflow_menus", menus);
     notifySmartSetupDataChange();
   };
 
@@ -630,6 +813,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveRecipes = (recipes) => {
     localStorage.setItem("beoflow_recipes", JSON.stringify(recipes));
+    syncClientDataKey("beoflow_recipes", recipes);
     notifySmartSetupDataChange();
   };
 
@@ -643,6 +827,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveSubRecipes = (subRecipes) => {
     localStorage.setItem("beoflow_sub_recipes", JSON.stringify(subRecipes));
+    syncClientDataKey("beoflow_sub_recipes", subRecipes);
   };
 
   const getInventory = () => {
@@ -655,6 +840,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveInventory = (inventory) => {
     localStorage.setItem("beoflow_inventory", JSON.stringify(inventory));
+    syncClientDataKey("beoflow_inventory", inventory);
     notifySmartSetupDataChange();
   };
 
@@ -672,6 +858,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveStaff = (staff) => {
     localStorage.setItem(SHIFT_READINESS_KEY, JSON.stringify(staff));
+    syncClientDataKey(SHIFT_READINESS_KEY, staff);
   };
 
   const getAssignmentPresets = () => {
@@ -684,6 +871,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveAssignmentPresets = (presets) => {
     localStorage.setItem(SHIFT_ASSIGNMENT_PRESETS_KEY, JSON.stringify(presets));
+    syncClientDataKey(SHIFT_ASSIGNMENT_PRESETS_KEY, presets);
   };
 
   const getReportFeedback = () => {
@@ -696,6 +884,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveReportFeedback = (items) => {
     localStorage.setItem(REPORT_FEEDBACK_KEY, JSON.stringify(items));
+    syncClientDataKey(REPORT_FEEDBACK_KEY, items);
   };
 
   const SMART_SETUP_KEY = "beoflow_smart_setup";
@@ -801,6 +990,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveSmartSetupState = (state) => {
     localStorage.setItem(SMART_SETUP_KEY, JSON.stringify(state));
+    syncClientDataKey(SMART_SETUP_KEY, state);
   };
 
   const getSmartSetupTaskRawStatus = (task, state) =>
@@ -1354,9 +1544,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const response = await fetch(`${API_BASE_URL}/api/extract-event`, {
         method: "POST",
-        headers: {
+        headers: getAuthHeaders({
           "Content-Type": "application/json"
-        },
+        }),
         body: JSON.stringify({
           filename: file.name,
           mimeType: file.type,
@@ -3544,6 +3734,7 @@ ${staffSuggestion}
 
   const saveHandoffAssignments = (assignments) => {
     localStorage.setItem("beoflow_shift_handoff_assignments", JSON.stringify(assignments));
+    syncClientDataKey("beoflow_shift_handoff_assignments", assignments);
   };
 
   const timeToMinutes = (time = "") => {
@@ -4112,9 +4303,9 @@ ${staffSuggestion}
     try {
       const response = await fetch(`${API_BASE_URL}/api/report-feedback`, {
         method: "POST",
-        headers: {
+        headers: getAuthHeaders({
           "Content-Type": "application/json"
-        },
+        }),
         body: JSON.stringify(item)
       });
       const result = await response.json().catch(() => ({}));
@@ -4548,9 +4739,9 @@ ${staffSuggestion}
       const imageBase64 = await fileToBase64(file);
       const response = await fetch(`${API_BASE_URL}/api/extract-shift-schedule`, {
         method: "POST",
-        headers: {
+        headers: getAuthHeaders({
           "Content-Type": "application/json"
-        },
+        }),
         body: JSON.stringify({
           imageBase64,
           mimeType: getImageMimeType(file)

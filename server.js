@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const OpenAI = require("openai");
 const nodemailer = require("nodemailer");
 const { Pool } = require("pg");
+const crypto = require("crypto");
 const fs = require("fs/promises");
 const os = require("os");
 const path = require("path");
@@ -15,6 +16,10 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+
+app.use("/img", express.static(path.join(__dirname, "img")));
+app.get("/style.css", (req, res) => res.sendFile(path.join(__dirname, "style.css")));
+app.get("/script.js", (req, res) => res.sendFile(path.join(__dirname, "script.js")));
 
 const client = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -30,10 +35,152 @@ const pool = hasDatabase
 
 const execFileAsync = promisify(execFile);
 const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
+const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14;
+const CLIENT_DATA_KEYS = new Set([
+  "beoflow_events",
+  "beoflow_event_menu_links",
+  "beoflow_menus",
+  "beoflow_recipes",
+  "beoflow_sub_recipes",
+  "beoflow_inventory",
+  "beoflow_shift_readiness",
+  "beoflow_shift_assignment_presets",
+  "beoflow_reports_feedback",
+  "beoflow_smart_setup",
+  "beoflow_shift_handoff_assignments"
+]);
 const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
   .split(",")
   .map((email) => email.trim())
   .filter(Boolean);
+const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
+
+if (authSecret === "beoflow-local-session-secret" && process.env.NODE_ENV === "production") {
+  console.warn("BEOFLOW_SESSION_SECRET is missing. Set it in Render before giving client access.");
+}
+
+function getConfiguredClients() {
+  if (process.env.BEOFLOW_CLIENTS_JSON) {
+    try {
+      const clients = JSON.parse(process.env.BEOFLOW_CLIENTS_JSON);
+      if (Array.isArray(clients) && clients.length) {
+        return clients
+          .map((clientConfig) => ({
+            code: String(clientConfig.code || clientConfig.clientCode || "").trim(),
+            password: String(clientConfig.password || ""),
+            displayName: String(clientConfig.displayName || clientConfig.name || clientConfig.code || "").trim()
+          }))
+          .filter((clientConfig) => clientConfig.code && clientConfig.password);
+      }
+    } catch (error) {
+      console.warn("BEOFLOW_CLIENTS_JSON is not valid JSON. Falling back to BEOFLOW_CLIENT_CODE/PASSWORD.");
+    }
+  }
+
+  return [
+    {
+      code: process.env.BEOFLOW_CLIENT_CODE || "Strat01",
+      password: process.env.BEOFLOW_CLIENT_PASSWORD || "Strat01",
+      displayName: process.env.BEOFLOW_CLIENT_NAME || "Strat01"
+    }
+  ];
+}
+
+function hashPassword(password = "") {
+  return crypto.createHash("sha256").update(String(password)).digest("hex");
+}
+
+function timingSafeEqualText(left = "", right = "") {
+  const leftBuffer = Buffer.from(String(left));
+  const rightBuffer = Buffer.from(String(right));
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+function base64UrlEncode(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function base64UrlDecode(value) {
+  return JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+}
+
+function signToken(payload) {
+  const header = base64UrlEncode({ alg: "HS256", typ: "JWT" });
+  const body = base64UrlEncode(payload);
+  const signature = crypto
+    .createHmac("sha256", authSecret)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+
+  return `${header}.${body}.${signature}`;
+}
+
+function createClientToken(client) {
+  const now = Math.floor(Date.now() / 1000);
+  return signToken({
+    clientId: client.id,
+    clientCode: client.client_code,
+    iat: now,
+    exp: now + AUTH_TOKEN_TTL_SECONDS
+  });
+}
+
+function verifyClientToken(token = "") {
+  const parts = String(token).split(".");
+  if (parts.length !== 3) return null;
+
+  const [header, body, signature] = parts;
+  const expectedSignature = crypto
+    .createHmac("sha256", authSecret)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+
+  if (!timingSafeEqualText(signature, expectedSignature)) return null;
+
+  const payload = base64UrlDecode(body);
+  if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  return payload;
+}
+
+function getBearerToken(req) {
+  const header = req.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : "";
+}
+
+function serializeClient(client) {
+  return {
+    id: client.id,
+    clientCode: client.client_code,
+    displayName: client.display_name
+  };
+}
+
+async function requireClient(req, res, next) {
+  try {
+    requireDatabase();
+
+    const payload = verifyClientToken(getBearerToken(req));
+    if (!payload) {
+      return res.status(401).json({ error: "Session expired. Sign in again." });
+    }
+
+    const result = await pool.query(
+      "SELECT id, client_code, display_name FROM clients WHERE id = $1 AND client_code = $2",
+      [payload.clientId, payload.clientCode]
+    );
+
+    if (!result.rows.length) {
+      return res.status(401).json({ error: "Client session is not valid." });
+    }
+
+    req.client = result.rows[0];
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
 
 function requireFeedbackEmailConfig() {
   const requiredKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
@@ -78,11 +225,13 @@ function requireDatabase() {
 }
 
 async function prepareVisionImage(imageBase64, mimeType = "") {
-  const normalizedMimeType = mimeType.toLowerCase();
+  const imageBuffer = decodeImageBase64(imageBase64);
+  const detectedMimeType = detectImageMimeType(imageBuffer);
+  const normalizedMimeType = (detectedMimeType || mimeType || "").toLowerCase();
 
   if (SUPPORTED_VISION_MIME_TYPES.has(normalizedMimeType)) {
     return {
-      imageBase64,
+      imageBase64: imageBuffer.toString("base64"),
       mimeType: normalizedMimeType === "image/jpg" ? "image/jpeg" : normalizedMimeType
     };
   }
@@ -98,7 +247,7 @@ async function prepareVisionImage(imageBase64, mimeType = "") {
   const outputPath = path.join(tempDir, "schedule.jpg");
 
   try {
-    await fs.writeFile(sourcePath, Buffer.from(imageBase64, "base64"));
+    await fs.writeFile(sourcePath, imageBuffer);
     await execFileAsync("sips", ["-s", "format", "jpeg", sourcePath, "--out", outputPath]);
     const convertedImage = await fs.readFile(outputPath, "base64");
     return {
@@ -114,6 +263,56 @@ async function prepareVisionImage(imageBase64, mimeType = "") {
   }
 }
 
+function decodeImageBase64(imageBase64 = "") {
+  const rawValue = String(imageBase64 || "").trim();
+  const base64Value = rawValue.includes(",") ? rawValue.split(",").pop() : rawValue;
+
+  if (!base64Value || !/^[A-Za-z0-9+/=\s]+$/.test(base64Value)) {
+    const error = new Error("The uploaded schedule file is not valid image data.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const buffer = Buffer.from(base64Value.replace(/\s/g, ""), "base64");
+  if (buffer.length < 12) {
+    const error = new Error("The uploaded schedule file is empty or too small to read.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return buffer;
+}
+
+function detectImageMimeType(buffer) {
+  if (buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return "image/png";
+  }
+
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+
+  const gifHeader = buffer.subarray(0, 6).toString("ascii");
+  if (gifHeader === "GIF87a" || gifHeader === "GIF89a") {
+    return "image/gif";
+  }
+
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+
+  const heicBrand = buffer.length >= 12 ? buffer.subarray(4, 12).toString("ascii") : "";
+  if (heicBrand.startsWith("ftyp") && /(heic|heix|hevc|hevx|mif1|msf1)/.test(heicBrand)) {
+    return "image/heic";
+  }
+
+  return null;
+}
+
 async function initDB() {
   if (!pool) {
     console.warn("DATABASE_URL missing. Starting server without database-backed events/inventory.");
@@ -121,8 +320,52 @@ async function initDB() {
   }
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS clients (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      client_code TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  let defaultClientId = null;
+  for (const clientConfig of getConfiguredClients()) {
+    const result = await pool.query(
+      `INSERT INTO clients (client_code, display_name, password_hash)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (client_code)
+       DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         password_hash = EXCLUDED.password_hash,
+         updated_at = NOW()
+       RETURNING id`,
+      [clientConfig.code, clientConfig.displayName || clientConfig.code, hashPassword(clientConfig.password)]
+    );
+
+    if (!defaultClientId) defaultClientId = result.rows[0].id;
+  }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS client_data (
+      client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      data_key TEXT NOT NULL,
+      data_value JSONB NOT NULL DEFAULT 'null'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (client_id, data_key)
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS client_data_client_updated_idx
+    ON client_data (client_id, updated_at DESC);
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS events (
       id SERIAL PRIMARY KEY,
+      client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
       event_name TEXT,
       client_name TEXT,
       event_date DATE,
@@ -135,10 +378,20 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS menu_id TEXT;");
+  if (defaultClientId) {
+    await pool.query("UPDATE events SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
+  }
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS events_client_created_idx
+    ON events (client_id, created_at DESC);
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS inventory_items (
       id SERIAL PRIMARY KEY,
+      client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       category TEXT,
       quantity NUMERIC,
@@ -148,6 +401,15 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
+  if (defaultClientId) {
+    await pool.query("UPDATE inventory_items SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
+  }
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS inventory_items_client_created_idx
+    ON inventory_items (client_id, created_at DESC);
+  `);
+
   console.log("✅ Database ready");
 }
 
@@ -240,7 +502,11 @@ Rules:
       notes: Array.isArray(parsed.notes) ? parsed.notes : []
     });
   } catch (error) {
-    console.error("SHIFT SCHEDULE EXTRACTION ERROR:", error);
+    if (error.statusCode && error.statusCode < 500) {
+      console.warn("SHIFT SCHEDULE EXTRACTION WARNING:", error.message);
+    } else {
+      console.error("SHIFT SCHEDULE EXTRACTION ERROR:", error);
+    }
     res.status(error.statusCode || 500).json({
       error: error.message || "Failed to extract shift schedule"
     });
@@ -368,19 +634,142 @@ Rules:
   }
 });
 
-app.get("/health", (req, res) => {
-  res.json({
+function apiStatus() {
+  return {
     ok: true,
+    service: "BEOFlow API",
     openai: Boolean(client),
-    database: Boolean(pool)
+    database: Boolean(pool),
+    endpoints: {
+      health: "GET /health",
+      shiftSchedule: "POST /api/extract-shift-schedule",
+      eventExtraction: "POST /api/extract-event",
+      feedback: "POST /api/report-feedback"
+    }
+  };
+}
+
+app.get("/api/status", (req, res) => {
+  res.json(apiStatus());
+});
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/health", (req, res) => {
+  res.json(apiStatus());
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    requireDatabase();
+
+    const clientCode = String(req.body.clientCode || req.body.client_id || "").trim();
+    const password = String(req.body.password || "");
+
+    if (!clientCode || !password) {
+      return res.status(400).json({ error: "Client and password are required." });
+    }
+
+    const result = await pool.query(
+      "SELECT id, client_code, display_name, password_hash FROM clients WHERE client_code = $1",
+      [clientCode]
+    );
+
+    if (!result.rows.length || !timingSafeEqualText(result.rows[0].password_hash, hashPassword(password))) {
+      return res.status(401).json({ error: "Invalid client or password." });
+    }
+
+    const clientRecord = result.rows[0];
+    res.json({
+      ok: true,
+      token: createClientToken(clientRecord),
+      client: serializeClient(clientRecord)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "Login failed." });
+  }
+});
+
+app.get("/api/auth/me", requireClient, (req, res) => {
+  res.json({ ok: true, client: serializeClient(req.client) });
+});
+
+app.get("/api/client-data", requireClient, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT data_key, data_value FROM client_data WHERE client_id = $1 ORDER BY data_key",
+      [req.client.id]
+    );
+
+    const data = result.rows.reduce((acc, row) => {
+      acc[row.data_key] = row.data_value;
+      return acc;
+    }, {});
+
+    res.json({ ok: true, client: serializeClient(req.client), data });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to load client data." });
+  }
+});
+
+app.put("/api/client-data", requireClient, async (req, res) => {
+  try {
+    const data = req.body.data && typeof req.body.data === "object" ? req.body.data : {};
+    const entries = Object.entries(data).filter(([key]) => CLIENT_DATA_KEYS.has(key));
+
+    for (const [key, value] of entries) {
+      await pool.query(
+        `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
+         VALUES ($1, $2, $3::jsonb, NOW())
+         ON CONFLICT (client_id, data_key)
+         DO UPDATE SET data_value = EXCLUDED.data_value, updated_at = NOW()`,
+        [req.client.id, key, JSON.stringify(value)]
+      );
+    }
+
+    res.json({ ok: true, saved: entries.map(([key]) => key) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to save client data." });
+  }
+});
+
+app.put("/api/client-data/:key", requireClient, async (req, res) => {
+  try {
+    const { key } = req.params;
+    if (!CLIENT_DATA_KEYS.has(key)) {
+      return res.status(400).json({ error: "Unsupported client data key." });
+    }
+
+    await pool.query(
+      `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
+       VALUES ($1, $2, $3::jsonb, NOW())
+       ON CONFLICT (client_id, data_key)
+       DO UPDATE SET data_value = EXCLUDED.data_value, updated_at = NOW()`,
+      [req.client.id, key, JSON.stringify(req.body.value ?? null)]
+    );
+
+    res.json({ ok: true, key });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to save client data." });
+  }
+});
+
+app.get("/api/extract-shift-schedule", (req, res) => {
+  res.status(405).json({
+    ok: false,
+    error: "Use POST /api/extract-shift-schedule with imageBase64 and mimeType."
   });
 });
 
 // Create Event
-app.post("/events", async (req, res) => {
+app.post("/events", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const {
       event_name,
       client_name,
@@ -395,10 +784,11 @@ app.post("/events", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO events 
-      (event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (client_id, event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *`,
       [
+        req.client.id,
         event_name,
         client_name,
         event_date,
@@ -419,12 +809,11 @@ app.post("/events", async (req, res) => {
 });
 
 // Get Events
-app.get("/events", async (req, res) => {
+app.get("/events", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const result = await pool.query(
-      "SELECT * FROM events ORDER BY created_at DESC"
+      "SELECT * FROM events WHERE client_id = $1 ORDER BY created_at DESC",
+      [req.client.id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -433,10 +822,8 @@ app.get("/events", async (req, res) => {
 });
 
 // Update Event
-app.put("/events/:id", async (req, res) => {
+app.put("/events/:id", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const { id } = req.params;
     const {
       event_name,
@@ -461,7 +848,7 @@ app.put("/events/:id", async (req, res) => {
         menu_id = $7,
         venue = $8,
         status = $9
-      WHERE id = $10
+      WHERE id = $10 AND client_id = $11
       RETURNING *`,
       [
         event_name,
@@ -473,7 +860,8 @@ app.put("/events/:id", async (req, res) => {
         menu_id || null,
         venue,
         status || "Draft",
-        id
+        id,
+        req.client.id
       ]
     );
 
@@ -489,13 +877,11 @@ app.put("/events/:id", async (req, res) => {
 });
 
 // Delete Event
-app.delete("/events/:id", async (req, res) => {
+app.delete("/events/:id", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const { id } = req.params;
 
-    await pool.query("DELETE FROM events WHERE id = $1", [id]);
+    await pool.query("DELETE FROM events WHERE id = $1 AND client_id = $2", [id, req.client.id]);
 
     res.json({ ok: true, message: "Event deleted" });
   } catch (err) {
@@ -505,10 +891,8 @@ app.delete("/events/:id", async (req, res) => {
 });
 
 // Create Inventory Item
-app.post("/inventory", async (req, res) => {
+app.post("/inventory", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const {
       name,
       category,
@@ -524,10 +908,11 @@ app.post("/inventory", async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO inventory_items
-      (name, category, quantity, unit, total_cost, storage_area)
-      VALUES ($1,$2,$3,$4,$5,$6)
+      (client_id, name, category, quantity, unit, total_cost, storage_area)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       RETURNING *`,
       [
+        req.client.id,
         name,
         category || "other",
         quantity || 0,
@@ -545,12 +930,11 @@ app.post("/inventory", async (req, res) => {
 });
 
 // Get Inventory
-app.get("/inventory", async (req, res) => {
+app.get("/inventory", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const result = await pool.query(
-      "SELECT * FROM inventory_items ORDER BY created_at DESC"
+      "SELECT * FROM inventory_items WHERE client_id = $1 ORDER BY created_at DESC",
+      [req.client.id]
     );
     res.json(result.rows);
   } catch (err) {
@@ -560,10 +944,8 @@ app.get("/inventory", async (req, res) => {
 });
 
 // Update Inventory Item
-app.put("/inventory/:id", async (req, res) => {
+app.put("/inventory/:id", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const { id } = req.params;
     const {
       name,
@@ -582,7 +964,7 @@ app.put("/inventory/:id", async (req, res) => {
         unit = $4,
         total_cost = $5,
         storage_area = $6
-      WHERE id = $7
+      WHERE id = $7 AND client_id = $8
       RETURNING *`,
       [
         name,
@@ -591,7 +973,8 @@ app.put("/inventory/:id", async (req, res) => {
         unit || "units",
         total_cost || 0,
         storage_area || "Refrigerated",
-        id
+        id,
+        req.client.id
       ]
     );
 
@@ -607,13 +990,11 @@ app.put("/inventory/:id", async (req, res) => {
 });
 
 // Delete Inventory Item
-app.delete("/inventory/:id", async (req, res) => {
+app.delete("/inventory/:id", requireClient, async (req, res) => {
   try {
-    requireDatabase();
-
     const { id } = req.params;
 
-    await pool.query("DELETE FROM inventory_items WHERE id = $1", [id]);
+    await pool.query("DELETE FROM inventory_items WHERE id = $1 AND client_id = $2", [id, req.client.id]);
 
     res.json({ ok: true, message: "Inventory item deleted" });
   } catch (err) {
@@ -627,7 +1008,8 @@ initDB()
     console.warn("Database initialization failed. Starting server with localStorage fallbacks:", error.message);
   })
   .finally(() => {
-    app.listen(3001, () => {
-      console.log("🚀 Server running on http://localhost:3001");
+    const port = process.env.PORT || 3001;
+    app.listen(port, () => {
+      console.log(`🚀 Server running on port ${port}`);
     });
   });
