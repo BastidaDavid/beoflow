@@ -54,36 +54,69 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
   .map((email) => email.trim())
   .filter(Boolean);
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
+const DEFAULT_CLIENTS = [
+  {
+    code: "Strat01",
+    password: "Strat01",
+    displayName: "Strat01"
+  },
+  {
+    code: "Westgate",
+    password: "Westgate",
+    displayName: "Westgate Casino"
+  }
+];
 
 if (authSecret === "beoflow-local-session-secret" && process.env.NODE_ENV === "production") {
   console.warn("BEOFLOW_SESSION_SECRET is missing. Set it in Render before giving client access.");
 }
 
+function normalizeClientConfig(clientConfig = {}) {
+  return {
+    code: String(clientConfig.code || clientConfig.clientCode || "").trim(),
+    password: String(clientConfig.password || ""),
+    displayName: String(clientConfig.displayName || clientConfig.name || clientConfig.code || "").trim()
+  };
+}
+
+function mergeClientConfigs(clientConfigs) {
+  const clientsByCode = new Map();
+
+  clientConfigs
+    .map(normalizeClientConfig)
+    .filter((clientConfig) => clientConfig.code && clientConfig.password)
+    .forEach((clientConfig) => {
+      clientsByCode.set(clientConfig.code.toLowerCase(), clientConfig);
+    });
+
+  return [...clientsByCode.values()];
+}
+
 function getConfiguredClients() {
+  let configuredClients = [];
+
   if (process.env.BEOFLOW_CLIENTS_JSON) {
     try {
       const clients = JSON.parse(process.env.BEOFLOW_CLIENTS_JSON);
       if (Array.isArray(clients) && clients.length) {
-        return clients
-          .map((clientConfig) => ({
-            code: String(clientConfig.code || clientConfig.clientCode || "").trim(),
-            password: String(clientConfig.password || ""),
-            displayName: String(clientConfig.displayName || clientConfig.name || clientConfig.code || "").trim()
-          }))
-          .filter((clientConfig) => clientConfig.code && clientConfig.password);
+        configuredClients = clients;
       }
     } catch (error) {
       console.warn("BEOFLOW_CLIENTS_JSON is not valid JSON. Falling back to BEOFLOW_CLIENT_CODE/PASSWORD.");
     }
   }
 
-  return [
-    {
-      code: process.env.BEOFLOW_CLIENT_CODE || "Strat01",
-      password: process.env.BEOFLOW_CLIENT_PASSWORD || "Strat01",
-      displayName: process.env.BEOFLOW_CLIENT_NAME || "Strat01"
-    }
-  ];
+  if (!configuredClients.length && process.env.BEOFLOW_CLIENT_CODE && process.env.BEOFLOW_CLIENT_PASSWORD) {
+    configuredClients = [
+      {
+        code: process.env.BEOFLOW_CLIENT_CODE,
+        password: process.env.BEOFLOW_CLIENT_PASSWORD,
+        displayName: process.env.BEOFLOW_CLIENT_NAME || process.env.BEOFLOW_CLIENT_CODE
+      }
+    ];
+  }
+
+  return mergeClientConfigs([...DEFAULT_CLIENTS, ...configuredClients]);
 }
 
 function hashPassword(password = "") {
@@ -673,7 +706,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT id, client_code, display_name, password_hash FROM clients WHERE client_code = $1",
+      "SELECT id, client_code, display_name, password_hash FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
       [clientCode]
     );
 

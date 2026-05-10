@@ -47,7 +47,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (appContainer) appContainer.hidden = true;
     if (loginScreen) loginScreen.hidden = false;
     if (loginStatus) loginStatus.textContent = message;
-    if (loginClientCodeInput && !loginClientCodeInput.value) loginClientCodeInput.value = "Strat01";
     loginClientCodeInput?.focus();
   };
 
