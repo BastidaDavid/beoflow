@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const http = require("http");
+const { Server } = require("socket.io");
 const OpenAI = require("openai");
 const nodemailer = require("nodemailer");
 const { Pool } = require("pg");
@@ -10,10 +12,23 @@ const os = require("os");
 const path = require("path");
 const { promisify } = require("util");
 const { execFile } = require("child_process");
+const {
+  initializeOrdersEngineSchema,
+  registerOrdersEngineRoutes,
+  registerOrdersEngineSockets
+} = require("./modules/ordersEngine");
 
 dotenv.config();
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.SOCKET_CORS_ORIGIN || "*",
+    methods: ["GET", "POST", "PUT", "PATCH"]
+  }
+});
+
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
@@ -443,6 +458,8 @@ async function initDB() {
     ON inventory_items (client_id, created_at DESC);
   `);
 
+  await initializeOrdersEngineSchema(pool);
+
   console.log("✅ Database ready");
 }
 
@@ -677,7 +694,15 @@ function apiStatus() {
       health: "GET /health",
       shiftSchedule: "POST /api/extract-shift-schedule",
       eventExtraction: "POST /api/extract-event",
-      feedback: "POST /api/report-feedback"
+      feedback: "POST /api/report-feedback",
+      restaurants: "GET/POST /api/restaurants",
+      orders: "GET/POST /api/orders",
+      kitchen: "GET /api/kitchen/orders",
+      tabletOrdering: "POST /api/tablet-ordering/orders",
+      pos: "PATCH /api/pos/orders/:orderId/payment",
+      analytics: "GET /api/analytics/orders/summary",
+      staff: "GET/POST /api/staff/roles",
+      realtime: "Socket.io orders engine gateway"
     }
   };
 }
@@ -798,6 +823,19 @@ app.get("/api/extract-shift-schedule", (req, res) => {
     ok: false,
     error: "Use POST /api/extract-shift-schedule with imageBase64 and mimeType."
   });
+});
+
+registerOrdersEngineRoutes({
+  app,
+  pool,
+  requireClient,
+  io
+});
+
+registerOrdersEngineSockets({
+  io,
+  pool,
+  verifyClientToken
 });
 
 // Create Event
@@ -1042,7 +1080,7 @@ initDB()
   })
   .finally(() => {
     const port = process.env.PORT || 3001;
-    app.listen(port, () => {
+    httpServer.listen(port, () => {
       console.log(`🚀 Server running on port ${port}`);
     });
   });
