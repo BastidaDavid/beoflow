@@ -9,6 +9,7 @@ import {
   getOrderRestaurantId,
   getRestaurantId,
   getStationId,
+  connectOrdersRealtime,
   listKitchenOrders,
   listKitchenStations,
   listRestaurants,
@@ -22,7 +23,9 @@ const statuses = ["NEW", "ACCEPTED", "PREPARING", "READY"];
 const state = {
   restaurants: [],
   stations: [],
-  orders: []
+  orders: [],
+  socket: null,
+  refreshTimer: null
 };
 
 const elements = {
@@ -55,6 +58,10 @@ function getItems(order) {
   return Array.isArray(order.items) ? order.items : [];
 }
 
+function getActiveKitchenOrders(orders = []) {
+  return orders.filter((order) => statuses.includes(order.order_status));
+}
+
 function stationMatches(order) {
   const stationId = elements.stationFilter.value || "";
   if (!stationId) return true;
@@ -64,8 +71,20 @@ function stationMatches(order) {
 function renderBoard() {
   renderFilters();
   const restaurantId = elements.restaurantFilter.value || "";
-  const filteredOrders = state.orders.filter((order) => {
+  const filteredOrders = getActiveKitchenOrders(state.orders).filter((order) => {
     return (!restaurantId || getOrderRestaurantId(order) === restaurantId) && stationMatches(order);
+  });
+
+  console.info("[kds] rendering board", {
+    loadedOrders: state.orders.length,
+    activeOrders: getActiveKitchenOrders(state.orders).length,
+    renderedOrders: filteredOrders.length,
+    restaurantFilter: restaurantId,
+    stationFilter: elements.stationFilter.value || "",
+    statuses: statuses.reduce((counts, status) => {
+      counts[status] = filteredOrders.filter((order) => order.order_status === status).length;
+      return counts;
+    }, {})
   });
 
   elements.board.innerHTML = statuses.map((status) => {
@@ -112,17 +131,39 @@ function renderTicket(order) {
 
 async function refresh() {
   try {
+    const restaurantFilter = elements.restaurantFilter.value || "";
+    const stationFilter = elements.stationFilter.value || "";
+    console.info("[kds] refresh start", { restaurantFilter, stationFilter });
+
     state.restaurants = await listRestaurants();
     state.stations = await listKitchenStations();
-    state.orders = await listKitchenOrders({
-      restaurantId: elements.restaurantFilter.value,
-      stationId: elements.stationFilter.value
-    });
+
+    // Load the full active kitchen queue, then apply restaurant/station filters in the UI.
+    // This prevents stale select values from hiding newly-created tickets.
+    state.orders = await listKitchenOrders();
+
     renderBoard();
-    setStatus(elements.status, `Loaded ${state.orders.length} active kitchen orders.`, "success");
+    setStatus(elements.status, `Loaded ${getActiveKitchenOrders(state.orders).length} active kitchen orders.`, "success");
   } catch (error) {
+    console.error("[kds] refresh failed", error);
     setStatus(elements.status, error.message || "KDS could not load.", "error");
   }
+}
+
+function scheduleRefresh(reason = "unknown") {
+  console.info("[kds] scheduled refresh", { reason });
+  window.clearTimeout(state.refreshTimer);
+  state.refreshTimer = window.setTimeout(refresh, 250);
+}
+
+function startRealtime() {
+  if (state.socket) return;
+  state.socket = connectOrdersRealtime({
+    label: "kds",
+    onEvent: (eventName) => {
+      scheduleRefresh(eventName);
+    }
+  });
 }
 
 async function advanceOrder(orderId, nextStatus) {
@@ -135,8 +176,14 @@ async function advanceOrder(orderId, nextStatus) {
   }
 }
 
-elements.restaurantFilter.addEventListener("change", refresh);
-elements.stationFilter.addEventListener("change", refresh);
+elements.restaurantFilter.addEventListener("change", () => {
+  renderBoard();
+  scheduleRefresh("restaurant-filter");
+});
+elements.stationFilter.addEventListener("change", () => {
+  renderBoard();
+  scheduleRefresh("station-filter");
+});
 elements.refresh.addEventListener("click", refresh);
 elements.board.addEventListener("click", (event) => {
   const button = event.target.closest("[data-advance-order]");
@@ -144,4 +191,10 @@ elements.board.addEventListener("click", (event) => {
   advanceOrder(button.dataset.advanceOrder, button.dataset.nextStatus);
 });
 
-wireAuthGate({ onReady: refresh });
+wireAuthGate({
+  onReady: async () => {
+    await refresh();
+    startRealtime();
+    window.setInterval(() => scheduleRefresh("polling-fallback"), 15000);
+  }
+});

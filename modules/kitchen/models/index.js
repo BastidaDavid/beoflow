@@ -121,6 +121,13 @@ async function listKitchenOrders(pool, clientId, filters = {}) {
     params
   );
 
+  console.info("[orders-engine] kitchen orders query", {
+    clientId,
+    restaurantId: filters.restaurantId || "",
+    stationId: filters.stationId || "",
+    count: result.rows.length
+  });
+
   return result.rows;
 }
 

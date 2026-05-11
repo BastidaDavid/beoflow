@@ -40,6 +40,18 @@ module.exports = function createKitchenController({ pool, realtime }) {
     listOrders: asyncHandler(async (req, res) => {
       const clientId = requireClientId(req);
       const orders = await kitchenService.listKitchenOrders(pool, clientId, req.query);
+
+      console.info("[orders-engine] kitchen orders listed", {
+        clientId,
+        restaurantId: req.query.restaurantId || req.query.restaurant_id || "",
+        stationId: req.query.stationId || req.query.station_id || "",
+        count: orders.length,
+        statuses: orders.reduce((counts, order) => {
+          counts[order.order_status] = (counts[order.order_status] || 0) + 1;
+          return counts;
+        }, {})
+      });
+
       res.json({ ok: true, orders });
     }),
 

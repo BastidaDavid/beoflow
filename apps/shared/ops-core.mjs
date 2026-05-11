@@ -219,14 +219,40 @@ export async function listKitchenOrders(params = {}) {
   if (params.restaurantId) query.set("restaurantId", params.restaurantId);
   if (params.stationId) query.set("stationId", params.stationId);
   const suffix = query.toString() ? `?${query.toString()}` : "";
+  console.info("[ops-core] loading kitchen orders", {
+    restaurantId: params.restaurantId || "",
+    stationId: params.stationId || "",
+    path: `/api/kitchen/orders${suffix}`
+  });
   const result = await requestJson(`/api/kitchen/orders${suffix}`);
-  return Array.isArray(result.orders) ? result.orders : [];
+  const orders = Array.isArray(result.orders) ? result.orders : [];
+  console.info("[ops-core] kitchen orders loaded", {
+    count: orders.length,
+    statuses: orders.reduce((counts, order) => {
+      counts[order.order_status] = (counts[order.order_status] || 0) + 1;
+      return counts;
+    }, {})
+  });
+  return orders;
 }
 
 export async function createTabletOrder(payload) {
+  console.info("[ops-core] creating tablet order", {
+    restaurantId: payload.restaurant_id,
+    orderType: payload.order_type,
+    itemCount: Array.isArray(payload.items) ? payload.items.length : 0,
+    stationIds: Array.isArray(payload.items)
+      ? [...new Set(payload.items.map((item) => item.assigned_station_id).filter(Boolean))]
+      : []
+  });
   const result = await requestJson("/api/tablet-ordering/orders", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+  console.info("[ops-core] tablet order created", {
+    orderId: result.order?.order_id,
+    status: result.order?.order_status,
+    itemCount: Array.isArray(result.order?.items) ? result.order.items.length : 0
   });
   return result.order;
 }
@@ -275,4 +301,59 @@ export function findRestaurantName(restaurants, restaurantId) {
 export function findStationName(stations, stationId) {
   const id = String(stationId || "");
   return stations.find((station) => getStationId(station) === id)?.station_name || "";
+}
+
+export function connectOrdersRealtime({ label = "orders", onEvent } = {}) {
+  if (!authToken) {
+    console.warn(`[${label}] realtime skipped: missing auth token`);
+    return null;
+  }
+
+  if (!window.io) {
+    console.warn(`[${label}] realtime skipped: Socket.io client script is not loaded`);
+    return null;
+  }
+
+  const socket = window.io(API_BASE_URL, {
+    auth: { token: authToken },
+    transports: ["websocket", "polling"]
+  });
+
+  const trackedEvents = [
+    "orders:created",
+    "orders:status_changed",
+    "orders:closed",
+    "kitchen:order_status_changed",
+    "kitchen:item_status_changed",
+    "pos:payment_status_changed"
+  ];
+
+  socket.on("connect", () => {
+    console.info(`[${label}] realtime connected`, { socketId: socket.id });
+  });
+
+  socket.on("connect_error", (error) => {
+    console.warn(`[${label}] realtime connection failed`, error.message);
+  });
+
+  socket.on("disconnect", (reason) => {
+    console.info(`[${label}] realtime disconnected`, { reason });
+  });
+
+  trackedEvents.forEach((eventName) => {
+    socket.on(eventName, (payload = {}) => {
+      console.info(`[${label}] realtime event`, {
+        eventName,
+        orderId: payload.order?.order_id || payload.orderId || "",
+        restaurantId: payload.restaurantId || payload.order?.restaurant_id || "",
+        stationId: payload.stationId || ""
+      });
+
+      if (typeof onEvent === "function") {
+        onEvent(eventName, payload);
+      }
+    });
+  });
+
+  return socket;
 }
