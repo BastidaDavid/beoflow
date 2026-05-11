@@ -25,7 +25,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     "beoflow_shift_assignment_presets",
     "beoflow_reports_feedback",
     "beoflow_smart_setup",
-    "beoflow_shift_handoff_assignments"
+    "beoflow_shift_handoff_assignments",
+    "beoflow_restaurants",
+    "beoflow_orders",
+    "beoflow_kitchen_stations"
   ];
   const CLIENT_DATA_KEY_SET = new Set(CLIENT_DATA_KEYS);
   const loginScreen = document.getElementById("login-screen");
@@ -191,6 +194,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const statusInput = document.getElementById("status");
 
   const navDashboard = document.getElementById("nav-dashboard");
+  const navRestaurants = document.getElementById("nav-restaurants");
+  const navOrders = document.getElementById("nav-orders");
+  const navKitchen = document.getElementById("nav-kitchen");
   const navEvents = document.getElementById("nav-events");
   const navMenus = document.getElementById("nav-menus");
   const navRecipes = document.getElementById("nav-recipes");
@@ -211,6 +217,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   const smartSetupLauncherBar = document.getElementById("smart-setup-launcher-bar");
   const dashboardSection = document.getElementById("dashboard-section");
   const dashboardCalendarSection = document.getElementById("dashboard-calendar-section");
+  const restaurantsSection = document.getElementById("restaurants-section");
+  const ordersSection = document.getElementById("orders-section");
+  const kitchenSection = document.getElementById("kitchen-section");
+  const restaurantsStatus = document.getElementById("restaurants-status");
+  const ordersStatus = document.getElementById("orders-status");
+  const kitchenStatus = document.getElementById("kitchen-status");
+  const restaurantsTableBody = document.getElementById("restaurants-table-body");
+  const restaurantNameInput = document.getElementById("restaurantName");
+  const restaurantCategoryInput = document.getElementById("restaurantCategory");
+  const restaurantLocationInput = document.getElementById("restaurantLocation");
+  const restaurantActiveStatusInput = document.getElementById("restaurantActiveStatus");
+  const addRestaurantBtn = document.getElementById("add-restaurant-btn");
+  const refreshRestaurantsBtn = document.getElementById("refresh-restaurants-btn");
+  const ordersRestaurantFilter = document.getElementById("ordersRestaurantFilter");
+  const ordersStatusFilter = document.getElementById("ordersStatusFilter");
+  const refreshOrdersBtn = document.getElementById("refresh-orders-btn");
+  const orderRestaurantInput = document.getElementById("orderRestaurant");
+  const orderTypeInput = document.getElementById("orderType");
+  const orderTableInput = document.getElementById("orderTable");
+  const orderCustomerInput = document.getElementById("orderCustomer");
+  const orderItemNameInput = document.getElementById("orderItemName");
+  const orderQuantityInput = document.getElementById("orderQuantity");
+  const orderUnitPriceInput = document.getElementById("orderUnitPrice");
+  const orderStationInput = document.getElementById("orderStation");
+  const orderModifiersInput = document.getElementById("orderModifiers");
+  const orderNotesInput = document.getElementById("orderNotes");
+  const submitOrderBtn = document.getElementById("submit-order-btn");
+  const ordersTableBody = document.getElementById("orders-table-body");
+  const stationRestaurantInput = document.getElementById("stationRestaurant");
+  const stationNameInput = document.getElementById("stationName");
+  const stationTypeInput = document.getElementById("stationType");
+  const stationDisplayOrderInput = document.getElementById("stationDisplayOrder");
+  const addStationBtn = document.getElementById("add-station-btn");
+  const kdsRestaurantFilter = document.getElementById("kdsRestaurantFilter");
+  const kdsStationFilter = document.getElementById("kdsStationFilter");
+  const refreshKdsBtn = document.getElementById("refresh-kds-btn");
+  const kdsBoard = document.getElementById("kds-board");
   const eventsSection = document.getElementById("events-section");
   const eventsActiveFilter = document.getElementById("events-active-filter");
   const menusSection = document.getElementById("menus-section");
@@ -886,6 +929,566 @@ document.addEventListener("DOMContentLoaded", async () => {
     syncClientDataKey(REPORT_FEEDBACK_KEY, items);
   };
 
+  const RESTAURANTS_KEY = "beoflow_restaurants";
+  const ORDERS_KEY = "beoflow_orders";
+  const KITCHEN_STATIONS_KEY = "beoflow_kitchen_stations";
+  const ORDER_STATUS_FLOW = ["NEW", "ACCEPTED", "PREPARING", "READY", "DELIVERED", "CLOSED"];
+
+  const readStoredList = (key) => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) || [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeStoredList = (key, value) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    syncClientDataKey(key, value);
+  };
+
+  const getRestaurants = () => readStoredList(RESTAURANTS_KEY);
+  const saveRestaurants = (restaurants) => writeStoredList(RESTAURANTS_KEY, restaurants);
+  const getOrders = () => readStoredList(ORDERS_KEY);
+  const saveOrders = (orders) => writeStoredList(ORDERS_KEY, orders);
+  const getKitchenStations = () => readStoredList(KITCHEN_STATIONS_KEY);
+  const saveKitchenStations = (stations) => writeStoredList(KITCHEN_STATIONS_KEY, stations);
+
+  const setOpsStatus = (statusEl, message = "", type = "info") => {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.dataset.type = type;
+    statusEl.hidden = !message;
+  };
+
+  const requestJson = async (pathName, options = {}) => {
+    const response = await fetch(`${API_BASE_URL}${pathName}`, {
+      ...options,
+      headers: getAuthHeaders({
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {})
+      })
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.error || "Request failed.");
+    }
+
+    return result;
+  };
+
+  const makeLocalId = (prefix) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const normalizeId = (value) => String(value ?? "");
+  const getRestaurantId = (restaurant = {}) => normalizeId(restaurant.restaurant_id ?? restaurant.id);
+  const getStationId = (station = {}) => normalizeId(station.station_id ?? station.id);
+  const getOrderId = (order = {}) => normalizeId(order.order_id ?? order.id);
+  const getOrderRestaurantId = (order = {}) => normalizeId(order.restaurant_id ?? order.restaurantId);
+
+  const formatOpsCurrency = (amount = 0) =>
+    `$${Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const formatOpsLabel = (value = "") =>
+    String(value || "")
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+  const getOpsStatusClass = (status = "") => {
+    const normalized = String(status || "").toLowerCase();
+    if (["ready", "delivered", "closed", "paid", "active"].includes(normalized)) return "ready";
+    if (["accepted", "preparing"].includes(normalized)) return "prep";
+    if (["new", "unpaid", "authorized"].includes(normalized)) return "draft";
+    return "upcoming";
+  };
+
+  const mapRestaurantFromApi = (restaurant = {}) => ({
+    id: getRestaurantId(restaurant),
+    restaurant_id: getRestaurantId(restaurant),
+    restaurant_name: restaurant.restaurant_name || restaurant.restaurantName || "",
+    category: restaurant.category || "restaurant",
+    location: restaurant.location || "",
+    active_status: restaurant.active_status ?? restaurant.activeStatus ?? true
+  });
+
+  const mapStationFromApi = (station = {}) => ({
+    id: getStationId(station),
+    station_id: getStationId(station),
+    restaurant_id: normalizeId(station.restaurant_id ?? station.restaurantId),
+    station_name: station.station_name || station.stationName || "",
+    station_type: station.station_type || station.stationType || "general",
+    active_status: station.active_status ?? station.activeStatus ?? true,
+    display_order: Number(station.display_order ?? station.displayOrder ?? 0)
+  });
+
+  const mapOrderFromApi = (order = {}) => ({
+    id: getOrderId(order),
+    order_id: getOrderId(order),
+    restaurant_id: getOrderRestaurantId(order),
+    table_id: order.table_id || order.tableId || "",
+    customer_name: order.customer_name || order.customerName || "",
+    order_type: order.order_type || order.orderType || "DINE_IN",
+    order_status: order.order_status || order.orderStatus || "NEW",
+    payment_status: order.payment_status || order.paymentStatus || "UNPAID",
+    subtotal: Number(order.subtotal || 0),
+    taxes: Number(order.taxes || 0),
+    total: Number(order.total || 0),
+    created_at: order.created_at || order.createdAt || new Date().toISOString(),
+    items: Array.isArray(order.items) ? order.items : []
+  });
+
+  const mergeById = (currentItems, incomingItems, idGetter) => {
+    const itemsById = new Map(currentItems.map((item) => [idGetter(item), item]));
+    incomingItems.forEach((item) => {
+      const id = idGetter(item);
+      if (id) itemsById.set(id, item);
+    });
+    return [...itemsById.values()];
+  };
+
+  const getRestaurantName = (restaurantId) => {
+    const id = normalizeId(restaurantId);
+    const restaurant = getRestaurants().find((item) => getRestaurantId(item) === id);
+    return restaurant?.restaurant_name || "Unassigned";
+  };
+
+  const getStationName = (stationId) => {
+    const id = normalizeId(stationId);
+    const station = getKitchenStations().find((item) => getStationId(item) === id);
+    return station?.station_name || "";
+  };
+
+  const getOrderItems = (order = {}) => Array.isArray(order.items) ? order.items : [];
+
+  const getOrderItemSummary = (order = {}) => {
+    const items = getOrderItems(order);
+    if (!items.length) return "-";
+    return items.map((item) => {
+      const quantity = Number(item.quantity || 1);
+      const name = item.menu_item_id || item.menuItemId || "Item";
+      return `${quantity}x ${name}`;
+    }).join(", ");
+  };
+
+  const fetchRestaurantsFromApi = async () => {
+    const result = await requestJson("/api/restaurants");
+    const restaurants = Array.isArray(result.restaurants) ? result.restaurants.map(mapRestaurantFromApi) : [];
+    const mergedRestaurants = restaurants.length ? mergeById(getRestaurants(), restaurants, getRestaurantId) : getRestaurants();
+    saveRestaurants(mergedRestaurants);
+    return mergedRestaurants;
+  };
+
+  const fetchKitchenStationsFromApi = async () => {
+    const result = await requestJson("/api/kitchen/stations");
+    const stations = Array.isArray(result.stations) ? result.stations.map(mapStationFromApi) : [];
+    const mergedStations = stations.length ? mergeById(getKitchenStations(), stations, getStationId) : getKitchenStations();
+    saveKitchenStations(mergedStations);
+    return mergedStations;
+  };
+
+  const fetchOrdersFromApi = async () => {
+    const result = await requestJson("/api/orders");
+    const orders = Array.isArray(result.orders) ? result.orders.map(mapOrderFromApi) : [];
+    const mergedOrders = orders.length ? mergeById(getOrders(), orders, getOrderId) : getOrders();
+    saveOrders(mergedOrders);
+    return mergedOrders;
+  };
+
+  const createRestaurantInApi = async (restaurant) => {
+    const result = await requestJson("/api/restaurants", {
+      method: "POST",
+      body: JSON.stringify(restaurant)
+    });
+    return mapRestaurantFromApi(result.restaurant);
+  };
+
+  const createKitchenStationInApi = async (station) => {
+    const result = await requestJson("/api/kitchen/stations", {
+      method: "POST",
+      body: JSON.stringify(station)
+    });
+    return mapStationFromApi(result.station);
+  };
+
+  const createOrderInApi = async (order) => {
+    const result = await requestJson("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(order)
+    });
+    return mapOrderFromApi(result.order);
+  };
+
+  const updateOrderStatusInApi = async (orderId, status) => {
+    const result = await requestJson(`/api/orders/${encodeURIComponent(orderId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+    return mapOrderFromApi(result.order);
+  };
+
+  const loadOperationsData = async (options = {}) => {
+    const { quiet = false } = options;
+    try {
+      await fetchRestaurantsFromApi();
+      await fetchKitchenStationsFromApi();
+      await fetchOrdersFromApi();
+      if (!quiet) {
+        setOpsStatus(restaurantsStatus, "Operations data refreshed.", "success");
+        setOpsStatus(ordersStatus, "Orders refreshed.", "success");
+        setOpsStatus(kitchenStatus, "KDS refreshed.", "success");
+      }
+    } catch (error) {
+      if (!quiet) {
+        setOpsStatus(restaurantsStatus, "Using local restaurant data until Render is updated.", "warning");
+        setOpsStatus(ordersStatus, "Using local order data until Render is updated.", "warning");
+        setOpsStatus(kitchenStatus, "Using local KDS data until Render is updated.", "warning");
+      }
+    }
+  };
+
+  const populateRestaurantOptions = () => {
+    const restaurants = getRestaurants();
+    const restaurantOptions = restaurants
+      .map((restaurant) => `<option value="${escapeHtml(getRestaurantId(restaurant))}">${escapeHtml(restaurant.restaurant_name)}</option>`)
+      .join("");
+    const filterOptions = `<option value="">All Restaurants</option>${restaurantOptions}`;
+    const createFirstOption = '<option value="">Create a restaurant first</option>';
+
+    [orderRestaurantInput, stationRestaurantInput].forEach((select) => {
+      if (!select) return;
+      const currentValue = select.value;
+      select.innerHTML = restaurantOptions || createFirstOption;
+      if (currentValue) select.value = currentValue;
+    });
+
+    [ordersRestaurantFilter, kdsRestaurantFilter].forEach((select) => {
+      if (!select) return;
+      const currentValue = select.value;
+      select.innerHTML = filterOptions;
+      select.value = currentValue;
+    });
+  };
+
+  const populateStationOptions = () => {
+    const stations = getKitchenStations();
+    const orderRestaurantId = orderRestaurantInput?.value || "";
+    const kdsRestaurantId = kdsRestaurantFilter?.value || "";
+
+    if (orderStationInput) {
+      const filteredStations = stations.filter((station) => !orderRestaurantId || normalizeId(station.restaurant_id) === orderRestaurantId);
+      orderStationInput.innerHTML = [
+        '<option value="">No station</option>',
+        ...filteredStations.map((station) => `<option value="${escapeHtml(getStationId(station))}">${escapeHtml(station.station_name)}</option>`)
+      ].join("");
+    }
+
+    if (kdsStationFilter) {
+      const filteredStations = stations.filter((station) => !kdsRestaurantId || normalizeId(station.restaurant_id) === kdsRestaurantId);
+      const currentValue = kdsStationFilter.value;
+      kdsStationFilter.innerHTML = [
+        '<option value="">All Stations</option>',
+        ...filteredStations.map((station) => `<option value="${escapeHtml(getStationId(station))}">${escapeHtml(station.station_name)}</option>`)
+      ].join("");
+      kdsStationFilter.value = currentValue;
+    }
+  };
+
+  const renderRestaurants = async (options = {}) => {
+    if (options.refresh) await loadOperationsData({ quiet: true });
+    populateRestaurantOptions();
+    populateStationOptions();
+
+    if (!restaurantsTableBody) return;
+    const restaurants = getRestaurants();
+
+    if (!restaurants.length) {
+      restaurantsTableBody.innerHTML = '<tr><td colspan="4" class="ops-empty-cell">No restaurants yet.</td></tr>';
+      return;
+    }
+
+    restaurantsTableBody.innerHTML = restaurants.map((restaurant) => `
+      <tr>
+        <td><strong>${escapeHtml(restaurant.restaurant_name)}</strong></td>
+        <td>${escapeHtml(formatOpsLabel(restaurant.category))}</td>
+        <td>${escapeHtml(restaurant.location || "-")}</td>
+        <td><span class="status ${restaurant.active_status ? "ready" : "draft"}">${restaurant.active_status ? "Active" : "Inactive"}</span></td>
+      </tr>
+    `).join("");
+  };
+
+  const addRestaurant = async () => {
+    const restaurantName = restaurantNameInput?.value.trim();
+    if (!restaurantName) {
+      setOpsStatus(restaurantsStatus, "Restaurant name is required.", "error");
+      return;
+    }
+
+    const payload = {
+      restaurant_name: restaurantName,
+      category: restaurantCategoryInput?.value || "restaurant",
+      location: restaurantLocationInput?.value.trim() || "",
+      active_status: restaurantActiveStatusInput?.value !== "false"
+    };
+
+    let savedRestaurant;
+    try {
+      savedRestaurant = await createRestaurantInApi(payload);
+      setOpsStatus(restaurantsStatus, "Restaurant saved.", "success");
+    } catch (error) {
+      savedRestaurant = mapRestaurantFromApi({
+        ...payload,
+        restaurant_id: makeLocalId("restaurant")
+      });
+      setOpsStatus(restaurantsStatus, "Restaurant saved locally until Render is updated.", "warning");
+    }
+
+    saveRestaurants(mergeById(getRestaurants(), [savedRestaurant], getRestaurantId));
+    if (restaurantNameInput) restaurantNameInput.value = "";
+    if (restaurantLocationInput) restaurantLocationInput.value = "";
+    renderRestaurants();
+    renderOrders();
+    renderKds();
+  };
+
+  const addKitchenStation = async () => {
+    const restaurantId = stationRestaurantInput?.value || "";
+    const stationName = stationNameInput?.value.trim();
+    if (!restaurantId || !stationName) {
+      setOpsStatus(kitchenStatus, "Restaurant and station name are required.", "error");
+      return;
+    }
+
+    const payload = {
+      restaurant_id: restaurantId,
+      station_name: stationName,
+      station_type: stationTypeInput?.value || "general",
+      display_order: Number(stationDisplayOrderInput?.value || 0),
+      active_status: true
+    };
+
+    let savedStation;
+    try {
+      savedStation = await createKitchenStationInApi(payload);
+      setOpsStatus(kitchenStatus, "Station saved.", "success");
+    } catch (error) {
+      savedStation = mapStationFromApi({
+        ...payload,
+        station_id: makeLocalId("station")
+      });
+      setOpsStatus(kitchenStatus, "Station saved locally until Render is updated.", "warning");
+    }
+
+    saveKitchenStations(mergeById(getKitchenStations(), [savedStation], getStationId));
+    if (stationNameInput) stationNameInput.value = "";
+    renderKds();
+    renderOrders();
+  };
+
+  const parseOrderModifiers = (value = "") =>
+    String(value || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((option) => ({ group: "custom", option }));
+
+  const addOrder = async () => {
+    const restaurantId = orderRestaurantInput?.value || "";
+    const itemName = orderItemNameInput?.value.trim();
+    if (!restaurantId || !itemName) {
+      setOpsStatus(ordersStatus, "Restaurant and item are required.", "error");
+      return;
+    }
+
+    const quantity = Math.max(1, Number.parseInt(orderQuantityInput?.value || "1", 10));
+    const unitPrice = Number(orderUnitPriceInput?.value || 0);
+    const totalPrice = quantity * unitPrice;
+    const stationId = orderStationInput?.value || null;
+    const payload = {
+      restaurant_id: restaurantId,
+      table_id: orderTableInput?.value.trim() || "",
+      customer_name: orderCustomerInput?.value.trim() || "",
+      order_type: orderTypeInput?.value || "DINE_IN",
+      payment_status: "UNPAID",
+      subtotal: totalPrice,
+      taxes: 0,
+      total: totalPrice,
+      source_channel: "POS",
+      items: [
+        {
+          menu_item_id: itemName,
+          quantity,
+          modifiers: parseOrderModifiers(orderModifiersInput?.value || ""),
+          notes: orderNotesInput?.value.trim() || "",
+          assigned_station_id: stationId,
+          unit_price: unitPrice,
+          total_price: totalPrice
+        }
+      ]
+    };
+
+    let savedOrder;
+    try {
+      savedOrder = await createOrderInApi(payload);
+      setOpsStatus(ordersStatus, "Order submitted.", "success");
+    } catch (error) {
+      savedOrder = mapOrderFromApi({
+        ...payload,
+        order_id: makeLocalId("order"),
+        order_status: "NEW",
+        created_at: new Date().toISOString(),
+        items: payload.items.map((item) => ({
+          ...item,
+          order_item_id: makeLocalId("item"),
+          item_status: "NEW"
+        }))
+      });
+      setOpsStatus(ordersStatus, "Order saved locally until Render is updated.", "warning");
+    }
+
+    saveOrders(mergeById(getOrders(), [savedOrder], getOrderId));
+    [orderTableInput, orderCustomerInput, orderItemNameInput, orderUnitPriceInput, orderModifiersInput, orderNotesInput].forEach((input) => {
+      if (input) input.value = "";
+    });
+    if (orderQuantityInput) orderQuantityInput.value = "1";
+    renderOrders();
+    renderKds();
+  };
+
+  const getNextOrderStatus = (status = "NEW") => {
+    const index = ORDER_STATUS_FLOW.indexOf(status);
+    if (index === -1 || index === ORDER_STATUS_FLOW.length - 1) return "";
+    return ORDER_STATUS_FLOW[index + 1];
+  };
+
+  const updateOrderStatus = async (orderId, nextStatus) => {
+    if (!orderId || !nextStatus) return;
+
+    let updatedOrder;
+    try {
+      updatedOrder = await updateOrderStatusInApi(orderId, nextStatus);
+      setOpsStatus(ordersStatus, `Order moved to ${formatOpsLabel(nextStatus)}.`, "success");
+      setOpsStatus(kitchenStatus, `Order moved to ${formatOpsLabel(nextStatus)}.`, "success");
+    } catch (error) {
+      const orders = getOrders();
+      updatedOrder = orders.find((order) => getOrderId(order) === orderId);
+      if (!updatedOrder) return;
+      updatedOrder = {
+        ...updatedOrder,
+        order_status: nextStatus,
+        items: getOrderItems(updatedOrder).map((item) => ({ ...item, item_status: nextStatus }))
+      };
+      setOpsStatus(ordersStatus, `Order moved locally to ${formatOpsLabel(nextStatus)}.`, "warning");
+      setOpsStatus(kitchenStatus, `Order moved locally to ${formatOpsLabel(nextStatus)}.`, "warning");
+    }
+
+    saveOrders(mergeById(getOrders(), [updatedOrder], getOrderId));
+    renderOrders();
+    renderKds();
+  };
+
+  const getFilteredOrders = () => {
+    const restaurantFilter = ordersRestaurantFilter?.value || "";
+    const statusFilter = ordersStatusFilter?.value || "";
+
+    return getOrders().filter((order) => {
+      const matchesRestaurant = !restaurantFilter || getOrderRestaurantId(order) === restaurantFilter;
+      const matchesStatus = statusFilter
+        ? order.order_status === statusFilter
+        : order.order_status !== "CLOSED";
+      return matchesRestaurant && matchesStatus;
+    });
+  };
+
+  const renderOrders = async (options = {}) => {
+    if (options.refresh) await loadOperationsData({ quiet: true });
+    populateRestaurantOptions();
+    populateStationOptions();
+
+    if (!ordersTableBody) return;
+    const orders = getFilteredOrders();
+
+    if (!orders.length) {
+      ordersTableBody.innerHTML = '<tr><td colspan="8" class="ops-empty-cell">No orders in this view.</td></tr>';
+      return;
+    }
+
+    ordersTableBody.innerHTML = orders.map((order) => {
+      const orderId = getOrderId(order);
+      const nextStatus = getNextOrderStatus(order.order_status);
+      return `
+        <tr>
+          <td>
+            <strong>#${escapeHtml(orderId.slice(-6) || orderId)}</strong>
+            <small>${escapeHtml(order.table_id || order.customer_name || "")}</small>
+          </td>
+          <td>${escapeHtml(getRestaurantName(order.restaurant_id))}</td>
+          <td>${escapeHtml(formatOpsLabel(order.order_type))}</td>
+          <td>${escapeHtml(getOrderItemSummary(order))}</td>
+          <td>${formatOpsCurrency(order.total)}</td>
+          <td><span class="status ${getOpsStatusClass(order.order_status)}">${escapeHtml(formatOpsLabel(order.order_status))}</span></td>
+          <td><span class="status ${getOpsStatusClass(order.payment_status)}">${escapeHtml(formatOpsLabel(order.payment_status))}</span></td>
+          <td>
+            ${nextStatus ? `<button type="button" class="secondary-btn ops-small-btn" data-advance-order="${escapeHtml(orderId)}" data-next-status="${escapeHtml(nextStatus)}">${escapeHtml(formatOpsLabel(nextStatus))}</button>` : ""}
+          </td>
+        </tr>
+      `;
+    }).join("");
+  };
+
+  const renderKds = async (options = {}) => {
+    if (options.refresh) await loadOperationsData({ quiet: true });
+    populateRestaurantOptions();
+    populateStationOptions();
+
+    if (!kdsBoard) return;
+    const restaurantFilter = kdsRestaurantFilter?.value || "";
+    const stationFilter = kdsStationFilter?.value || "";
+    const activeStatuses = ["NEW", "ACCEPTED", "PREPARING", "READY"];
+    const orders = getOrders().filter((order) => {
+      const matchesRestaurant = !restaurantFilter || getOrderRestaurantId(order) === restaurantFilter;
+      const matchesStatus = activeStatuses.includes(order.order_status);
+      const items = getOrderItems(order);
+      const matchesStation = !stationFilter || items.some((item) => normalizeId(item.assigned_station_id ?? item.assignedStationId) === stationFilter);
+      return matchesRestaurant && matchesStatus && matchesStation;
+    });
+
+    kdsBoard.innerHTML = activeStatuses.map((status) => {
+      const statusOrders = orders.filter((order) => order.order_status === status);
+      const cards = statusOrders.length
+        ? statusOrders.map((order) => {
+            const orderId = getOrderId(order);
+            const nextStatus = getNextOrderStatus(order.order_status);
+            const items = getOrderItems(order);
+            const stationNames = [...new Set(items.map((item) => getStationName(item.assigned_station_id ?? item.assignedStationId)).filter(Boolean))];
+            return `
+              <article class="kds-ticket">
+                <div class="kds-ticket-head">
+                  <strong>#${escapeHtml(orderId.slice(-6) || orderId)}</strong>
+                  <span>${escapeHtml(order.table_id || order.customer_name || "Open")}</span>
+                </div>
+                <p>${escapeHtml(getRestaurantName(order.restaurant_id))}</p>
+                <ul>
+                  ${items.map((item) => `<li>${escapeHtml(`${item.quantity || 1}x ${item.menu_item_id || "Item"}`)}${item.notes ? `<span>${escapeHtml(item.notes)}</span>` : ""}</li>`).join("")}
+                </ul>
+                ${stationNames.length ? `<small>${escapeHtml(stationNames.join(", "))}</small>` : ""}
+                ${nextStatus ? `<button type="button" class="primary-btn kds-action-btn" data-advance-order="${escapeHtml(orderId)}" data-next-status="${escapeHtml(nextStatus)}">${escapeHtml(formatOpsLabel(nextStatus))}</button>` : ""}
+              </article>
+            `;
+          }).join("")
+        : '<div class="kds-empty">No tickets</div>';
+
+      return `
+        <section class="kds-column">
+          <div class="kds-column-header">
+            <h3>${escapeHtml(formatOpsLabel(status))}</h3>
+            <span>${statusOrders.length}</span>
+          </div>
+          <div class="kds-ticket-list">${cards}</div>
+        </section>
+      `;
+    }).join("");
+  };
+
   const SMART_SETUP_KEY = "beoflow_smart_setup";
 
   const smartSetupFlows = {
@@ -1189,6 +1792,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     dashboard: {
       title: "Dashboard",
       subtitle: "Event & Banquet Operations Control"
+    },
+    restaurants: {
+      title: "Restaurants",
+      subtitle: "Multi-venue hospitality operations"
+    },
+    orders: {
+      title: "Orders",
+      subtitle: "Live order management across restaurants"
+    },
+    kitchen: {
+      title: "Kitchen Display",
+      subtitle: "Active preparation queue and station flow"
     },
     events: {
       title: "Events",
@@ -1805,6 +2420,9 @@ ${staffSuggestion}
     [
       dashboardSection,
       dashboardCalendarSection,
+      restaurantsSection,
+      ordersSection,
+      kitchenSection,
       eventsSection,
       menusSection,
       recipesSection,
@@ -1818,7 +2436,7 @@ ${staffSuggestion}
   };
 
   const setActiveNav = (activeNav) => {
-    [navDashboard, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff, navReports].forEach((navItem) => {
+    [navDashboard, navRestaurants, navOrders, navKitchen, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff, navReports].forEach((navItem) => {
       if (!navItem) return;
       navItem.classList.toggle("active", navItem === activeNav);
     });
@@ -1847,6 +2465,30 @@ ${staffSuggestion}
       showSection(eventsSection);
       setActiveNav(navEvents);
       renderEvents().then(renderKpis);
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    if (moduleKey === "restaurants") {
+      showSection(restaurantsSection);
+      setActiveNav(navRestaurants);
+      renderRestaurants();
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    if (moduleKey === "orders") {
+      showSection(ordersSection);
+      setActiveNav(navOrders);
+      renderOrders();
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    if (moduleKey === "kitchen") {
+      showSection(kitchenSection);
+      setActiveNav(navKitchen);
+      renderKds();
       if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
@@ -5206,6 +5848,27 @@ ${staffSuggestion}
     }
   };
 
+  if (navRestaurants && restaurantsSection) {
+    navRestaurants.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("restaurants");
+    });
+  }
+
+  if (navOrders && ordersSection) {
+    navOrders.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("orders");
+    });
+  }
+
+  if (navKitchen && kitchenSection) {
+    navKitchen.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("kitchen");
+    });
+  }
+
   if (navInventory && inventorySection) {
     navInventory.addEventListener("click", (e) => {
       e.preventDefault();
@@ -5369,6 +6032,59 @@ ${staffSuggestion}
   if (addInventoryBtn) {
     addInventoryBtn.addEventListener("click", addInventoryItem);
   }
+
+  if (addRestaurantBtn) {
+    addRestaurantBtn.addEventListener("click", addRestaurant);
+  }
+
+  if (refreshRestaurantsBtn) {
+    refreshRestaurantsBtn.addEventListener("click", () => {
+      renderRestaurants({ refresh: true });
+    });
+  }
+
+  if (submitOrderBtn) {
+    submitOrderBtn.addEventListener("click", addOrder);
+  }
+
+  if (refreshOrdersBtn) {
+    refreshOrdersBtn.addEventListener("click", () => {
+      renderOrders({ refresh: true });
+    });
+  }
+
+  if (addStationBtn) {
+    addStationBtn.addEventListener("click", addKitchenStation);
+  }
+
+  if (refreshKdsBtn) {
+    refreshKdsBtn.addEventListener("click", () => {
+      renderKds({ refresh: true });
+    });
+  }
+
+  [ordersRestaurantFilter, ordersStatusFilter].forEach((filter) => {
+    filter?.addEventListener("change", renderOrders);
+  });
+
+  [orderRestaurantInput, kdsRestaurantFilter].forEach((select) => {
+    select?.addEventListener("change", () => {
+      populateStationOptions();
+      renderKds();
+    });
+  });
+
+  if (kdsStationFilter) {
+    kdsStationFilter.addEventListener("change", renderKds);
+  }
+
+  [ordersTableBody, kdsBoard].forEach((container) => {
+    container?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-advance-order]");
+      if (!button) return;
+      updateOrderStatus(button.dataset.advanceOrder, button.dataset.nextStatus);
+    });
+  });
 
   if (inventorySearchInput) {
     inventorySearchInput.addEventListener("input", renderInventory);
@@ -5676,6 +6392,18 @@ ${staffSuggestion}
   window.addEventListener("beoflow:setup-updated", renderSmartSetup);
 
   showModuleByKey("dashboard", { scroll: false });
+
+  loadOperationsData({ quiet: true })
+    .catch((error) => {
+      console.warn("Using local operations data because API is unavailable:", error);
+    })
+    .finally(() => {
+      populateRestaurantOptions();
+      populateStationOptions();
+      renderRestaurants();
+      renderOrders();
+      renderKds();
+    });
 
   populateRecipeIngredientOptions();
   populateSubRecipeIngredientOptions();

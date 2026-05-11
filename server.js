@@ -62,7 +62,10 @@ const CLIENT_DATA_KEYS = new Set([
   "beoflow_shift_assignment_presets",
   "beoflow_reports_feedback",
   "beoflow_smart_setup",
-  "beoflow_shift_handoff_assignments"
+  "beoflow_shift_handoff_assignments",
+  "beoflow_restaurants",
+  "beoflow_orders",
+  "beoflow_kitchen_stations"
 ]);
 const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
   .split(",")
