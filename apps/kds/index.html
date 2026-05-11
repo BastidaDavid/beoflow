@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEOFlow KDS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Sora:wght@600;700;800&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/apps/shared/ops.css" />
+</head>
+<body>
+  <section id="login-screen" class="login-screen" hidden>
+    <div class="login-panel">
+      <img src="/img/logobeoflow.png" alt="BEOFlow Logo" class="login-logo" />
+      <div class="login-heading">
+        <h1>BEOFlow KDS</h1>
+        <p>Kitchen display system</p>
+      </div>
+      <form id="login-form" class="grid">
+        <div class="form-group">
+          <label for="login-client-code">Client</label>
+          <input id="login-client-code" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="primary-btn">Sign in</button>
+        <p id="login-status" class="status-line" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="app-header">
+      <a href="/admin" class="brand">
+        <img src="/img/logobeoflow.png" alt="BEOFlow" />
+        <span>
+          <strong>BEOFlow KDS</strong>
+          <span>Kitchen flow</span>
+        </span>
+      </a>
+      <nav class="app-nav">
+        <a href="/admin">Admin</a>
+        <a href="/order">Order</a>
+        <a href="/kds" class="active">KDS</a>
+        <a href="/pos">POS</a>
+        <button type="button" class="secondary-btn" data-logout>Sign out</button>
+      </nav>
+    </header>
+
+    <main class="page">
+      <div class="page-title">
+        <div>
+          <h1>Kitchen Display</h1>
+          <p>Live tickets move through the universal order flow.</p>
+        </div>
+        <button type="button" id="refresh-kds" class="secondary-btn">Refresh</button>
+      </div>
+
+      <section class="panel" style="margin-bottom:18px;">
+        <div class="toolbar" style="margin-bottom:0;">
+          <div class="form-group">
+            <label for="restaurant-filter">Restaurant</label>
+            <select id="restaurant-filter"></select>
+          </div>
+          <div class="form-group">
+            <label for="station-filter">Station</label>
+            <select id="station-filter"></select>
+          </div>
+        </div>
+        <p id="kds-status" class="status-line" hidden></p>
+      </section>
+
+      <div id="kds-board" class="kds-board"></div>
+    </main>
+  </div>
+
+  <script type="module" src="/apps/kds/app.mjs"></script>
+</body>
+</html>

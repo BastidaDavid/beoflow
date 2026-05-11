@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEOFlow Order</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Sora:wght@600;700;800&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/apps/shared/ops.css" />
+</head>
+<body>
+  <section id="login-screen" class="login-screen" hidden>
+    <div class="login-panel">
+      <img src="/img/logobeoflow.png" alt="BEOFlow Logo" class="login-logo" />
+      <div class="login-heading">
+        <h1>BEOFlow Order</h1>
+        <p>Customer and tablet ordering</p>
+      </div>
+      <form id="login-form" class="grid">
+        <div class="form-group">
+          <label for="login-client-code">Client</label>
+          <input id="login-client-code" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="primary-btn">Sign in</button>
+        <p id="login-status" class="status-line" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="app-header">
+      <a href="/admin" class="brand">
+        <img src="/img/logobeoflow.png" alt="BEOFlow" />
+        <span>
+          <strong>BEOFlow Order</strong>
+          <span>Ordering surface</span>
+        </span>
+      </a>
+      <nav class="app-nav">
+        <a href="/admin">Admin</a>
+        <a href="/order" class="active">Order</a>
+        <a href="/kds">KDS</a>
+        <a href="/pos">POS</a>
+        <button type="button" class="secondary-btn" data-logout>Sign out</button>
+      </nav>
+    </header>
+
+    <main class="page">
+      <div class="page-title">
+        <div>
+          <h1>Create Order</h1>
+          <p>Customer, tablet, QR, room service, and pool service ordering use the same engine.</p>
+        </div>
+      </div>
+
+      <div class="grid two-column">
+        <section class="panel">
+          <h2>Order Details</h2>
+          <p class="panel-subtitle">Choose the venue and service mode.</p>
+          <div class="form-grid" style="margin-top:16px;">
+            <div class="form-group full-width">
+              <label for="restaurant-select">Restaurant</label>
+              <select id="restaurant-select"></select>
+            </div>
+            <div class="form-group">
+              <label for="order-type">Order Type</label>
+              <select id="order-type">
+                <option value="DINE_IN">Dine In</option>
+                <option value="TAKEOUT">Takeout</option>
+                <option value="ROOM_SERVICE">Room Service</option>
+                <option value="POOL_SERVICE">Pool Service</option>
+                <option value="BANQUET">Banquet</option>
+                <option value="BAR">Bar</option>
+                <option value="CAFE">Cafe</option>
+                <option value="FOOD_COURT">Food Court</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="table-id">Table / Room</label>
+              <input id="table-id" placeholder="Table 12 or Room 804" />
+            </div>
+            <div class="form-group">
+              <label for="customer-name">Guest Name</label>
+              <input id="customer-name" placeholder="Optional" />
+            </div>
+            <div class="form-group">
+              <label for="station-select">Station</label>
+              <select id="station-select"></select>
+            </div>
+          </div>
+
+          <p id="order-status" class="status-line" hidden></p>
+        </section>
+
+        <section class="panel">
+          <h2>Cart</h2>
+          <p class="panel-subtitle">Items use universal modifiers and notes.</p>
+          <div id="cart-list" class="cart-list"></div>
+          <div class="cart-total">
+            <span>Total</span>
+            <strong id="cart-total">$0.00</strong>
+          </div>
+          <button type="button" id="submit-order" class="primary-btn" style="width:100%; margin-top:16px;">Submit Order</button>
+        </section>
+      </div>
+
+      <section class="panel" style="margin-top:18px;">
+        <h2>Add Items</h2>
+        <p class="panel-subtitle">Starter items are temporary until menu publishing is connected.</p>
+        <div id="menu-grid" class="menu-grid" style="margin-top:16px;"></div>
+
+        <div class="form-grid" style="margin-top:18px;">
+          <div class="form-group">
+            <label for="custom-item-name">Custom Item</label>
+            <input id="custom-item-name" placeholder="Example: Latte" />
+          </div>
+          <div class="form-group">
+            <label for="custom-item-price">Price</label>
+            <input id="custom-item-price" type="number" min="0" step="0.01" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label for="custom-item-quantity">Quantity</label>
+            <input id="custom-item-quantity" type="number" min="1" step="1" value="1" />
+          </div>
+          <div class="form-group">
+            <label for="custom-item-modifiers">Modifiers</label>
+            <input id="custom-item-modifiers" placeholder="No onion, oat milk, sauce side" />
+          </div>
+          <div class="form-group full-width">
+            <label for="custom-item-notes">Notes</label>
+            <input id="custom-item-notes" placeholder="Optional prep note" />
+          </div>
+        </div>
+        <button type="button" id="add-custom-item" class="secondary-btn" style="margin-top:16px;">Add Custom Item</button>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/apps/order/app.mjs"></script>
+</body>
+</html>

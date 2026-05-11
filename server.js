@@ -33,6 +33,7 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
 app.use("/img", express.static(path.join(__dirname, "img")));
+app.use("/apps", express.static(path.join(__dirname, "apps")));
 app.get("/style.css", (req, res) => res.sendFile(path.join(__dirname, "style.css")));
 app.get("/script.js", (req, res) => res.sendFile(path.join(__dirname, "script.js")));
 
@@ -705,7 +706,11 @@ function apiStatus() {
       pos: "PATCH /api/pos/orders/:orderId/payment",
       analytics: "GET /api/analytics/orders/summary",
       staff: "GET/POST /api/staff/roles",
-      realtime: "Socket.io orders engine gateway"
+      realtime: "Socket.io orders engine gateway",
+      adminApp: "GET /admin",
+      orderApp: "GET /order",
+      kdsApp: "GET /kds",
+      posApp: "GET /pos"
     }
   };
 }
@@ -716,6 +721,26 @@ app.get("/api/status", (req, res) => {
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/admin/", (req, res) => {
+  res.redirect(301, "/admin");
+});
+
+app.get(["/order", "/order/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "apps", "order", "index.html"));
+});
+
+app.get(["/kds", "/kds/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "apps", "kds", "index.html"));
+});
+
+app.get(["/pos", "/pos/"], (req, res) => {
+  res.sendFile(path.join(__dirname, "apps", "pos", "index.html"));
 });
 
 app.get("/health", (req, res) => {

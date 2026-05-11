@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BEOFlow POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;family=Sora:wght@600;700;800&amp;display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/apps/shared/ops.css" />
+</head>
+<body>
+  <section id="login-screen" class="login-screen" hidden>
+    <div class="login-panel">
+      <img src="/img/logobeoflow.png" alt="BEOFlow Logo" class="login-logo" />
+      <div class="login-heading">
+        <h1>BEOFlow POS</h1>
+        <p>Cashier and closing workflow</p>
+      </div>
+      <form id="login-form" class="grid">
+        <div class="form-group">
+          <label for="login-client-code">Client</label>
+          <input id="login-client-code" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="primary-btn">Sign in</button>
+        <p id="login-status" class="status-line" hidden></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <header class="app-header">
+      <a href="/admin" class="brand">
+        <img src="/img/logobeoflow.png" alt="BEOFlow" />
+        <span>
+          <strong>BEOFlow POS</strong>
+          <span>Payments and closeout</span>
+        </span>
+      </a>
+      <nav class="app-nav">
+        <a href="/admin">Admin</a>
+        <a href="/order">Order</a>
+        <a href="/kds">KDS</a>
+        <a href="/pos" class="active">POS</a>
+        <button type="button" class="secondary-btn" data-logout>Sign out</button>
+      </nav>
+    </header>
+
+    <main class="page">
+      <div class="page-title">
+        <div>
+          <h1>POS</h1>
+          <p>Payments, receipts, and ticket closing stay separate from kitchen operations.</p>
+        </div>
+        <button type="button" id="refresh-pos" class="secondary-btn">Refresh</button>
+      </div>
+
+      <section class="panel">
+        <div class="toolbar">
+          <div class="form-group">
+            <label for="restaurant-filter">Restaurant</label>
+            <select id="restaurant-filter"></select>
+          </div>
+          <div class="form-group">
+            <label for="status-filter">Status</label>
+            <select id="status-filter">
+              <option value="">All orders</option>
+              <option value="NEW">New</option>
+              <option value="ACCEPTED">Accepted</option>
+              <option value="PREPARING">Preparing</option>
+              <option value="READY">Ready</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
+        </div>
+        <p id="pos-status" class="status-line" hidden></p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Restaurant</th>
+                <th>Type</th>
+                <th>Total</th>
+                <th>Order Status</th>
+                <th>Payment</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="receipt-panel" class="receipt-panel" style="margin-top:18px;" hidden>
+        <h2>Receipt</h2>
+        <div id="receipt-body"></div>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="/apps/pos/app.mjs"></script>
+</body>
+</html>
