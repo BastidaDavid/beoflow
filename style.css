@@ -412,25 +412,12 @@ body {
   flex-shrink: 0;
 }
 
-.app-container.is-westgate .logo-area {
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.app-container.is-westgate .logo-img {
-  width: min(190px, 100%);
-  height: 72px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: #ffffff;
-  object-fit: contain;
-}
-
 .app-container.is-bastida .logo-img {
-  padding: 5px;
-  border-radius: 14px;
-  background: #ffffff;
+  display: none;
+}
+
+.app-container.is-bastida .logo-area {
+  margin-bottom: 32px;
 }
 
 .logo-text h2 {
