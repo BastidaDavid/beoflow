@@ -14,6 +14,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       : "https://beoflow-api.onrender.com");
   const AUTH_TOKEN_KEY = "beoflow_auth_token";
   const AUTH_CLIENT_KEY = "beoflow_auth_client";
+  const WESTGATE_MODE_KEY = "beoflow_westgate_mode";
+  const WESTGATE_MODE_MODULES = {
+    banquets: new Set(["dashboard", "events", "menus", "recipes", "subRecipes", "inventory", "production", "staff", "reports", "eventForm"]),
+    pizzaMkt: new Set(["restaurants", "orders", "kitchen"])
+  };
+  const WESTGATE_DEFAULT_MODULES = {
+    banquets: "dashboard",
+    pizzaMkt: "restaurants"
+  };
   const CLIENT_DATA_KEYS = [
     "beoflow_events",
     "beoflow_event_menu_links",
@@ -32,14 +41,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   ];
   const CLIENT_DATA_KEY_SET = new Set(CLIENT_DATA_KEYS);
   const loginScreen = document.getElementById("login-screen");
+  const westgateModeScreen = document.getElementById("westgate-mode-screen");
   const appContainer = document.querySelector(".app-container");
   const loginForm = document.getElementById("client-login-form");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
   const loginStatus = document.getElementById("login-status");
   const logoutBtn = document.getElementById("logout-btn");
+  const westgateModeLogoutBtn = document.getElementById("westgate-mode-logout");
   const syncTimers = new Map();
   let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
+  const readStoredClient = () => {
+    try {
+      return JSON.parse(localStorage.getItem(AUTH_CLIENT_KEY) || "null") || {};
+    } catch {
+      return {};
+    }
+  };
+  const readTokenClient = () => {
+    try {
+      const payload = String(authToken).split(".")[1];
+      if (!payload) return {};
+      const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+      const paddedPayload = normalizedPayload.padEnd(Math.ceil(normalizedPayload.length / 4) * 4, "=");
+      return JSON.parse(atob(paddedPayload)) || {};
+    } catch {
+      return {};
+    }
+  };
+  const currentClient = readStoredClient();
+  const currentClientCode = currentClient.clientCode || readTokenClient().clientCode || "";
+  const isWestgateClient = String(currentClientCode).trim().toLowerCase() === "westgate";
+  let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
+  const isKnownWestgateMode = (mode) => Boolean(WESTGATE_MODE_MODULES[mode]);
+  const needsWestgateModeSelection = () => isWestgateClient && !isKnownWestgateMode(westgateMode);
+  const canUseSmartSetup = () => !isWestgateClient || westgateMode === "banquets";
 
   const getAuthHeaders = (headers = {}) => ({
     ...headers,
@@ -48,6 +84,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const showLogin = (message = "") => {
     if (appContainer) appContainer.hidden = true;
+    if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (loginScreen) loginScreen.hidden = false;
     if (loginStatus) loginStatus.textContent = message;
     loginClientCodeInput?.focus();
@@ -55,7 +92,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const showApp = () => {
     if (loginScreen) loginScreen.hidden = true;
+    if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (appContainer) appContainer.hidden = false;
+  };
+
+  const showWestgateModeScreen = () => {
+    if (loginScreen) loginScreen.hidden = true;
+    if (appContainer) appContainer.hidden = true;
+    if (westgateModeScreen) westgateModeScreen.hidden = false;
   };
 
   const readClientDataSnapshot = () =>
@@ -163,6 +207,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const logout = () => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_CLIENT_KEY);
+    localStorage.removeItem(WESTGATE_MODE_KEY);
     window.location.reload();
   };
 
@@ -176,7 +221,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   try {
     await hydrateClientData();
-    showApp();
   } catch (error) {
     console.warn(error);
     showLogin(error.message || "Sign in again.");
@@ -334,6 +378,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const navProduction = document.getElementById("nav-production");
   const navStaff = document.getElementById("nav-staff");
   const navReports = document.getElementById("nav-reports");
+  const westgateModeSwitchBtn = document.getElementById("westgate-mode-switch");
   const inventorySection = document.getElementById("inventory-section");
   const productionSection = document.getElementById("production-section");
   const productionTableBody = document.getElementById("production-table-body");
@@ -378,6 +423,54 @@ document.addEventListener("DOMContentLoaded", async () => {
   const shiftWeekModal = document.getElementById("shift-week-modal");
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
   const weekSizeActionButtons = Array.from(document.querySelectorAll("[data-week-size-action]"));
+  const westgateModeButtons = Array.from(document.querySelectorAll("[data-westgate-mode]"));
+  const hideClientOnlyElement = (element) => {
+    if (!element) return;
+    element.hidden = true;
+    element.style.display = "none";
+  };
+  const setClientOnlyElementVisibility = (element, visible) => {
+    if (!element) return;
+    element.hidden = !visible;
+    element.style.display = visible ? "" : "none";
+  };
+  const getWestgateModeModules = () => WESTGATE_MODE_MODULES[westgateMode] || null;
+  const getDefaultModuleForClient = () => {
+    if (!isWestgateClient) return "dashboard";
+    return isKnownWestgateMode(westgateMode) ? WESTGATE_DEFAULT_MODULES[westgateMode] : null;
+  };
+  const isModuleAvailableForClient = (moduleKey) => {
+    if (!isWestgateClient) return true;
+    return Boolean(getWestgateModeModules()?.has(moduleKey));
+  };
+  const applyClientModuleVisibility = () => {
+    if (!isWestgateClient) {
+      hideClientOnlyElement(westgateModeSwitchBtn);
+      return;
+    }
+
+    const modules = getWestgateModeModules();
+    [
+      ["dashboard", navDashboard],
+      ["restaurants", navRestaurants],
+      ["orders", navOrders],
+      ["kitchen", navKitchen],
+      ["events", navEvents],
+      ["menus", navMenus],
+      ["recipes", navRecipes],
+      ["subRecipes", navSubRecipes],
+      ["inventory", navInventory],
+      ["production", navProduction],
+      ["staff", navStaff],
+      ["reports", navReports]
+    ].forEach(([moduleKey, navItem]) => {
+      setClientOnlyElementVisibility(navItem, Boolean(modules?.has(moduleKey)));
+    });
+
+    setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(modules));
+    setClientOnlyElementVisibility(smartSetupLauncher, canUseSmartSetup() && Boolean(modules));
+    if (!canUseSmartSetup()) hideClientOnlyElement(smartSetupSection);
+  };
   const weekSizeIndicator = document.getElementById("week-size-indicator");
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
   const shiftOffBoard = document.getElementById("shift-off-board");
@@ -1641,6 +1734,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const openSmartSetupPanel = () => {
+    if (!canUseSmartSetup()) return;
     if (!smartSetupSection) return;
     smartSetupSection.hidden = false;
     smartSetupLauncher?.setAttribute("aria-expanded", "true");
@@ -1655,6 +1749,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const renderSmartSetup = () => {
     if (!smartSetupSection && !smartSetupLauncher) return;
+    if (!canUseSmartSetup()) {
+      hideClientOnlyElement(smartSetupSection);
+      hideClientOnlyElement(smartSetupLauncher);
+      return;
+    }
 
     const state = getSmartSetupState();
     const flow = smartSetupFlows[state.flow];
@@ -1775,6 +1874,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const openSmartSetupIfIncomplete = () => {
+    if (!canUseSmartSetup()) return;
+
     const state = getSmartSetupState();
     const flow = smartSetupFlows[state.flow];
 
@@ -2444,6 +2545,12 @@ ${staffSuggestion}
 
   const showModuleByKey = (moduleKey, options = {}) => {
     const { scroll = false } = options;
+
+    if (!isModuleAvailableForClient(moduleKey)) {
+      const fallbackModule = getDefaultModuleForClient();
+      if (fallbackModule && fallbackModule !== moduleKey) showModuleByKey(fallbackModule, options);
+      return;
+    }
 
     hideAllMainSections();
     activeModuleKey = moduleKey;
@@ -5848,6 +5955,37 @@ ${staffSuggestion}
     }
   };
 
+  const selectWestgateMode = (mode) => {
+    if (!isKnownWestgateMode(mode)) return;
+
+    westgateMode = mode;
+    localStorage.setItem(WESTGATE_MODE_KEY, mode);
+    applyClientModuleVisibility();
+    showApp();
+
+    const defaultModule = getDefaultModuleForClient();
+    if (defaultModule) showModuleByKey(defaultModule, { scroll: false });
+    if (mode === "banquets") openSmartSetupIfIncomplete();
+  };
+
+  westgateModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectWestgateMode(button.dataset.westgateMode);
+    });
+  });
+
+  if (westgateModeSwitchBtn) {
+    westgateModeSwitchBtn.addEventListener("click", () => {
+      westgateMode = "";
+      localStorage.removeItem(WESTGATE_MODE_KEY);
+      hideAllMainSections();
+      applyClientModuleVisibility();
+      showWestgateModeScreen();
+    });
+  }
+
+  westgateModeLogoutBtn?.addEventListener("click", logout);
+
   if (navRestaurants && restaurantsSection) {
     navRestaurants.addEventListener("click", (e) => {
       e.preventDefault();
@@ -6391,7 +6529,14 @@ ${staffSuggestion}
 
   window.addEventListener("beoflow:setup-updated", renderSmartSetup);
 
-  showModuleByKey("dashboard", { scroll: false });
+  applyClientModuleVisibility();
+  if (needsWestgateModeSelection()) {
+    showWestgateModeScreen();
+  } else {
+    showApp();
+    const initialModule = getDefaultModuleForClient();
+    if (initialModule) showModuleByKey(initialModule, { scroll: false });
+  }
 
   loadOperationsData({ quiet: true })
     .catch((error) => {
@@ -6425,5 +6570,5 @@ ${staffSuggestion}
   setInterval(renderStaff, 60000);
   renderProduction();
   renderSmartSetup();
-  openSmartSetupIfIncomplete();
+  if (!needsWestgateModeSelection()) openSmartSetupIfIncomplete();
 });

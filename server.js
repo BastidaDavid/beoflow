@@ -75,9 +75,9 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
 const DEFAULT_CLIENTS = [
   {
-    code: "Strat01",
-    password: "Strat01",
-    displayName: "Strat01"
+    code: "Bastida01",
+    password: "Bastida01",
+    displayName: "Bastida01"
   },
   {
     code: "Westgate",
@@ -86,15 +86,35 @@ const DEFAULT_CLIENTS = [
   }
 ];
 
+const LEGACY_CLIENT_RENAMES = [
+  {
+    fromCode: "Strat01",
+    toCode: "Bastida01",
+    defaultPassword: "Bastida01",
+    displayName: "Bastida01"
+  }
+];
+
 if (authSecret === "beoflow-local-session-secret" && process.env.NODE_ENV === "production") {
   console.warn("BEOFLOW_SESSION_SECRET is missing. Set it in Render before giving client access.");
 }
 
 function normalizeClientConfig(clientConfig = {}) {
+  const rawCode = String(clientConfig.code || clientConfig.clientCode || "").trim();
+  const legacyRename = LEGACY_CLIENT_RENAMES.find(
+    (rename) => rename.fromCode.toLowerCase() === rawCode.toLowerCase()
+  );
+  const rawPassword = String(clientConfig.password || "");
+  const rawDisplayName = String(clientConfig.displayName || clientConfig.name || rawCode || "").trim();
+
   return {
-    code: String(clientConfig.code || clientConfig.clientCode || "").trim(),
-    password: String(clientConfig.password || ""),
-    displayName: String(clientConfig.displayName || clientConfig.name || clientConfig.code || "").trim()
+    code: legacyRename?.toCode || rawCode,
+    password: legacyRename && rawPassword.toLowerCase() === legacyRename.fromCode.toLowerCase()
+      ? legacyRename.defaultPassword
+      : rawPassword,
+    displayName: legacyRename && (!rawDisplayName || rawDisplayName.toLowerCase() === legacyRename.fromCode.toLowerCase())
+      ? legacyRename.displayName
+      : rawDisplayName
   };
 }
 
@@ -147,6 +167,46 @@ function timingSafeEqualText(left = "", right = "") {
   const rightBuffer = Buffer.from(String(right));
   if (leftBuffer.length !== rightBuffer.length) return false;
   return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
+async function migrateLegacyClients() {
+  for (const rename of LEGACY_CLIENT_RENAMES) {
+    const legacyResult = await pool.query(
+      "SELECT id FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
+      [rename.fromCode]
+    );
+    if (!legacyResult.rows.length) continue;
+
+    const targetResult = await pool.query(
+      "SELECT id FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
+      [rename.toCode]
+    );
+    const legacyId = legacyResult.rows[0].id;
+
+    if (!targetResult.rows.length) {
+      await pool.query(
+        `UPDATE clients
+         SET client_code = $1,
+             display_name = $2,
+             password_hash = $3,
+             updated_at = NOW()
+         WHERE id = $4`,
+        [rename.toCode, rename.displayName, hashPassword(rename.defaultPassword), legacyId]
+      );
+      continue;
+    }
+
+    const targetId = targetResult.rows[0].id;
+    await pool.query(
+      `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
+       SELECT $1, data_key, data_value, updated_at
+       FROM client_data
+       WHERE client_id = $2
+       ON CONFLICT (client_id, data_key) DO NOTHING`,
+      [targetId, legacyId]
+    );
+    await pool.query("DELETE FROM clients WHERE id = $1", [legacyId]);
+  }
 }
 
 function base64UrlEncode(value) {
@@ -382,6 +442,18 @@ async function initDB() {
     );
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS client_data (
+      client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      data_key TEXT NOT NULL,
+      data_value JSONB NOT NULL DEFAULT 'null'::jsonb,
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (client_id, data_key)
+    );
+  `);
+
+  await migrateLegacyClients();
+
   let defaultClientId = null;
   for (const clientConfig of getConfiguredClients()) {
     const result = await pool.query(
@@ -398,16 +470,6 @@ async function initDB() {
 
     if (!defaultClientId) defaultClientId = result.rows[0].id;
   }
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS client_data (
-      client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-      data_key TEXT NOT NULL,
-      data_value JSONB NOT NULL DEFAULT 'null'::jsonb,
-      updated_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (client_id, data_key)
-    );
-  `);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS client_data_client_updated_idx
