@@ -86,15 +86,23 @@
 
   <div class="app-container" hidden>
     <aside class="sidebar">
-      <div class="logo-area">
-        <img src="/img/logobeoflow.png" alt="Beoflow Logo" class="logo-img" id="app-brand-logo" />
-        <div class="logo-text">
-          <h2 id="app-brand-title">Beoflow</h2>
-          <p id="app-brand-subtitle">Bastida Systems</p>
+      <div class="sidebar-header">
+        <div class="logo-area">
+          <img src="/img/logobeoflow.png" alt="Beoflow Logo" class="logo-img" id="app-brand-logo" />
+          <div class="logo-text">
+            <h2 id="app-brand-title">Beoflow</h2>
+            <p id="app-brand-subtitle">Bastida Systems</p>
+          </div>
         </div>
+
+        <button type="button" id="mobile-menu-toggle" class="mobile-menu-toggle" aria-controls="mobile-menu-panel" aria-expanded="false" aria-label="Abrir menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </div>
 
-      <nav class="nav-menu">
+      <nav class="nav-menu" id="mobile-menu-panel">
         <a href="#" id="nav-dashboard" class="active">Dashboard</a>
         <a href="#" id="nav-restaurants">Restaurants</a>
         <a href="#" id="nav-orders">Orders</a>
@@ -110,6 +118,7 @@
       </nav>
 
       <button type="button" id="westgate-mode-switch" class="westgate-mode-switch" hidden>Cambiar area</button>
+      <button type="button" id="mobile-logout-btn" class="mobile-menu-signout">Sign out</button>
     </aside>
 
     <main class="main-content">

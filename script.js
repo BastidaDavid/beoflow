@@ -51,11 +51,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const appBrandLogo = document.getElementById("app-brand-logo");
   const appBrandTitle = document.getElementById("app-brand-title");
   const appBrandSubtitle = document.getElementById("app-brand-subtitle");
+  const mobileMenuPanel = document.getElementById("mobile-menu-panel");
   const loginForm = document.getElementById("client-login-form");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
   const loginStatus = document.getElementById("login-status");
   const logoutBtn = document.getElementById("logout-btn");
+  const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
+  const mobileLogoutBtn = document.getElementById("mobile-logout-btn");
   const westgateModeLogoutBtn = document.getElementById("westgate-mode-logout");
   const bastidaModeLogoutBtn = document.getElementById("bastida-mode-logout");
   const syncTimers = new Map();
@@ -127,6 +130,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   const showLogin = (message = "") => {
+    closeMobileMenu();
     if (appContainer) appContainer.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
@@ -137,6 +141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const showApp = () => {
     applyClientBranding();
+    closeMobileMenu();
     if (loginScreen) loginScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
@@ -144,6 +149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const showWestgateModeScreen = () => {
+    closeMobileMenu();
     if (loginScreen) loginScreen.hidden = true;
     if (appContainer) appContainer.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
@@ -151,11 +157,26 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const showBastidaModeScreen = () => {
+    closeMobileMenu();
     if (loginScreen) loginScreen.hidden = true;
     if (appContainer) appContainer.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = false;
   };
+
+  const setMobileMenuOpen = (isOpen) => {
+    appContainer?.classList.toggle("mobile-menu-open", isOpen);
+    mobileMenuToggle?.setAttribute("aria-expanded", String(isOpen));
+  };
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  mobileMenuToggle?.addEventListener("click", () => {
+    setMobileMenuOpen(!appContainer?.classList.contains("mobile-menu-open"));
+  });
+  mobileMenuPanel?.addEventListener("click", (event) => {
+    if (event.target.closest("a")) closeMobileMenu();
+  });
 
   const readClientDataSnapshot = () =>
     CLIENT_DATA_KEYS.reduce((snapshot, key) => {
@@ -269,6 +290,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   loginForm?.addEventListener("submit", handleLogin);
   logoutBtn?.addEventListener("click", logout);
+  mobileLogoutBtn?.addEventListener("click", logout);
 
   if (!authToken) {
     showLogin();
