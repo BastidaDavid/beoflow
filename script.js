@@ -8,14 +8,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const uploadBtn = document.getElementById("upload-event-btn");
   const eventImageInput = document.getElementById("eventImage");
   const uploadStatus = document.getElementById("upload-status");
+  const DEFAULT_API_BASE_URL = "https://beoflow-api.onrender.com";
+  const isGitHubPages = window.location.hostname.endsWith("github.io");
   const API_BASE_URL = window.BEOFLOW_API_BASE_URL ||
-    (window.location.protocol === "http:" || window.location.protocol === "https:"
-      ? window.location.origin
-      : "https://beoflow-api.onrender.com");
+    (isGitHubPages || window.location.protocol === "file:"
+      ? DEFAULT_API_BASE_URL
+      : window.location.origin);
   const AUTH_TOKEN_KEY = "beoflow_auth_token";
   const AUTH_CLIENT_KEY = "beoflow_auth_client";
-  const BASTIDA_LOGO_SRC = "/img/logo_bastida_sys.png";
-  const BEOFLOW_LOGO_SRC = "/img/logobeoflow.png";
+  const BASTIDA_LOGO_SRC = "./img/logo_bastida_sys.png";
+  const BEOFLOW_LOGO_SRC = "./img/logobeoflow.png";
   const WESTGATE_MODE_KEY = "beoflow_westgate_mode";
   const BASTIDA_MODE_KEY = "beoflow_bastida_mode";
   const BASTIDA_CEO_MODE = "ceo";
