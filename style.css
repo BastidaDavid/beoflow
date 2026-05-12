@@ -2624,6 +2624,11 @@ body.modal-open {
   color: #7e22ce;
 }
 
+.shift-week-legend-item.station-unassigned {
+  background: #f8fafc;
+  color: #64748b;
+}
+
 .shift-week-legend-item.station-off {
   background: #e2e8f0;
   color: #475569;

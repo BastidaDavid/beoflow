@@ -4503,9 +4503,10 @@ ${staffSuggestion}
     if (inventoryTotalCostInput) inventoryTotalCostInput.value = "";
     if (inventoryStorageAreaInput) inventoryStorageAreaInput.value = "Refrigerated";
   };
-  const DEFAULT_STATION = "Flat Top";
+  const UNASSIGNED_STATION = "Unassigned";
+  const DEFAULT_STATION = UNASSIGNED_STATION;
   const shiftStations = ["Flat Top", "Broiler/Grill", "Fry", "Pantry", "Prep", "Expo", "Line Support", "Extra Board"];
-  const shiftStationOrder = ["Prep", "Line Support", "Pantry", "Fry", "Flat Top", "Broiler/Grill", "Extra Board", "Expo"];
+  const shiftStationOrder = [UNASSIGNED_STATION, "Prep", "Line Support", "Pantry", "Fry", "Flat Top", "Broiler/Grill", "Extra Board", "Expo"];
   const shiftAssignmentStations = [...shiftStationOrder];
   const morningStations = ["Prep", "Line Support"];
   const afternoonCoreStations = ["Pantry", "Fry", "Flat Top", "Broiler/Grill"];
@@ -4591,7 +4592,7 @@ ${staffSuggestion}
     const seen = new Set();
     return stations
       .filter((station) => {
-        if (!shiftStations.includes(station) || seen.has(station)) return false;
+        if (!shiftAssignmentStations.includes(station) || seen.has(station)) return false;
         seen.add(station);
         return true;
       })
@@ -4738,7 +4739,7 @@ ${staffSuggestion}
     const importedAssignments = employee.assignments && typeof employee.assignments === "object"
       ? employee.assignments
       : null;
-    const fallbackStation = station || DEFAULT_STATION;
+    const fallbackStation = station || UNASSIGNED_STATION;
     const fallbackStart = normalizeImportedTime(employee.shiftStart || "");
     const fallbackEnd = normalizeImportedTime(employee.shiftEnd || "");
 
@@ -4755,13 +4756,13 @@ ${staffSuggestion}
 
     const assignments = shiftDays.reduce((items, day) => {
       const rawAssignment = Object.entries(importedAssignments).find(([key]) => normalizeShiftDayKey(key) === day.key)?.[1] || {};
-      const assignmentStation = normalizeImportedStation(rawAssignment.station) || fallbackStation;
+      const assignmentStation = normalizeImportedStation(rawAssignment.station) || UNASSIGNED_STATION;
       const shiftStart = normalizeImportedTime(rawAssignment.shiftStart || rawAssignment.start || "");
       const shiftEnd = normalizeImportedTime(rawAssignment.shiftEnd || rawAssignment.end || "");
       const isOff = Boolean(rawAssignment.off) || !shiftStart || !shiftEnd;
 
       items[day.key] = {
-        station: isOff ? "" : assignmentStation || DEFAULT_STATION,
+        station: isOff ? "" : assignmentStation || UNASSIGNED_STATION,
         shiftStart,
         shiftEnd,
         off: isOff
@@ -5627,7 +5628,7 @@ ${staffSuggestion}
     const staff = getStaff();
     const selectedPerson = staff.find((person) => person.id === staffId);
     if (!selectedPerson) return;
-    if (!getAssignmentOptionsForPerson(selectedPerson, activeShiftDay, staff).includes(station)) {
+    if (station !== UNASSIGNED_STATION && !getAssignmentOptionsForPerson(selectedPerson, activeShiftDay, staff).includes(station)) {
       setScheduleImportStatus("That station is outside this employee's LineOps block.", "warning");
       return;
     }
@@ -5807,19 +5808,10 @@ ${staffSuggestion}
     scheduleImportStatus.hidden = !message;
   };
 
-  const balancedStation = (existingStaff = []) => {
-    const counts = shiftStations.map((station) => [
-      station,
-      existingStaff.filter((person) => person.station === station || person.originalStation === station).length
-    ]);
-    const lowestCount = Math.min(...counts.map(([, count]) => count));
-    return counts.find(([, count]) => count === lowestCount)?.[0] || DEFAULT_STATION;
-  };
-
-  const normalizeImportedEmployee = (employee = {}, existingStaff = []) => {
+  const normalizeImportedEmployee = (employee = {}) => {
     const name = String(employee.name || "").trim();
     if (!name) return null;
-    const station = normalizeImportedStation(employee.station) || balancedStation(existingStaff);
+    const station = normalizeImportedStation(employee.station) || UNASSIGNED_STATION;
     const assignments = buildAssignmentsFromImport(employee, station);
     const firstWorkingAssignment = shiftDays.map((day) => assignments[day.key]).find(isAssignmentWorking) || {};
 
@@ -5827,7 +5819,7 @@ ${staffSuggestion}
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name,
       role: normalizeImportedRole(employee.role),
-      station: firstWorkingAssignment.station || station || DEFAULT_STATION,
+      station: firstWorkingAssignment.station || station || UNASSIGNED_STATION,
       originalStation: station,
       shiftStart: firstWorkingAssignment.shiftStart || employee.shiftStart || "",
       shiftEnd: firstWorkingAssignment.shiftEnd || employee.shiftEnd || "",
@@ -5875,7 +5867,7 @@ ${staffSuggestion}
 
       const staff = getStaff();
       const importedStaff = (result.employees || []).reduce((items, employee) => {
-        const normalizedEmployee = normalizeImportedEmployee(employee, [...staff, ...items]);
+        const normalizedEmployee = normalizeImportedEmployee(employee);
         if (normalizedEmployee) {
           items.push(normalizedEmployee);
         }
@@ -5891,7 +5883,7 @@ ${staffSuggestion}
       renderStaff();
 
       const notes = Array.isArray(result.notes) && result.notes.length ? ` ${result.notes.slice(0, 2).join(" ")}` : "";
-      setScheduleImportStatus(`Schedule saved with ${importedStaff.length} employees.${notes}`, "success");
+      setScheduleImportStatus(`Schedule saved with ${importedStaff.length} employees. Station mix was not applied.${notes}`, "success");
     } catch (error) {
       console.error(error);
       const message = error instanceof TypeError && error.message === "Failed to fetch"
