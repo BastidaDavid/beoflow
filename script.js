@@ -85,6 +85,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const currentClient = readStoredClient();
   const currentClientCode = currentClient.clientCode || readTokenClient().clientCode || "";
+  const configuredClientModules = Array.isArray(currentClient.modules) && currentClient.modules.length
+    ? new Set(currentClient.modules)
+    : null;
+  const clientDefaultModule = String(currentClient.defaultModule || "").trim();
+  const hasConfiguredClientModules = Boolean(configuredClientModules);
+  const shouldShowLockedModules = Boolean(currentClient.lockedModulesVisible);
   const isWestgateClient = String(currentClientCode).trim().toLowerCase() === "westgate";
   const isBastidaClient = String(currentClientCode).trim().toLowerCase() === "bastida01";
   let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
@@ -93,10 +99,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const needsWestgateModeSelection = () => isWestgateClient && !isKnownWestgateMode(westgateMode);
   const needsBastidaModeSelection = () => isBastidaClient && bastidaMode !== BASTIDA_CEO_MODE;
   const needsClientModeSelection = () => needsWestgateModeSelection() || needsBastidaModeSelection();
-  const canUseSmartSetup = () => !isBastidaClient && (!isWestgateClient || westgateMode === "banquets");
+  const canUseSmartSetup = () => !hasConfiguredClientModules && !isBastidaClient && (!isWestgateClient || westgateMode === "banquets");
   const applyClientBranding = () => {
     appContainer?.classList.toggle("is-westgate", isWestgateClient);
     appContainer?.classList.toggle("is-bastida", isBastidaClient);
+    appContainer?.classList.toggle("is-client-scoped", hasConfiguredClientModules);
 
     if (isWestgateClient) {
       if (appBrandLogo) {
@@ -115,6 +122,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
       if (appBrandTitle) appBrandTitle.textContent = "Bastida Systems";
       if (appBrandSubtitle) appBrandSubtitle.textContent = "Cerebro CEO";
+      return;
+    }
+
+    if (hasConfiguredClientModules) {
+      if (appBrandLogo) {
+        appBrandLogo.src = BEOFLOW_LOGO_SRC;
+        appBrandLogo.alt = "BEOFlow Logo";
+      }
+      if (appBrandTitle) appBrandTitle.textContent = currentClient.brandTitle || "Beoflow";
+      if (appBrandSubtitle) appBrandSubtitle.textContent = currentClient.brandSubtitle || currentClient.displayName || "Bastida Systems";
       return;
     }
 
@@ -515,14 +532,43 @@ document.addEventListener("DOMContentLoaded", async () => {
     element.hidden = !visible;
     element.style.display = visible ? "" : "none";
   };
+  const setModuleNavAccess = (moduleKey, navItem, available) => {
+    if (!navItem) return;
+
+    const shouldShow = available || shouldShowLockedModules;
+    setClientOnlyElementVisibility(navItem, shouldShow);
+    navItem.classList.toggle("is-locked", shouldShow && !available);
+    navItem.setAttribute("aria-disabled", String(shouldShow && !available));
+    navItem.tabIndex = shouldShow && !available ? -1 : 0;
+    navItem.dataset.moduleKey = moduleKey;
+  };
+  const clientNavItems = [
+    ["dashboard", navDashboard],
+    ["restaurants", navRestaurants],
+    ["orders", navOrders],
+    ["kitchen", navKitchen],
+    ["events", navEvents],
+    ["menus", navMenus],
+    ["recipes", navRecipes],
+    ["subRecipes", navSubRecipes],
+    ["inventory", navInventory],
+    ["production", navProduction],
+    ["staff", navStaff],
+    ["reports", navReports]
+  ];
   const getWestgateModeModules = () => WESTGATE_MODE_MODULES[westgateMode] || null;
   const getDefaultModuleForClient = () => {
     if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE ? "dashboard" : null;
+    if (hasConfiguredClientModules) {
+      if (clientDefaultModule && configuredClientModules.has(clientDefaultModule)) return clientDefaultModule;
+      return configuredClientModules.values().next().value || "dashboard";
+    }
     if (!isWestgateClient) return "dashboard";
     return isKnownWestgateMode(westgateMode) ? WESTGATE_DEFAULT_MODULES[westgateMode] : null;
   };
   const isModuleAvailableForClient = (moduleKey) => {
     if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE;
+    if (hasConfiguredClientModules) return configuredClientModules.has(moduleKey);
     if (!isWestgateClient) return true;
     return Boolean(getWestgateModeModules()?.has(moduleKey));
   };
@@ -549,7 +595,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (hasConfiguredClientModules) {
+      clientNavItems.forEach(([moduleKey, navItem]) => {
+        setModuleNavAccess(moduleKey, navItem, isModuleAvailableForClient(moduleKey));
+      });
+      hideClientOnlyElement(westgateModeSwitchBtn);
+      hideClientOnlyElement(smartSetupSection);
+      hideClientOnlyElement(smartSetupLauncher);
+      return;
+    }
+
     if (!isWestgateClient) {
+      clientNavItems.forEach(([, navItem]) => setModuleNavAccess("", navItem, true));
       hideClientOnlyElement(westgateModeSwitchBtn);
       return;
     }
@@ -569,7 +626,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ["staff", navStaff],
       ["reports", navReports]
     ].forEach(([moduleKey, navItem]) => {
-      setClientOnlyElementVisibility(navItem, Boolean(modules?.has(moduleKey)));
+      setModuleNavAccess(moduleKey, navItem, Boolean(modules?.has(moduleKey)));
     });
 
     setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(modules));
@@ -2037,8 +2094,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       subtitle: "Track what needs to be prepared and assigned"
     },
     staff: {
-      title: "Shift Readiness",
-      subtitle: "Assign kitchen stations and print the station sheet"
+      title: "LineOps",
+      subtitle: "Import schedules, assign kitchen stations, and print the station sheet"
     },
     reports: {
       title: "Reports",
@@ -4983,7 +5040,7 @@ ${staffSuggestion}
       <div class="shift-week-print-sheet">
         <header>
           <h1>Full Week Schedule</h1>
-          <p>BEOFlow Shift Readiness · Bastida Systems</p>
+          <p>BEOFlow LineOps · Bastida Systems</p>
         </header>
         <div class="shift-week-schedule" data-week-size="small">
           ${buildWeeklyScheduleMarkup()}
@@ -5076,7 +5133,7 @@ ${staffSuggestion}
 
     const staff = getStaff();
     if (!staff.length) {
-      shiftReportSummary.innerHTML = '<div class="report-empty-state">No Shift Readiness data yet.</div>';
+      shiftReportSummary.innerHTML = '<div class="report-empty-state">No LineOps data yet.</div>';
       return;
     }
 
@@ -5710,7 +5767,7 @@ ${staffSuggestion}
   const clearShiftReadiness = () => {
     saveStaff([]);
     renderStaff();
-    setScheduleImportStatus("Shift Readiness table cleared.", "success");
+    setScheduleImportStatus("LineOps table cleared.", "success");
   };
 
   const renderAssignmentPresets = () => {
@@ -5910,7 +5967,7 @@ ${staffSuggestion}
             <img src="img/logobeoflow.png" alt="Bastida Systems logo" />
             <div>
             <h1>${escapeHtml(title)}</h1>
-              <p>BEOFlow Shift Readiness · Bastida Systems · ${getShiftDayLabel(activeShiftDay)}${appliesTo ? ` · ${escapeHtml(appliesTo)}` : ""}</p>
+              <p>BEOFlow LineOps · Bastida Systems · ${getShiftDayLabel(activeShiftDay)}${appliesTo ? ` · ${escapeHtml(appliesTo)}` : ""}</p>
             </div>
           </div>
           <div class="meta">

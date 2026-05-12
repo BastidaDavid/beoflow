@@ -83,6 +83,16 @@ const DEFAULT_CLIENTS = [
     code: "Westgate",
     password: "Westgate",
     displayName: "Westgate Casino"
+  },
+  {
+    code: "PTSLineOps",
+    password: "PTSLineOps",
+    displayName: "PTS Kitchen LineOps",
+    modules: ["staff"],
+    defaultModule: "staff",
+    brandTitle: "LineOps",
+    brandSubtitle: "PTS Kitchen",
+    lockedModulesVisible: true
   }
 ];
 
@@ -114,7 +124,14 @@ function normalizeClientConfig(clientConfig = {}) {
       : rawPassword,
     displayName: legacyRename && (!rawDisplayName || rawDisplayName.toLowerCase() === legacyRename.fromCode.toLowerCase())
       ? legacyRename.displayName
-      : rawDisplayName
+      : rawDisplayName,
+    modules: Array.isArray(clientConfig.modules)
+      ? clientConfig.modules.map((moduleKey) => String(moduleKey).trim()).filter(Boolean)
+      : null,
+    defaultModule: clientConfig.defaultModule ? String(clientConfig.defaultModule).trim() : "",
+    brandTitle: clientConfig.brandTitle ? String(clientConfig.brandTitle).trim() : "",
+    brandSubtitle: clientConfig.brandSubtitle ? String(clientConfig.brandSubtitle).trim() : "",
+    lockedModulesVisible: Boolean(clientConfig.lockedModulesVisible)
   };
 }
 
@@ -262,10 +279,19 @@ function getBearerToken(req) {
 }
 
 function serializeClient(client) {
+  const clientAccess = getConfiguredClients().find(
+    (clientConfig) => clientConfig.code.toLowerCase() === String(client.client_code || "").toLowerCase()
+  ) || {};
+
   return {
     id: client.id,
     clientCode: client.client_code,
-    displayName: client.display_name
+    displayName: client.display_name,
+    modules: Array.isArray(clientAccess.modules) ? clientAccess.modules : undefined,
+    defaultModule: clientAccess.defaultModule || undefined,
+    brandTitle: clientAccess.brandTitle || undefined,
+    brandSubtitle: clientAccess.brandSubtitle || undefined,
+    lockedModulesVisible: clientAccess.lockedModulesVisible || undefined
   };
 }
 
