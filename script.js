@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       : "https://beoflow-api.onrender.com");
   const AUTH_TOKEN_KEY = "beoflow_auth_token";
   const AUTH_CLIENT_KEY = "beoflow_auth_client";
+  const BASTIDA_LOGO_SRC = "/img/logo_bastida_sys.png";
+  const BEOFLOW_LOGO_SRC = "/img/logobeoflow.png";
+  const WESTGATE_LOGO_SRC = "/img/westgate-resorts-seeklogo.png";
   const WESTGATE_MODE_KEY = "beoflow_westgate_mode";
   const BASTIDA_MODE_KEY = "beoflow_bastida_mode";
   const BASTIDA_CEO_MODE = "ceo";
@@ -46,6 +49,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const westgateModeScreen = document.getElementById("westgate-mode-screen");
   const bastidaModeScreen = document.getElementById("bastida-mode-screen");
   const appContainer = document.querySelector(".app-container");
+  const appBrandLogo = document.getElementById("app-brand-logo");
+  const appBrandTitle = document.getElementById("app-brand-title");
+  const appBrandSubtitle = document.getElementById("app-brand-subtitle");
   const loginForm = document.getElementById("client-login-form");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
@@ -84,6 +90,37 @@ document.addEventListener("DOMContentLoaded", async () => {
   const needsBastidaModeSelection = () => isBastidaClient && bastidaMode !== BASTIDA_CEO_MODE;
   const needsClientModeSelection = () => needsWestgateModeSelection() || needsBastidaModeSelection();
   const canUseSmartSetup = () => !isBastidaClient && (!isWestgateClient || westgateMode === "banquets");
+  const applyClientBranding = () => {
+    appContainer?.classList.toggle("is-westgate", isWestgateClient);
+    appContainer?.classList.toggle("is-bastida", isBastidaClient);
+
+    if (isWestgateClient) {
+      if (appBrandLogo) {
+        appBrandLogo.src = WESTGATE_LOGO_SRC;
+        appBrandLogo.alt = "Westgate Resorts Logo";
+      }
+      if (appBrandTitle) appBrandTitle.textContent = "Westgate";
+      if (appBrandSubtitle) appBrandSubtitle.textContent = "BEOFlow by Bastida Systems";
+      return;
+    }
+
+    if (isBastidaClient) {
+      if (appBrandLogo) {
+        appBrandLogo.src = BASTIDA_LOGO_SRC;
+        appBrandLogo.alt = "Bastida Systems Logo";
+      }
+      if (appBrandTitle) appBrandTitle.textContent = "Bastida Systems";
+      if (appBrandSubtitle) appBrandSubtitle.textContent = "Cerebro CEO";
+      return;
+    }
+
+    if (appBrandLogo) {
+      appBrandLogo.src = BEOFLOW_LOGO_SRC;
+      appBrandLogo.alt = "BEOFlow Logo";
+    }
+    if (appBrandTitle) appBrandTitle.textContent = "Beoflow";
+    if (appBrandSubtitle) appBrandSubtitle.textContent = "Bastida Systems";
+  };
 
   const getAuthHeaders = (headers = {}) => ({
     ...headers,
@@ -100,6 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const showApp = () => {
+    applyClientBranding();
     if (loginScreen) loginScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
