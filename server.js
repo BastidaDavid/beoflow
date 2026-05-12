@@ -609,6 +609,10 @@ Rules:
 - Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
 - Preserve employee names from the printed employee-name column. Do not skip a visible employee row if at least one day has a readable working shift.
 - Ignore non-employee rows and headers. Never return rows named "Hours of operations", "in", "out", "total", day names, dates, or blank grid separators.
+- Only extract rows that have a visible employee name in the left employee-name column. If the name cell is blank, ignore that entire row even when it contains times, off labels, or colored cells.
+- Stop reading employee shifts after the last visible named employee row. Blank template rows below the last employee are not part of the schedule.
+- Never carry a blank row's times into the employee above it. A blank lower line may only be treated as part of the employee above when it contains station text like LINE, PT'S, MGALS, or a clear station label, not when it contains separate in/out times.
+- Before returning JSON, verify every working assignment came from the same horizontal row group as that employee's printed name.
 - Do not use the "Hours of operations" row as an employee schedule. Values such as "2PM to 2AM" or "11AM to 4AM" describe the restaurant's operating window, not employee shifts.
 - The first row immediately below "Hours of operations" can still be a real employee row, such as EDUARDO. Do not discard that employee just because it is near the operating-hours header.
 - For each employee/day, read only the in and out cells inside that employee's row under the day block. Use the total cell only as a cross-check.
