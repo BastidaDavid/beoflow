@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BEOFLOW Orders Engine Roadmap</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 0.58in;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #111827;
+      background: #f4f7fb;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 10.8pt;
+      line-height: 1.45;
+    }
+
+    .page {
+      background: #fff;
+      min-height: 100vh;
+      padding: 0.1in 0 0;
+    }
+
+    header {
+      padding: 0.35in 0.42in 0.38in;
+      border-radius: 18px;
+      color: #fff;
+      background:
+        linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(30, 64, 175, 0.92)),
+        radial-gradient(circle at 88% 24%, rgba(14, 165, 233, 0.36), transparent 28%);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
+    }
+
+    .eyebrow {
+      margin: 0 0 0.22in;
+      color: #bae6fd;
+      font-size: 8.6pt;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 7.1in;
+      font-size: 31pt;
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 0.18in 0 0;
+      max-width: 6.6in;
+      color: #dbeafe;
+      font-size: 12.5pt;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.14in;
+      margin-top: 0.36in;
+    }
+
+    .meta div {
+      padding: 0.12in 0.14in;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .meta strong {
+      display: block;
+      margin-bottom: 0.03in;
+      color: #fff;
+      font-size: 9pt;
+    }
+
+    .meta span {
+      color: #dbeafe;
+      font-size: 9pt;
+    }
+
+    main {
+      padding: 0.3in 0.06in 0;
+    }
+
+    section {
+      margin: 0 0 0.28in;
+      padding: 0.22in 0.28in;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      background: #fff;
+      break-inside: avoid;
+    }
+
+    section.plain {
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    h2 {
+      margin: 0 0 0.13in;
+      color: #0f172a;
+      font-size: 17pt;
+      line-height: 1.15;
+    }
+
+    h3 {
+      margin: 0 0 0.08in;
+      color: #1f2937;
+      font-size: 12.2pt;
+      line-height: 1.2;
+    }
+
+    p {
+      margin: 0 0 0.11in;
+    }
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+
+    ul {
+      margin: 0.03in 0 0;
+      padding-left: 0.18in;
+    }
+
+    li {
+      margin: 0 0 0.055in;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.18in;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.14in;
+    }
+
+    .card {
+      padding: 0.16in;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 0.04in;
+      color: #0f172a;
+      font-size: 10.3pt;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.06in;
+      margin-top: 0.1in;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 0.23in;
+      padding: 0.04in 0.09in;
+      border-radius: 999px;
+      color: #0f172a;
+      background: #e0f2fe;
+      font-size: 8.6pt;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 0.07in;
+      margin-top: 0.12in;
+    }
+
+    .flow span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0.44in;
+      padding: 0.06in;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      color: #1e3a8a;
+      background: #eff6ff;
+      font-size: 8.2pt;
+      font-weight: 850;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.1in;
+      font-size: 9.1pt;
+    }
+
+    th,
+    td {
+      padding: 0.08in 0.09in;
+      border-bottom: 1px solid #e5e7eb;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: #334155;
+      background: #f1f5f9;
+      font-size: 8.2pt;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    code {
+      padding: 0.01in 0.04in;
+      border-radius: 5px;
+      color: #0f172a;
+      background: #e5e7eb;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 8.7pt;
+    }
+
+    .roadmap {
+      display: grid;
+      gap: 0.13in;
+    }
+
+    .phase {
+      display: grid;
+      grid-template-columns: 1.25in 1fr;
+      gap: 0.16in;
+      padding: 0.14in;
+      border: 1px solid #dbeafe;
+      border-radius: 12px;
+      background: #f8fbff;
+      break-inside: avoid;
+    }
+
+    .phase-label {
+      color: #1d4ed8;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      font-size: 8.6pt;
+    }
+
+    .phase h3 {
+      margin-bottom: 0.04in;
+    }
+
+    .note {
+      padding: 0.13in 0.16in;
+      border-left: 5px solid #22c55e;
+      border-radius: 10px;
+      background: #f0fdf4;
+    }
+
+    .warning {
+      padding: 0.13in 0.16in;
+      border-left: 5px solid #f59e0b;
+      border-radius: 10px;
+      background: #fffbeb;
+    }
+
+    .footer {
+      margin-top: 0.24in;
+      padding-top: 0.12in;
+      border-top: 1px solid #e5e7eb;
+      color: #64748b;
+      font-size: 8.4pt;
+      text-align: center;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        min-height: 0;
+        padding: 0;
+      }
+
+      section {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <p class="eyebrow">Bastida Systems · BEOFLOW Update</p>
+      <h1>Orders Engine & Hospitality Operations Roadmap</h1>
+      <p class="subtitle">
+        Documento de avance para la nueva actualización de BEOFLOW: de sistema de eventos y banquetes a ecosistema operativo multi-restaurante para hoteles, casinos y food-service.
+      </p>
+      <div class="meta">
+        <div>
+          <strong>Fecha</strong>
+          <span>11 de mayo de 2026</span>
+        </div>
+        <div>
+          <strong>Versión</strong>
+          <span>Roadmap operativo v1</span>
+        </div>
+        <div>
+          <strong>Enfoque</strong>
+          <span>Orders, KDS, POS, tablet ordering</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Resumen Ejecutivo</h2>
+        <p>
+          BEOFLOW ahora tiene una base nueva para convertirse en una plataforma operativa de food-service, no una aplicación limitada a pizza. La pizza shop puede ser la primera implementación, pero la arquitectura ya está pensada para cafés, bares, room service, banquetes, pool service, food courts y múltiples restaurantes dentro de un hotel o casino.
+        </p>
+        <p>
+          La actualización introduce un Orders Engine modular que centraliza pedidos, estaciones de cocina, flujo KDS, POS, restaurantes y futuras capas de analytics e inventario.
+        </p>
+        <div class="tag-row">
+          <span class="tag">Multi-restaurante</span>
+          <span class="tag">KDS realtime</span>
+          <span class="tag">Tablet ordering</span>
+          <span class="tag">POS workflow</span>
+          <span class="tag">Hospitality operations</span>
+          <span class="tag">Casino / hotel ready</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Qué Se Construyó</h2>
+        <div class="grid">
+          <div class="card">
+            <strong>Orders Engine modular</strong>
+            <p>Se agregó una estructura backend separada por módulos: orders, kitchen, tablet-ordering, POS, analytics, restaurants y staff.</p>
+          </div>
+          <div class="card">
+            <strong>Interfaces separadas</strong>
+            <p>Se prepararon pantallas dedicadas para customer ordering, KDS y POS, evitando saturar el dashboard principal de BEOFLOW.</p>
+          </div>
+          <div class="card">
+            <strong>PostgreSQL escalable</strong>
+            <p>Se diseñaron tablas universales para restaurantes, pedidos, items, estaciones de cocina, roles y auditoría de estados.</p>
+          </div>
+          <div class="card">
+            <strong>Socket.io realtime</strong>
+            <p>El motor emite eventos en vivo cuando se crean pedidos, cambian estados, se actualiza cocina o POS cierra una orden.</p>
+          </div>
+          <div class="card">
+            <strong>KDS corregido</strong>
+            <p>Los pedidos creados desde <code>/order</code> ahora aparecen automáticamente en <code>/kds</code>, se filtran por restaurante/estación y excluyen órdenes cerradas.</p>
+          </div>
+          <div class="card">
+            <strong>Conceptos universales</strong>
+            <p>Se evitaron campos hardcodeados como pizza size, toppings o pizza station. Ahora se usan modifiers, options, categories y kitchen stations.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Flujo Operativo Universal</h2>
+        <p>
+          Todos los restaurantes usan el mismo ciclo operativo. Esto permite manejar pizzas, bebidas, café, postres, burgers, room service o banquetes sin crear lógica separada por negocio.
+        </p>
+        <div class="flow">
+          <span>NEW</span>
+          <span>ACCEPTED</span>
+          <span>PREPARING</span>
+          <span>READY</span>
+          <span>DELIVERED</span>
+          <span>CLOSED</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Arquitectura Actual</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Capa</th>
+              <th>Responsabilidad</th>
+              <th>Estado actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Dashboard BEOFLOW</td>
+              <td>Control administrativo, eventos, banquetes, menús, recetas e inventario.</td>
+              <td>Existente, no se reescribió.</td>
+            </tr>
+            <tr>
+              <td><code>/order</code></td>
+              <td>Interfaz de toma de pedidos para cliente/tablet.</td>
+              <td>Conectada al Orders Engine.</td>
+            </tr>
+            <tr>
+              <td><code>/kds</code></td>
+              <td>Pantalla de cocina con columnas por estado y tickets activos.</td>
+              <td>Corregida con realtime y filtros.</td>
+            </tr>
+            <tr>
+              <td><code>/pos</code></td>
+              <td>Pago, cierre de órdenes, recibos y flujo de cashier.</td>
+              <td>Base funcional conectada al mismo storage.</td>
+            </tr>
+            <tr>
+              <td>Backend modules</td>
+              <td>Routes, controllers, services, models y socket handlers por dominio.</td>
+              <td>Base modular creada.</td>
+            </tr>
+            <tr>
+              <td>PostgreSQL</td>
+              <td>Fuente única de datos para restaurantes, órdenes, items y estaciones.</td>
+              <td>Schema base implementado/referenciado.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Rutas y Eventos Clave</h2>
+        <div class="grid">
+          <div>
+            <h3>API</h3>
+            <ul>
+              <li><code>POST /api/tablet-ordering/orders</code> crea pedidos desde tablet/customer UI.</li>
+              <li><code>GET /api/kitchen/orders</code> carga tickets activos para KDS.</li>
+              <li><code>GET /api/kitchen/orders?restaurantId=&stationId=</code> filtra por restaurante y estación.</li>
+              <li><code>PATCH /api/orders/:orderId/status</code> avanza estados operativos.</li>
+              <li><code>PATCH /api/pos/orders/:orderId/payment</code> actualiza pago.</li>
+              <li><code>POST /api/pos/orders/:orderId/close</code> cierra la orden.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Socket.io</h3>
+            <ul>
+              <li><code>orders:created</code> cuando nace una orden.</li>
+              <li><code>orders:status_changed</code> cuando cambia el estado operativo.</li>
+              <li><code>kitchen:order_status_changed</code> para KDS.</li>
+              <li><code>kitchen:item_status_changed</code> para items de cocina.</li>
+              <li><code>pos:payment_status_changed</code> para pagos.</li>
+              <li><code>orders:closed</code> cuando POS cierra una orden.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Corrección Más Reciente: KDS</h2>
+        <div class="note">
+          <p>
+            El problema era que el backend sí guardaba y devolvía los pedidos activos, pero la pantalla KDS no estaba escuchando los eventos realtime y podía esconder tickets por filtros viejos de restaurante o estación.
+          </p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Antes</th>
+              <th>Ahora</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>El KDS dependía de refresh manual o podía quedarse sin actualizar.</td>
+              <td>El KDS escucha eventos realtime y también tiene polling de respaldo.</td>
+            </tr>
+            <tr>
+              <td>Los filtros podían pedir una lista vacía si cambiaba restaurante/estación.</td>
+              <td>Se carga la cola activa completa y se filtra localmente de forma consistente.</td>
+            </tr>
+            <tr>
+              <td>No había suficiente logging para ver el flujo.</td>
+              <td>Hay logs de creación de orden, consulta KDS, status counts y realtime events.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Roadmap de la Nueva Actualización</h2>
+        <div class="roadmap">
+          <div class="phase">
+            <div class="phase-label">Fase 1 · Base</div>
+            <div>
+              <h3>Orders Engine foundation</h3>
+              <p>Crear la estructura modular, schema base, rutas principales, pantallas separadas y flujo universal de pedidos.</p>
+              <p><strong>Estado:</strong> base creada y lista para seguir endureciendo.</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Fase 2 · Estabilidad</div>
+            <div>
+              <h3>Producción controlada</h3>
+              <p>Revisar auth, roles, permisos, seed data, logs, manejo de errores, deploy en Render, QA del flujo order → KDS → POS y limpieza de datos de prueba.</p>
+              <p><strong>Resultado esperado:</strong> demo funcional estable para una primera operación real.</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Fase 3 · Operación</div>
+            <div>
+              <h3>KDS y POS completos</h3>
+              <p>Agregar routing por estación, timers, prioridad, item-level prep, recibos, refunds, voids, cierre de caja y reportes básicos de ventas.</p>
+              <p><strong>Resultado esperado:</strong> flujo operativo usable por cocina y cashier.</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Fase 4 · Multi-venue</div>
+            <div>
+              <h3>Hoteles, casinos y múltiples restaurantes</h3>
+              <p>Soportar Pizza Shop, Bar, Coffee Shop, Buffet, Pool Kitchen y Room Service compartiendo el mismo backend, filtros, analytics y permisos.</p>
+              <p><strong>Resultado esperado:</strong> operación multi-restaurante desde un solo sistema.</p>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="phase-label">Fase 5 · Enterprise</div>
+            <div>
+              <h3>Integraciones e inteligencia operacional</h3>
+              <p>Inventario auto-deduction, QR ordering, mobile ordering, room delivery, Apple Watch notifications, comp workflows, banquet/BEO sync y AI operational insights.</p>
+              <p><strong>Resultado esperado:</strong> plataforma tipo hospitality enterprise, comparable en filosofía a Toast, Micros o Square Restaurant.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Próximas Decisiones</h2>
+        <div class="grid-3">
+          <div class="card">
+            <strong>Primer venue real</strong>
+            <p>Definir si la primera prueba será Pizza Shop, Bar, Coffee Shop o Room Service.</p>
+          </div>
+          <div class="card">
+            <strong>Roles y accesos</strong>
+            <p>Separar permisos para admin, manager, cashier, kitchen y tablet/customer.</p>
+          </div>
+          <div class="card">
+            <strong>Data operativa</strong>
+            <p>Crear restaurantes, estaciones, items y modifiers reales para pruebas.</p>
+          </div>
+        </div>
+        <div class="warning" style="margin-top: 0.16in;">
+          <p>
+            Recomendación: mantener BEOFLOW como centro administrativo y operar pedidos en apps dedicadas. Esto evita saturar el dashboard y permite que cada pantalla sea rápida, clara y diseñada para su usuario: cliente, cocina, cashier o manager.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Cómo Probar la Actualización</h2>
+        <ol>
+          <li>Entrar a BEOFLOW y confirmar que el dashboard principal sigue funcionando.</li>
+          <li>Abrir <code>/order</code> para crear un pedido desde la interfaz de customer/tablet.</li>
+          <li>Abrir <code>/kds</code> y confirmar que el ticket aparece en <code>NEW</code> sin duplicar storage.</li>
+          <li>Avanzar el ticket por <code>ACCEPTED</code>, <code>PREPARING</code> y <code>READY</code>.</li>
+          <li>Abrir <code>/pos</code>, actualizar pago y cerrar la orden.</li>
+          <li>Confirmar que órdenes <code>CLOSED</code> ya no aparecen en la cola activa de cocina.</li>
+          <li>Probar filtros de restaurante y estación para validar operación multi-venue.</li>
+        </ol>
+      </section>
+
+      <div class="footer">
+        BEOFLOW by Bastida Systems · Orders Engine Roadmap · Documento generado para planeación de producto y ejecución técnica.
+      </div>
+    </main>
+  </div>
+</body>
+</html>
