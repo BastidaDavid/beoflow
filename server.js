@@ -607,10 +607,11 @@ Return ONLY valid JSON in this exact shape:
 
 Rules:
 - Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
-- Preserve employee names from the printed employee-name column. Do not skip a visible employee row if at least one day has a readable working shift.
+- Preserve employee names from the printed employee-name column. A name can be uppercase or mixed-case, such as EDUARDO or Ivan.
+- Return every visible named employee row, even if every visible day for that employee is off or blank.
 - Ignore non-employee rows and headers. Never return rows named "Hours of operations", "in", "out", "total", day names, dates, or blank grid separators.
 - Only extract rows that have a visible employee name in the left employee-name column. If the name cell is blank, ignore that entire row even when it contains times, off labels, or colored cells.
-- Stop reading employee shifts after the last visible named employee row. Blank template rows below the last employee are not part of the schedule.
+- Stop reading employee shifts after the last visible named employee row, but do not assume the list ends at MANUEL or any specific name. If a named row such as Ivan appears below, include it. Blank template rows below the last named employee are not part of the schedule.
 - Never carry a blank row's times into the employee above it. A blank lower line may only be treated as part of the employee above when it contains station text like LINE, PT'S, MGALS, or a clear station label, not when it contains separate in/out times.
 - Before returning JSON, verify every working assignment came from the same horizontal row group as that employee's printed name.
 - Do not use the "Hours of operations" row as an employee schedule. Values such as "2PM to 2AM" or "11AM to 4AM" describe the restaurant's operating window, not employee shifts.
@@ -622,7 +623,8 @@ Rules:
 - For working day cells, set off false and include shiftStart and shiftEnd.
 - Keep top-level shiftStart and shiftEnd as the first clear working shift found for that employee, for backward compatibility.
 - Many schedules use two visual lines per employee: the top line has start/end/hours, and the lower line has labels like LINE or PT'S. Treat those two lines as the same employee and keep both the time and the label.
-- Return an employee when at least one working day has both shiftStart and shiftEnd visible. If a label is visible but the time is not visible, mark that day off true and add a note.
+- For named employees with no readable working days, still return the employee with every assignment off true and empty shiftStart/shiftEnd.
+- If a label is visible but the time is not visible, mark that day off true and add a note.
 - Normalize times to 24-hour HH:MM.
 - Interpret A/a as AM and P/p as PM. If end time is earlier than start time, keep the normalized overnight end time.
 - Do not include hours as a separate field.

@@ -5822,7 +5822,6 @@ ${staffSuggestion}
     const station = normalizeImportedStation(employee.station) || balancedStation(existingStaff);
     const assignments = buildAssignmentsFromImport(employee, station);
     const firstWorkingAssignment = shiftDays.map((day) => assignments[day.key]).find(isAssignmentWorking) || {};
-    if (!firstWorkingAssignment.shiftStart || !firstWorkingAssignment.shiftEnd) return null;
 
     return {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
