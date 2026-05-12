@@ -578,7 +578,7 @@ app.post("/api/extract-shift-schedule", async (req, res) => {
               text: `
 You extract kitchen employee schedules from photos of printed grid schedules.
 
-The image may contain employee names on the left and repeated day blocks across the row. Each working shift usually has start time, end time, and hours. Cells may also include labels like LINE, PT'S, Off, or off.
+The image may be sideways, rotated, skewed, or photographed at an angle. Mentally rotate the image so the printed text is readable before extracting. The image may contain employee names in a colored name column and repeated day blocks across each row. Each working shift usually has start time, end time, and hours. Cells may also include labels like LINE, PT'S, Off, or off.
 
 Return ONLY valid JSON in this exact shape:
 
@@ -607,6 +607,7 @@ Return ONLY valid JSON in this exact shape:
 
 Rules:
 - Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
+- Preserve employee names from the printed employee-name column. Do not skip a visible employee row if at least one day has a readable working shift.
 - Day cells that say off/Off or have no working shift must be returned with off true and empty shiftStart/shiftEnd.
 - For working day cells, set off false and include shiftStart and shiftEnd.
 - Keep top-level shiftStart and shiftEnd as the first clear working shift found for that employee, for backward compatibility.
@@ -618,7 +619,8 @@ Rules:
 - If a label says LINE, set role to "Line Cook" and station to "Line Support".
 - If a label says PT'S, set role to "Prep Cook" and station to "Prep".
 - If a label or note says broiler, grill, parrilla, carbon, charcoal, or charbroiler, set station to "Broiler/Grill".
-- If the station is unclear, leave station empty.
+- Do not infer stations from cell color alone.
+- If the station is unclear, leave station empty. Do not invent Flat Top, Expo, Fry, Pantry, Prep, or Line Support unless a visible label supports it.
 - Use kitchen roles only. Do not invent dishwasher, steward, server, or external staff roles.
 - Add a short note only for rows that are unreadable or uncertain.
               `,
