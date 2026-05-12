@@ -15,6 +15,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const AUTH_TOKEN_KEY = "beoflow_auth_token";
   const AUTH_CLIENT_KEY = "beoflow_auth_client";
   const WESTGATE_MODE_KEY = "beoflow_westgate_mode";
+  const BASTIDA_MODE_KEY = "beoflow_bastida_mode";
+  const BASTIDA_CEO_MODE = "ceo";
   const WESTGATE_MODE_MODULES = {
     banquets: new Set(["dashboard", "events", "menus", "recipes", "subRecipes", "inventory", "production", "staff", "reports", "eventForm"]),
     pizzaMkt: new Set(["restaurants", "orders", "kitchen"])
@@ -42,6 +44,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const CLIENT_DATA_KEY_SET = new Set(CLIENT_DATA_KEYS);
   const loginScreen = document.getElementById("login-screen");
   const westgateModeScreen = document.getElementById("westgate-mode-screen");
+  const bastidaModeScreen = document.getElementById("bastida-mode-screen");
   const appContainer = document.querySelector(".app-container");
   const loginForm = document.getElementById("client-login-form");
   const loginClientCodeInput = document.getElementById("loginClientCode");
@@ -49,6 +52,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const loginStatus = document.getElementById("login-status");
   const logoutBtn = document.getElementById("logout-btn");
   const westgateModeLogoutBtn = document.getElementById("westgate-mode-logout");
+  const bastidaModeLogoutBtn = document.getElementById("bastida-mode-logout");
   const syncTimers = new Map();
   let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
   const readStoredClient = () => {
@@ -72,10 +76,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const currentClient = readStoredClient();
   const currentClientCode = currentClient.clientCode || readTokenClient().clientCode || "";
   const isWestgateClient = String(currentClientCode).trim().toLowerCase() === "westgate";
+  const isBastidaClient = String(currentClientCode).trim().toLowerCase() === "bastida01";
   let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
+  let bastidaMode = isBastidaClient ? localStorage.getItem(BASTIDA_MODE_KEY) || "" : "";
   const isKnownWestgateMode = (mode) => Boolean(WESTGATE_MODE_MODULES[mode]);
   const needsWestgateModeSelection = () => isWestgateClient && !isKnownWestgateMode(westgateMode);
-  const canUseSmartSetup = () => !isWestgateClient || westgateMode === "banquets";
+  const needsBastidaModeSelection = () => isBastidaClient && bastidaMode !== BASTIDA_CEO_MODE;
+  const needsClientModeSelection = () => needsWestgateModeSelection() || needsBastidaModeSelection();
+  const canUseSmartSetup = () => !isBastidaClient && (!isWestgateClient || westgateMode === "banquets");
 
   const getAuthHeaders = (headers = {}) => ({
     ...headers,
@@ -85,6 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const showLogin = (message = "") => {
     if (appContainer) appContainer.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
+    if (bastidaModeScreen) bastidaModeScreen.hidden = true;
     if (loginScreen) loginScreen.hidden = false;
     if (loginStatus) loginStatus.textContent = message;
     loginClientCodeInput?.focus();
@@ -93,13 +102,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   const showApp = () => {
     if (loginScreen) loginScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
+    if (bastidaModeScreen) bastidaModeScreen.hidden = true;
     if (appContainer) appContainer.hidden = false;
   };
 
   const showWestgateModeScreen = () => {
     if (loginScreen) loginScreen.hidden = true;
     if (appContainer) appContainer.hidden = true;
+    if (bastidaModeScreen) bastidaModeScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = false;
+  };
+
+  const showBastidaModeScreen = () => {
+    if (loginScreen) loginScreen.hidden = true;
+    if (appContainer) appContainer.hidden = true;
+    if (westgateModeScreen) westgateModeScreen.hidden = true;
+    if (bastidaModeScreen) bastidaModeScreen.hidden = false;
   };
 
   const readClientDataSnapshot = () =>
@@ -208,6 +226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_CLIENT_KEY);
     localStorage.removeItem(WESTGATE_MODE_KEY);
+    localStorage.removeItem(BASTIDA_MODE_KEY);
     window.location.reload();
   };
 
@@ -424,6 +443,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
   const weekSizeActionButtons = Array.from(document.querySelectorAll("[data-week-size-action]"));
   const westgateModeButtons = Array.from(document.querySelectorAll("[data-westgate-mode]"));
+  const bastidaModeButtons = Array.from(document.querySelectorAll("[data-bastida-mode]"));
   const hideClientOnlyElement = (element) => {
     if (!element) return;
     element.hidden = true;
@@ -436,14 +456,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
   const getWestgateModeModules = () => WESTGATE_MODE_MODULES[westgateMode] || null;
   const getDefaultModuleForClient = () => {
+    if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE ? "dashboard" : null;
     if (!isWestgateClient) return "dashboard";
     return isKnownWestgateMode(westgateMode) ? WESTGATE_DEFAULT_MODULES[westgateMode] : null;
   };
   const isModuleAvailableForClient = (moduleKey) => {
+    if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE;
     if (!isWestgateClient) return true;
     return Boolean(getWestgateModeModules()?.has(moduleKey));
   };
   const applyClientModuleVisibility = () => {
+    if (isBastidaClient) {
+      [
+        navDashboard,
+        navRestaurants,
+        navOrders,
+        navKitchen,
+        navEvents,
+        navMenus,
+        navRecipes,
+        navSubRecipes,
+        navInventory,
+        navProduction,
+        navStaff,
+        navReports
+      ].forEach((navItem) => setClientOnlyElementVisibility(navItem, bastidaMode === BASTIDA_CEO_MODE));
+      setClientOnlyElementVisibility(westgateModeSwitchBtn, bastidaMode === BASTIDA_CEO_MODE);
+      if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Cambiar vista";
+      hideClientOnlyElement(smartSetupSection);
+      hideClientOnlyElement(smartSetupLauncher);
+      return;
+    }
+
     if (!isWestgateClient) {
       hideClientOnlyElement(westgateModeSwitchBtn);
       return;
@@ -468,6 +512,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(modules));
+    if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Cambiar area";
     setClientOnlyElementVisibility(smartSetupLauncher, canUseSmartSetup() && Boolean(modules));
     if (!canUseSmartSetup()) hideClientOnlyElement(smartSetupSection);
   };
@@ -5968,23 +6013,49 @@ ${staffSuggestion}
     if (mode === "banquets") openSmartSetupIfIncomplete();
   };
 
+  const selectBastidaMode = (mode) => {
+    if (mode !== BASTIDA_CEO_MODE) return;
+
+    bastidaMode = mode;
+    localStorage.setItem(BASTIDA_MODE_KEY, mode);
+    applyClientModuleVisibility();
+    showApp();
+    showModuleByKey("dashboard", { scroll: false });
+  };
+
   westgateModeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       selectWestgateMode(button.dataset.westgateMode);
     });
   });
 
+  bastidaModeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      selectBastidaMode(button.dataset.bastidaMode);
+    });
+  });
+
   if (westgateModeSwitchBtn) {
     westgateModeSwitchBtn.addEventListener("click", () => {
-      westgateMode = "";
-      localStorage.removeItem(WESTGATE_MODE_KEY);
+      if (isBastidaClient) {
+        bastidaMode = "";
+        localStorage.removeItem(BASTIDA_MODE_KEY);
+      } else {
+        westgateMode = "";
+        localStorage.removeItem(WESTGATE_MODE_KEY);
+      }
       hideAllMainSections();
       applyClientModuleVisibility();
-      showWestgateModeScreen();
+      if (isBastidaClient) {
+        showBastidaModeScreen();
+      } else {
+        showWestgateModeScreen();
+      }
     });
   }
 
   westgateModeLogoutBtn?.addEventListener("click", logout);
+  bastidaModeLogoutBtn?.addEventListener("click", logout);
 
   if (navRestaurants && restaurantsSection) {
     navRestaurants.addEventListener("click", (e) => {
@@ -6532,6 +6603,8 @@ ${staffSuggestion}
   applyClientModuleVisibility();
   if (needsWestgateModeSelection()) {
     showWestgateModeScreen();
+  } else if (needsBastidaModeSelection()) {
+    showBastidaModeScreen();
   } else {
     showApp();
     const initialModule = getDefaultModuleForClient();
@@ -6570,5 +6643,5 @@ ${staffSuggestion}
   setInterval(renderStaff, 60000);
   renderProduction();
   renderSmartSetup();
-  if (!needsWestgateModeSelection()) openSmartSetupIfIncomplete();
+  if (!needsClientModeSelection()) openSmartSetupIfIncomplete();
 });
