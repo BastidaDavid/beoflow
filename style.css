@@ -68,11 +68,10 @@ body {
   width: 82px;
   height: 82px;
   object-fit: contain;
-  padding: 6px;
+  padding: 12px;
   margin: 0 auto 16px;
   border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid var(--border);
+  background: var(--sidebar);
 }
 
 .login-heading {
