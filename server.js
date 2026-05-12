@@ -578,7 +578,7 @@ app.post("/api/extract-shift-schedule", async (req, res) => {
               text: `
 You extract kitchen employee schedules from photos of printed grid schedules.
 
-The image may be sideways, rotated, skewed, or photographed at an angle. Mentally rotate the image so the printed text is readable before extracting. The image may contain employee names in a colored name column and repeated day blocks across each row. Each working shift usually has start time, end time, and hours. Cells may also include labels like LINE, PT'S, Off, or off.
+The image may be sideways, rotated, skewed, or photographed at an angle. Mentally rotate the image so the printed text is readable before extracting. The image may contain employee names in a colored name column and repeated day blocks across each row. Each working shift usually has start time, end time, and hours in day subcolumns labeled in/out/total. Cells may also include labels like LINE, PT'S, MGALS, Off, or off.
 
 Return ONLY valid JSON in this exact shape:
 
@@ -608,6 +608,12 @@ Return ONLY valid JSON in this exact shape:
 Rules:
 - Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
 - Preserve employee names from the printed employee-name column. Do not skip a visible employee row if at least one day has a readable working shift.
+- Ignore non-employee rows and headers. Never return rows named "Hours of operations", "in", "out", "total", day names, dates, or blank grid separators.
+- Do not use the "Hours of operations" row as an employee schedule. Values such as "2PM to 2AM" or "11AM to 4AM" describe the restaurant's operating window, not employee shifts.
+- The first row immediately below "Hours of operations" can still be a real employee row, such as EDUARDO. Do not discard that employee just because it is near the operating-hours header.
+- For each employee/day, read only the in and out cells inside that employee's row under the day block. Use the total cell only as a cross-check.
+- If a day block shows in=6.00 A, out=2.00 P, total=8, return shiftStart "06:00" and shiftEnd "14:00"; do not return the day operating window.
+- If the extracted shift duration strongly conflicts with the visible total hours, re-read the employee row and prefer the in/out cells over nearby headers.
 - Day cells that say off/Off or have no working shift must be returned with off true and empty shiftStart/shiftEnd.
 - For working day cells, set off false and include shiftStart and shiftEnd.
 - Keep top-level shiftStart and shiftEnd as the first clear working shift found for that employee, for backward compatibility.

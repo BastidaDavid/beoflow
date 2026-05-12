@@ -1150,7 +1150,7 @@
         <div class="shift-import-panel">
           <div>
             <h3>Import schedule image</h3>
-            <p>Upload a kitchen schedule photo, then assign imported employees to stations manually or at random.</p>
+            <p>Upload a kitchen schedule photo, then use the same smart LineOps station mix as the app.</p>
           </div>
           <div class="shift-import-actions">
             <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
@@ -1232,13 +1232,14 @@
           <div class="form-group">
             <label for="staffStation">Station</label>
             <select id="staffStation">
+              <option>Prep</option>
+              <option>Line Support</option>
+              <option>Pantry</option>
+              <option>Fry</option>
               <option>Flat Top</option>
               <option>Broiler/Grill</option>
-              <option>Fry</option>
-              <option>Pantry</option>
-              <option>Prep</option>
+              <option>Extra Board</option>
               <option>Expo</option>
-              <option>Line Support</option>
             </select>
           </div>
 
