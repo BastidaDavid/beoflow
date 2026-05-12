@@ -618,9 +618,14 @@ Rules:
 - Do not include hours as a separate field.
 - If a label says LINE, set role to "Line Cook" and station to "Line Support".
 - If a label says PT'S, set role to "Prep Cook" and station to "Prep".
+- If a label says extra board or extra, set station to "Extra Board".
+- If a label says flat, grilled, or plancha, set station to "Flat Top".
 - If a label or note says broiler, grill, parrilla, carbon, charcoal, or charbroiler, set station to "Broiler/Grill".
+- If a label says fry, freidora, or wings, set station to "Fry".
+- If a label says pantry, set station to "Pantry".
+- If a label says expo, set station to "Expo".
 - Do not infer stations from cell color alone.
-- If the station is unclear, leave station empty. Do not invent Flat Top, Expo, Fry, Pantry, Prep, or Line Support unless a visible label supports it.
+- If the station is unclear, leave station empty. Do not invent Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, Line Support, or Extra Board unless a visible label supports it.
 - Use kitchen roles only. Do not invent dishwasher, steward, server, or external staff roles.
 - Add a short note only for rows that are unreadable or uncertain.
               `,
