@@ -4515,10 +4515,6 @@ ${staffSuggestion}
   const lateNightStations = ["Fry", "Flat Top"];
   const fixedMorningStaffNames = new Set(["eduardo", "lila"]);
   const fixedLateNightStaffNames = new Set(["manuel", "david"]);
-  const lockedShiftTemplates = {
-    fixedMorning: { shiftStart: "06:00", shiftEnd: "14:00" },
-    fixedLateNight: { shiftStart: "18:00", shiftEnd: "02:00" }
-  };
   const shiftHandoffWindowMinutes = 60;
   const shiftDays = [
     { key: "mon", label: "Mon" },
@@ -4570,17 +4566,41 @@ ${staffSuggestion}
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
 
-  const getRotationGroup = (person = {}) => {
+  const parseShiftTimeToMinutes = (time = "") => {
+    const [hours, minutes] = String(time || "").split(":").map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+    return hours * 60 + minutes;
+  };
+
+  const getAssignmentShiftWindow = (assignment = {}, person = {}) => {
+    const start = parseShiftTimeToMinutes(assignment.shiftStart || person.shiftStart || "");
+    const rawEnd = parseShiftTimeToMinutes(assignment.shiftEnd || person.shiftEnd || "");
+    if (start == null || rawEnd == null) return null;
+
+    let end = rawEnd;
+    if (end <= start) end += 24 * 60;
+
+    return {
+      start,
+      end,
+      isOvernight: rawEnd <= start
+    };
+  };
+
+  const getRotationGroup = (person = {}, dayKey = activeShiftDay) => {
+    const window = getAssignmentShiftWindow(getPersonDayAssignment(person, dayKey), person);
+    if (window) {
+      if (window.start < 10 * 60) return "fixedMorning";
+      if (window.isOvernight && window.start >= 18 * 60) return "fixedLateNight";
+      return "variableAfternoon";
+    }
+
     const normalizedName = normalizeStaffName(person.name);
     if (fixedMorningStaffNames.has(normalizedName)) return "fixedMorning";
     if (fixedLateNightStaffNames.has(normalizedName)) return "fixedLateNight";
     return "variableAfternoon";
   };
-
-  const isLockedShift = (person = {}) => getRotationGroup(person) !== "variableAfternoon";
-
-  const getLockedShiftTemplate = (person = {}) =>
-    lockedShiftTemplates[getRotationGroup(person)] || null;
 
   const stationCandidatesForGroup = (group = "variableAfternoon", workingCount = 0) => {
     if (group === "fixedMorning") return morningStations;
@@ -4692,8 +4712,8 @@ ${staffSuggestion}
       .filter((person) => person.off || person.absent || !person.shiftStart || !person.shiftEnd);
 
   const getAssignmentOptionsForPerson = (person = {}, dayKey = activeShiftDay, staff = getStaff()) => {
-    const group = getRotationGroup(person);
-    const workingCount = getStaffForDay(staff, dayKey).filter((scheduled) => getRotationGroup(scheduled) === group).length;
+    const group = getRotationGroup(person, dayKey);
+    const workingCount = getStaffForDay(staff, dayKey).filter((scheduled) => getRotationGroup(scheduled, dayKey) === group).length;
     return stationCandidatesForGroup(group, workingCount);
   };
 
@@ -4751,7 +4771,7 @@ ${staffSuggestion}
         }, {});
       }
 
-      return buildAssignmentsForAllDays({ station: fallbackStation, shiftStart: fallbackStart, shiftEnd: fallbackEnd });
+      return buildAssignmentsForActiveDay({ station: fallbackStation, shiftStart: fallbackStart, shiftEnd: fallbackEnd });
     }
 
     const assignments = shiftDays.reduce((items, day) => {
@@ -4770,23 +4790,13 @@ ${staffSuggestion}
       return items;
     }, {});
 
-    if (Object.values(assignments).some(isAssignmentWorking)) {
-      return assignments;
-    }
-
-    if (!fallbackStart || !fallbackEnd) return assignments;
-
-    return buildAssignmentsForAllDays({
-      station: fallbackStation,
-      shiftStart: fallbackStart,
-      shiftEnd: fallbackEnd
-    });
+    return assignments;
   };
 
-  const buildAssignmentsForAllDays = ({ station, shiftStart, shiftEnd }) =>
-    shiftDays.reduce((assignments, day) => {
-      assignments[day.key] = { station, shiftStart, shiftEnd, off: false };
-      return assignments;
+  const cloneShiftAssignments = (assignments = {}) =>
+    shiftDays.reduce((items, day) => {
+      items[day.key] = { ...(assignments[day.key] || {}) };
+      return items;
     }, {});
 
   const getHandoffKey = (station, outgoingId, incomingId, dayKey = activeShiftDay) =>
@@ -4888,12 +4898,10 @@ ${staffSuggestion}
     `${minutesToTime(breakItem.start)} - ${minutesToTime(breakItem.end)}`;
 
   const renderStaffCard = (person, breaks = []) => {
-    const locked = isLockedShift(person);
     const stationOptions = orderedStations([
       ...getAssignmentOptionsForPerson(person, activeShiftDay, getStaff()),
       person.station
     ]);
-    const lockedLabel = locked ? '<span class="shift-locked-pill">Locked shift</span>' : "";
 
     return `
       <article class="shift-employee-card" data-staff-id="${escapeHtml(person.id)}">
@@ -4902,7 +4910,6 @@ ${staffSuggestion}
             <h4>${escapeHtml(person.name || "Unnamed employee")}</h4>
             <p>${escapeHtml(person.role || "Role not set")} · ${getShiftDayLabel(activeShiftDay)}${person.substituteFor ? ` · Covers ${escapeHtml(person.substituteFor)}` : ""}</p>
           </div>
-          ${lockedLabel}
         </div>
         <div class="shift-time-row">
           <span>${escapeHtml(formatShiftTimeRange(person))}</span>
@@ -4917,11 +4924,11 @@ ${staffSuggestion}
         <div class="shift-card-times">
           <label>
             <span>Start</span>
-            <input type="time" data-day-start value="${escapeHtml(person.shiftStart || "")}" ${locked ? "disabled" : ""} />
+            <input type="time" data-day-start value="${escapeHtml(person.shiftStart || "")}" />
           </label>
           <label>
             <span>End</span>
-            <input type="time" data-day-end value="${escapeHtml(person.shiftEnd || "")}" ${locked ? "disabled" : ""} />
+            <input type="time" data-day-end value="${escapeHtml(person.shiftEnd || "")}" />
           </label>
         </div>
         <label class="shift-card-station">
@@ -4933,9 +4940,9 @@ ${staffSuggestion}
           </select>
         </label>
         <div class="shift-card-actions">
-          <button type="button" class="secondary-btn" data-substitute-staff="${escapeHtml(person.id)}" ${locked ? "disabled" : ""}>Substitute</button>
-          <button type="button" class="secondary-btn" data-day-off-staff="${escapeHtml(person.id)}" ${locked ? "disabled" : ""}>Day off</button>
-          <button type="button" class="secondary-btn shift-delete-btn" data-delete-staff="${escapeHtml(person.id)}" ${locked ? "disabled" : ""}>Delete</button>
+          <button type="button" class="secondary-btn" data-substitute-staff="${escapeHtml(person.id)}">Substitute</button>
+          <button type="button" class="secondary-btn" data-day-off-staff="${escapeHtml(person.id)}">Day off</button>
+          <button type="button" class="secondary-btn shift-delete-btn" data-delete-staff="${escapeHtml(person.id)}">Delete</button>
         </div>
       </article>
     `;
@@ -5660,11 +5667,7 @@ ${staffSuggestion}
 
     const staff = getStaff();
     const selectedPerson = staff.find((person) => person.id === staffId);
-    if (selectedPerson && isLockedShift(selectedPerson)) {
-      setScheduleImportStatus("This shift is locked. Only change its station within its block.", "warning");
-      renderStaff();
-      return;
-    }
+    if (!selectedPerson) return;
 
     const updatedStaff = staff.map((person) => {
       if (person.id !== staffId) return person;
@@ -5689,24 +5692,12 @@ ${staffSuggestion}
 
   const deleteStaff = (staffId) => {
     const staff = getStaff();
-    const selectedPerson = staff.find((person) => person.id === staffId);
-    if (selectedPerson && isLockedShift(selectedPerson)) {
-      setScheduleImportStatus("This shift is locked. Only change its station within its block.", "warning");
-      return;
-    }
-
     saveStaff(staff.filter((person) => person.id !== staffId));
     renderStaff();
   };
 
   const markStaffDayOff = (staffId, options = {}) => {
     const staff = getStaff();
-    const selectedPerson = staff.find((person) => person.id === staffId);
-    if (selectedPerson && isLockedShift(selectedPerson)) {
-      setScheduleImportStatus("This shift is locked. Only change its station within its block.", "warning");
-      return false;
-    }
-
     const updatedStaff = staff.map((person) => {
       if (person.id !== staffId) return person;
       const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
@@ -5760,10 +5751,6 @@ ${staffSuggestion}
     const staff = getStaff();
     const original = staff.find((person) => person.id === staffId);
     if (!original) return;
-    if (isLockedShift(original)) {
-      setScheduleImportStatus("This shift is locked. Only change its station within its block.", "warning");
-      return;
-    }
 
     const currentAssignment = getPersonDayAssignment(original, activeShiftDay);
     const replacementName = prompt(`Who is covering ${original.name || "this employee"} on ${getShiftDayLabel(activeShiftDay)}?`);
@@ -5824,6 +5811,7 @@ ${staffSuggestion}
       shiftStart: firstWorkingAssignment.shiftStart || employee.shiftStart || "",
       shiftEnd: firstWorkingAssignment.shiftEnd || employee.shiftEnd || "",
       assignments,
+      originalAssignments: cloneShiftAssignments(assignments),
       sourceLabel: employee.sourceLabel || "Imported schedule"
     };
   };
@@ -5883,7 +5871,7 @@ ${staffSuggestion}
       renderStaff();
 
       const notes = Array.isArray(result.notes) && result.notes.length ? ` ${result.notes.slice(0, 2).join(" ")}` : "";
-      setScheduleImportStatus(`Schedule saved with ${importedStaff.length} employees. Station mix was not applied.${notes}`, "success");
+      setScheduleImportStatus(`Schedule saved with ${importedStaff.length} employees. Imported times were kept. Station mix was not applied.${notes}`, "success");
     } catch (error) {
       console.error(error);
       const message = error instanceof TypeError && error.message === "Failed to fetch"
@@ -5922,34 +5910,10 @@ ${staffSuggestion}
     return scoredStations[0]?.station || candidates[0] || person.originalStation || person.station || DEFAULT_STATION;
   };
 
-  const applyLockedShiftsForDay = (staff = [], dayKey = activeShiftDay) =>
-    staff.map((person) => {
-      const template = getLockedShiftTemplate(person);
-      if (!template) return person;
-
-      const currentAssignment = getPersonDayAssignment(person, dayKey);
-      return {
-        ...person,
-        shiftStart: template.shiftStart,
-        shiftEnd: template.shiftEnd,
-        assignments: {
-          ...person.assignments,
-          [dayKey]: {
-            ...currentAssignment,
-            shiftStart: template.shiftStart,
-            shiftEnd: template.shiftEnd,
-            off: false,
-            absent: false,
-            replacedBy: ""
-          }
-        }
-      };
-    });
-
   const assignStationsForGroup = (staff = [], group = "variableAfternoon", dayKey = activeShiftDay, previousStationByEmployee = {}, stationUsageByEmployee = {}) => {
     const workingIds = shuffledItems(
       staff
-        .filter((person) => getRotationGroup(person) === group && isAssignmentWorking(getPersonDayAssignment(person, dayKey)))
+        .filter((person) => getRotationGroup(person, dayKey) === group && isAssignmentWorking(getPersonDayAssignment(person, dayKey)))
         .map((person) => person.id)
     );
     if (!workingIds.length) return staff;
@@ -6003,7 +5967,6 @@ ${staffSuggestion}
     const stationUsageByEmployee = {};
 
     shiftDays.forEach((day) => {
-      updatedStaff = applyLockedShiftsForDay(updatedStaff, day.key);
       updatedStaff = assignStationsForGroup(updatedStaff, "fixedMorning", day.key, previousStationByEmployee, stationUsageByEmployee);
       updatedStaff = assignStationsForGroup(updatedStaff, "variableAfternoon", day.key, previousStationByEmployee, stationUsageByEmployee);
       updatedStaff = assignStationsForGroup(updatedStaff, "fixedLateNight", day.key, previousStationByEmployee, stationUsageByEmployee);
@@ -6032,7 +5995,7 @@ ${staffSuggestion}
     saveStaff(assignedStaff);
     renderStaff();
     setScheduleImportStatus(
-      "Smart mix created: morning, afternoon, and late night rotate separately.",
+      "Station mix created without changing imported times.",
       "success"
     );
   };
@@ -6049,7 +6012,8 @@ ${staffSuggestion}
     const resetStaff = staff.map((person) => {
       if (!workingIds.has(person.id)) return person;
       const currentAssignment = getPersonDayAssignment(person, activeShiftDay);
-      const station = person.originalStation || currentAssignment.station || DEFAULT_STATION;
+      const originalAssignment = person.originalAssignments?.[activeShiftDay];
+      const station = originalAssignment?.station || person.originalStation || currentAssignment.station || DEFAULT_STATION;
 
       return {
         ...person,

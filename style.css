@@ -2971,17 +2971,6 @@ body.modal-open {
   letter-spacing: 0;
 }
 
-.shift-locked-pill {
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 5px 8px;
-  font-size: 0.68rem;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
 .shift-card-header p,
 .shift-time-row,
 .shift-empty-state {

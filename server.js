@@ -607,13 +607,16 @@ Return ONLY valid JSON in this exact shape:
 
 Rules:
 - Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
+- First identify the employee-name column. Only after a real employee name is identified, read that same horizontal row group across the day blocks.
 - Preserve employee names from the printed employee-name column. A name can be uppercase or mixed-case, such as EDUARDO or Ivan.
 - Return every visible named employee row, even if every visible day for that employee is off or blank.
 - Ignore non-employee rows and headers. Never return rows named "Hours of operations", "in", "out", "total", day names, dates, or blank grid separators.
+- Never return station-label rows as employees. Labels such as LINE, PT'S, MGALS, Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, or Extra Board can describe an employee's station only when they sit in that employee's row group.
 - Only extract rows that have a visible employee name in the left employee-name column. If the name cell is blank, ignore that entire row even when it contains times, off labels, or colored cells.
 - Stop reading employee shifts after the last visible named employee row, but do not assume the list ends at MANUEL or any specific name. If a named row such as Ivan appears below, include it. Blank template rows below the last named employee are not part of the schedule.
 - Never carry a blank row's times into the employee above it. A blank lower line may only be treated as part of the employee above when it contains station text like LINE, PT'S, MGALS, or a clear station label, not when it contains separate in/out times.
 - Before returning JSON, verify every working assignment came from the same horizontal row group as that employee's printed name.
+- Never auto-fill missing days by copying a shift from another day. If a day is blank, unreadable, or says off, return off true for that day.
 - Do not use the "Hours of operations" row as an employee schedule. Values such as "2PM to 2AM" or "11AM to 4AM" describe the restaurant's operating window, not employee shifts.
 - The first row immediately below "Hours of operations" can still be a real employee row, such as EDUARDO. Do not discard that employee just because it is near the operating-hours header.
 - For each employee/day, read only the in and out cells inside that employee's row under the day block. Use the total cell only as a cross-check.
@@ -637,7 +640,8 @@ Rules:
 - If a label says pantry, set station to "Pantry".
 - If a label says expo, set station to "Expo".
 - Do not infer stations from cell color alone.
-- If the station is unclear, leave station empty. Do not invent Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, Line Support, or Extra Board unless a visible label supports it.
+- If the station is unclear for a specific day, leave that day's station empty. Do not invent Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, Line Support, or Extra Board unless a visible label supports it.
+- Keep top-level station empty unless a station is visible for that employee; the app can assign stations later without changing the imported times.
 - Use kitchen roles only. Do not invent dishwasher, steward, server, or external staff roles.
 - Add a short note only for rows that are unreadable or uncertain.
               `,
@@ -658,8 +662,61 @@ Rules:
       .trim();
 
     const parsed = JSON.parse(cleaned);
+    const blockedScheduleNames = new Set([
+      "hours of operations",
+      "hour of operations",
+      "operations",
+      "employee",
+      "employees",
+      "off",
+      "in",
+      "out",
+      "total",
+      "line",
+      "pts",
+      "pt's",
+      "mgals",
+      "flat top",
+      "broiler",
+      "broiler/grill",
+      "grill",
+      "fry",
+      "pantry",
+      "prep",
+      "expo",
+      "extra board",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat",
+      "sun"
+    ]);
+    const isEmployeeScheduleName = (value = "") => {
+      const normalized = String(value)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+
+      if (!normalized || blockedScheduleNames.has(normalized)) return false;
+      if (/^\d/.test(normalized)) return false;
+      if (/\b(?:am|pm|a|p)\b/.test(normalized) && /\d/.test(normalized)) return false;
+      if (normalized.includes("to") && /\d/.test(normalized)) return false;
+      return true;
+    };
+
     res.json({
-      employees: Array.isArray(parsed.employees) ? parsed.employees : [],
+      employees: Array.isArray(parsed.employees)
+        ? parsed.employees.filter((employee) => isEmployeeScheduleName(employee?.name))
+        : [],
       notes: Array.isArray(parsed.notes) ? parsed.notes : []
     });
   } catch (error) {
