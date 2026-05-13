@@ -55,7 +55,7 @@ body {
 }
 
 .login-panel {
-  width: min(420px, 100%);
+  width: min(500px, 100%);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -92,14 +92,76 @@ body {
   font-weight: 700;
 }
 
+.auth-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+}
+
+.auth-mode-btn {
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-mode-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
 .client-login-form {
   display: grid;
   gap: 14px;
 }
 
+.auth-form[hidden] {
+  display: none;
+}
+
+.signup-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.signup-form .form-group:first-child,
+.signup-form .form-group:nth-child(2),
+.signup-form .primary-btn,
+.signup-form .auth-link-btn,
+.signup-form .login-status {
+  grid-column: 1 / -1;
+}
+
 .client-login-form .primary-btn {
   width: 100%;
   margin-top: 4px;
+}
+
+.auth-link-btn {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.auth-link-btn:hover,
+.auth-link-btn:focus-visible {
+  color: var(--accent);
+  outline: none;
 }
 
 .login-status {
@@ -374,6 +436,142 @@ body {
 .bastida-mode-logout {
   display: block;
   margin: 22px auto 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.restaurant-select-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(34, 197, 94, 0.10)),
+    var(--bg);
+}
+
+.restaurant-select-panel {
+  width: min(860px, 100%);
+  padding: 30px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.restaurant-select-heading {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-bottom: 26px;
+  text-align: center;
+}
+
+.restaurant-select-logo {
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--sidebar);
+}
+
+.restaurant-select-heading span {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.restaurant-select-heading h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.restaurant-select-heading p {
+  max-width: 620px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-weight: 700;
+}
+
+.restaurant-select-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.restaurant-select-card {
+  display: grid;
+  gap: 12px;
+  min-height: 190px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #f8fafc;
+  color: var(--text);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.restaurant-select-card:hover,
+.restaurant-select-card:focus-visible {
+  border-color: rgba(34, 197, 94, 0.42);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+  outline: none;
+  transform: translateY(-2px);
+}
+
+.restaurant-select-card span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--sidebar);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.restaurant-select-card strong {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: 0;
+}
+
+.restaurant-select-card small {
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.restaurant-select-status {
+  min-height: 22px;
+  margin-top: 16px;
+  color: var(--muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.restaurant-select-status[data-type="warning"] {
+  color: var(--warning-text);
+}
+
+.restaurant-select-logout {
+  display: block;
+  margin: 12px auto 0;
   border: 0;
   background: transparent;
   color: var(--muted);
@@ -1081,6 +1279,14 @@ body {
 }
 
 @media (max-width: 760px) {
+  .login-panel {
+    padding: 22px;
+  }
+
+  .signup-form {
+    grid-template-columns: 1fr;
+  }
+
   .westgate-mode-panel {
     padding: 22px;
   }
@@ -1099,6 +1305,14 @@ body {
 
   .bastida-mode-card {
     min-height: 180px;
+  }
+
+  .restaurant-select-panel {
+    padding: 22px;
+  }
+
+  .restaurant-select-card {
+    min-height: 170px;
   }
 
   .smart-setup-header,

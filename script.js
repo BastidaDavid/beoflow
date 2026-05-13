@@ -20,6 +20,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const BEOFLOW_LOGO_SRC = "./img/logobeoflow.png";
   const WESTGATE_MODE_KEY = "beoflow_westgate_mode";
   const BASTIDA_MODE_KEY = "beoflow_bastida_mode";
+  const RESTAURANT_SELECTION_ID_KEY = "beoflow_selected_restaurant_id";
+  const RESTAURANT_SELECTION_NAME_KEY = "beoflow_selected_restaurant_name";
   const BASTIDA_CEO_MODE = "ceo";
   const WESTGATE_MODE_MODULES = {
     banquets: new Set(["dashboard", "events", "menus", "recipes", "subRecipes", "inventory", "production", "staff", "reports", "eventForm"]),
@@ -49,20 +51,36 @@ document.addEventListener("DOMContentLoaded", async () => {
   const loginScreen = document.getElementById("login-screen");
   const westgateModeScreen = document.getElementById("westgate-mode-screen");
   const bastidaModeScreen = document.getElementById("bastida-mode-screen");
+  const restaurantSelectScreen = document.getElementById("restaurant-select-screen");
   const appContainer = document.querySelector(".app-container");
   const appBrandLogo = document.getElementById("app-brand-logo");
   const appBrandTitle = document.getElementById("app-brand-title");
   const appBrandSubtitle = document.getElementById("app-brand-subtitle");
   const mobileMenuPanel = document.getElementById("mobile-menu-panel");
   const loginForm = document.getElementById("client-login-form");
+  const signupForm = document.getElementById("client-signup-form");
+  const authModeSigninBtn = document.getElementById("auth-mode-signin");
+  const authModeSignupBtn = document.getElementById("auth-mode-signup");
+  const backToLoginBtn = document.getElementById("back-to-login-btn");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
   const loginStatus = document.getElementById("login-status");
+  const signupAccountTypeInput = document.getElementById("signupAccountType");
+  const signupBusinessNameInput = document.getElementById("signupBusinessName");
+  const signupFullNameInput = document.getElementById("signupFullName");
+  const signupEmailInput = document.getElementById("signupEmail");
+  const signupPasswordInput = document.getElementById("signupPassword");
+  const signupConfirmPasswordInput = document.getElementById("signupConfirmPassword");
+  const signupStatus = document.getElementById("signup-status");
   const logoutBtn = document.getElementById("logout-btn");
   const mobileMenuToggle = document.getElementById("mobile-menu-toggle");
   const mobileLogoutBtn = document.getElementById("mobile-logout-btn");
   const westgateModeLogoutBtn = document.getElementById("westgate-mode-logout");
   const bastidaModeLogoutBtn = document.getElementById("bastida-mode-logout");
+  const restaurantSelectLogoutBtn = document.getElementById("restaurant-select-logout");
+  const restaurantSelectClientLabel = document.getElementById("restaurant-select-client-label");
+  const restaurantSelectOptions = document.getElementById("restaurant-select-options");
+  const restaurantSelectStatus = document.getElementById("restaurant-select-status");
   const syncTimers = new Map();
   let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
   const readStoredClient = () => {
@@ -94,14 +112,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const currentClientCodeKey = String(currentClientCode).trim().toLowerCase();
   const westgateClientCodes = new Set(["westgate", "westgate@bastidasystems.io"]);
   const isWestgateClient = westgateClientCodes.has(currentClientCodeKey);
+  const restaurantSelectionClientCodes = new Set(["strat01", "strat01@bastidasystems.io", "ptslineops", "ptskitchen@lineops.io"]);
+  const isRestaurantSelectionClient = restaurantSelectionClientCodes.has(currentClientCodeKey);
   const bastidaClientCodes = new Set(["bastida01", "bastidasystems@gmail.com"]);
   const isBastidaClient = bastidaClientCodes.has(currentClientCodeKey);
   let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
   let bastidaMode = isBastidaClient ? localStorage.getItem(BASTIDA_MODE_KEY) || "" : "";
+  let selectedRestaurantId = isRestaurantSelectionClient ? localStorage.getItem(RESTAURANT_SELECTION_ID_KEY) || "" : "";
+  let selectedRestaurantName = isRestaurantSelectionClient ? localStorage.getItem(RESTAURANT_SELECTION_NAME_KEY) || "" : "";
   const isKnownWestgateMode = (mode) => Boolean(WESTGATE_MODE_MODULES[mode]);
   const needsWestgateModeSelection = () => isWestgateClient && !isKnownWestgateMode(westgateMode);
   const needsBastidaModeSelection = () => isBastidaClient && bastidaMode !== BASTIDA_CEO_MODE;
-  const needsClientModeSelection = () => needsWestgateModeSelection() || needsBastidaModeSelection();
+  const needsRestaurantSelection = () => isRestaurantSelectionClient && !selectedRestaurantId;
+  const needsClientModeSelection = () => needsWestgateModeSelection() || needsBastidaModeSelection() || needsRestaurantSelection();
   const canUseSmartSetup = () => !hasConfiguredClientModules && !isBastidaClient && (!isWestgateClient || westgateMode === "banquets");
   const applyClientBranding = () => {
     appContainer?.classList.toggle("is-westgate", isWestgateClient);
@@ -134,7 +157,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         appBrandLogo.alt = "BEOFlow Logo";
       }
       if (appBrandTitle) appBrandTitle.textContent = currentClient.brandTitle || "Beoflow";
-      if (appBrandSubtitle) appBrandSubtitle.textContent = currentClient.brandSubtitle || currentClient.displayName || "Bastida Systems";
+      if (appBrandSubtitle) {
+        appBrandSubtitle.textContent = selectedRestaurantName || currentClient.brandSubtitle || currentClient.displayName || "Bastida Systems";
+      }
       return;
     }
 
@@ -156,6 +181,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (appContainer) appContainer.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
+    if (restaurantSelectScreen) restaurantSelectScreen.hidden = true;
     if (loginScreen) loginScreen.hidden = false;
     if (loginStatus) loginStatus.textContent = message;
     loginClientCodeInput?.focus();
@@ -167,6 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (loginScreen) loginScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
+    if (restaurantSelectScreen) restaurantSelectScreen.hidden = true;
     if (appContainer) appContainer.hidden = false;
   };
 
@@ -175,6 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (loginScreen) loginScreen.hidden = true;
     if (appContainer) appContainer.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
+    if (restaurantSelectScreen) restaurantSelectScreen.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = false;
   };
 
@@ -183,7 +211,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (loginScreen) loginScreen.hidden = true;
     if (appContainer) appContainer.hidden = true;
     if (westgateModeScreen) westgateModeScreen.hidden = true;
+    if (restaurantSelectScreen) restaurantSelectScreen.hidden = true;
     if (bastidaModeScreen) bastidaModeScreen.hidden = false;
+  };
+
+  const showRestaurantSelectScreen = () => {
+    closeMobileMenu();
+    if (loginScreen) loginScreen.hidden = true;
+    if (appContainer) appContainer.hidden = true;
+    if (westgateModeScreen) westgateModeScreen.hidden = true;
+    if (bastidaModeScreen) bastidaModeScreen.hidden = true;
+    if (restaurantSelectScreen) restaurantSelectScreen.hidden = false;
   };
 
   const setMobileMenuOpen = (isOpen) => {
@@ -272,6 +310,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   };
 
+  const setAuthMode = (mode) => {
+    const isSignup = mode === "signup";
+    if (loginForm) loginForm.hidden = isSignup;
+    if (signupForm) signupForm.hidden = !isSignup;
+    authModeSigninBtn?.classList.toggle("active", !isSignup);
+    authModeSignupBtn?.classList.toggle("active", isSignup);
+    if (loginStatus) loginStatus.textContent = "";
+    if (signupStatus) signupStatus.textContent = "";
+    if (isSignup) {
+      signupBusinessNameInput?.focus();
+    } else {
+      loginClientCodeInput?.focus();
+    }
+  };
+
+  const applyAuthenticatedClient = (result = {}) => {
+    authToken = result.token;
+    localStorage.setItem(AUTH_TOKEN_KEY, result.token);
+    localStorage.setItem(AUTH_CLIENT_KEY, JSON.stringify(result.client || {}));
+    window.location.reload();
+  };
+
   const handleLogin = async (event) => {
     event.preventDefault();
     if (loginStatus) loginStatus.textContent = "Signing in...";
@@ -291,14 +351,52 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(result.error || "Client or password is incorrect.");
       }
 
-      authToken = result.token;
-      localStorage.setItem(AUTH_TOKEN_KEY, result.token);
-      localStorage.setItem(AUTH_CLIENT_KEY, JSON.stringify(result.client || {}));
-      window.location.reload();
+      applyAuthenticatedClient(result);
     } catch (error) {
       if (loginStatus) loginStatus.textContent = error.message || "Sign in failed.";
       if (loginPasswordInput) loginPasswordInput.value = "";
       loginPasswordInput?.focus();
+    }
+  };
+
+  const handleSignup = async (event) => {
+    event.preventDefault();
+    if (signupStatus) signupStatus.textContent = "Creating account...";
+
+    const password = signupPasswordInput?.value || "";
+    const confirmPassword = signupConfirmPasswordInput?.value || "";
+
+    if (password !== confirmPassword) {
+      if (signupStatus) signupStatus.textContent = "Passwords do not match.";
+      signupConfirmPasswordInput?.focus();
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountType: signupAccountTypeInput?.value || "Restaurant",
+          businessName: signupBusinessNameInput?.value.trim(),
+          fullName: signupFullNameInput?.value.trim(),
+          email: signupEmailInput?.value.trim(),
+          password
+        })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Account could not be created.");
+      }
+
+      if (signupStatus) signupStatus.textContent = "Account created. Opening workspace...";
+      applyAuthenticatedClient(result);
+    } catch (error) {
+      if (signupStatus) signupStatus.textContent = error.message || "Account could not be created.";
+      if (signupPasswordInput) signupPasswordInput.value = "";
+      if (signupConfirmPasswordInput) signupConfirmPasswordInput.value = "";
+      signupPasswordInput?.focus();
     }
   };
 
@@ -307,10 +405,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem(AUTH_CLIENT_KEY);
     localStorage.removeItem(WESTGATE_MODE_KEY);
     localStorage.removeItem(BASTIDA_MODE_KEY);
+    localStorage.removeItem(RESTAURANT_SELECTION_ID_KEY);
+    localStorage.removeItem(RESTAURANT_SELECTION_NAME_KEY);
     window.location.reload();
   };
 
+  authModeSigninBtn?.addEventListener("click", () => setAuthMode("signin"));
+  authModeSignupBtn?.addEventListener("click", () => setAuthMode("signup"));
+  backToLoginBtn?.addEventListener("click", () => setAuthMode("signin"));
   loginForm?.addEventListener("submit", handleLogin);
+  signupForm?.addEventListener("submit", handleSignup);
   logoutBtn?.addEventListener("click", logout);
   mobileLogoutBtn?.addEventListener("click", logout);
 
@@ -625,7 +729,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       clientNavItems.forEach(([moduleKey, navItem]) => {
         setModuleNavAccess(moduleKey, navItem, isModuleAvailableForClient(moduleKey));
       });
-      hideClientOnlyElement(westgateModeSwitchBtn);
+      setClientOnlyElementVisibility(westgateModeSwitchBtn, isRestaurantSelectionClient && Boolean(selectedRestaurantId));
+      if (westgateModeSwitchBtn && isRestaurantSelectionClient) {
+        westgateModeSwitchBtn.textContent = "Cambiar restaurante";
+      }
       hideClientOnlyElement(smartSetupSection);
       hideClientOnlyElement(smartSetupLauncher);
       return;
@@ -1426,6 +1533,77 @@ document.addEventListener("DOMContentLoaded", async () => {
         setOpsStatus(kitchenStatus, "Using local KDS data until Render is updated.", "warning");
       }
     }
+  };
+
+  const fallbackRestaurantSelection = () => ({
+    id: `workspace-${currentClientCodeKey || "restaurant"}`,
+    restaurant_id: `workspace-${currentClientCodeKey || "restaurant"}`,
+    restaurant_name: currentClient.brandSubtitle || currentClient.displayName || "Primary Restaurant",
+    category: "restaurant",
+    location: "Primary workspace",
+    active_status: true
+  });
+
+  const renderRestaurantSelectionOptions = (restaurants = []) => {
+    if (!restaurantSelectOptions) return;
+
+    const activeRestaurants = restaurants.filter((restaurant) => restaurant.active_status !== false);
+    const items = activeRestaurants.length ? activeRestaurants : [fallbackRestaurantSelection()];
+
+    restaurantSelectOptions.innerHTML = items.map((restaurant, index) => {
+      const restaurantId = getRestaurantId(restaurant) || `restaurant-${index + 1}`;
+      const name = restaurant.restaurant_name || restaurant.restaurantName || "Restaurant";
+      const category = formatOpsLabel(restaurant.category || "restaurant");
+      const location = restaurant.location || "Operations workspace";
+
+      return `
+        <button type="button" class="restaurant-select-card" data-restaurant-id="${escapeHtml(restaurantId)}" data-restaurant-name="${escapeHtml(name)}">
+          <span>${String(index + 1).padStart(2, "0")}</span>
+          <strong>${escapeHtml(name)}</strong>
+          <small>${escapeHtml(category)} · ${escapeHtml(location)}</small>
+        </button>
+      `;
+    }).join("");
+  };
+
+  const loadRestaurantSelectionOptions = async () => {
+    if (restaurantSelectClientLabel) {
+      restaurantSelectClientLabel.textContent = currentClient.displayName || "Restaurant workspace";
+    }
+    if (restaurantSelectStatus) {
+      restaurantSelectStatus.textContent = "Loading restaurants...";
+      restaurantSelectStatus.dataset.type = "info";
+    }
+
+    try {
+      const result = await requestJson("/api/restaurants?activeOnly=true");
+      const restaurants = Array.isArray(result.restaurants) ? result.restaurants.map(mapRestaurantFromApi) : [];
+      if (restaurants.length) {
+        saveRestaurants(mergeById(getRestaurants(), restaurants, getRestaurantId));
+      }
+      renderRestaurantSelectionOptions(restaurants.length ? restaurants : getRestaurants());
+      if (restaurantSelectStatus) restaurantSelectStatus.textContent = "";
+    } catch (error) {
+      console.warn("Could not load restaurants for selection:", error);
+      renderRestaurantSelectionOptions(getRestaurants());
+      if (restaurantSelectStatus) {
+        restaurantSelectStatus.textContent = "Using saved workspace options.";
+        restaurantSelectStatus.dataset.type = "warning";
+      }
+    }
+  };
+
+  const selectRestaurantWorkspace = (restaurantId, restaurantName) => {
+    if (!restaurantId) return;
+    selectedRestaurantId = restaurantId;
+    selectedRestaurantName = restaurantName || "Restaurant Workspace";
+    localStorage.setItem(RESTAURANT_SELECTION_ID_KEY, selectedRestaurantId);
+    localStorage.setItem(RESTAURANT_SELECTION_NAME_KEY, selectedRestaurantName);
+    applyClientModuleVisibility();
+    showApp();
+
+    const defaultModule = getDefaultModuleForClient();
+    if (defaultModule) showModuleByKey(defaultModule, { scroll: false });
   };
 
   const populateRestaurantOptions = () => {
@@ -6683,7 +6861,12 @@ ${staffSuggestion}
 
   if (westgateModeSwitchBtn) {
     westgateModeSwitchBtn.addEventListener("click", () => {
-      if (isBastidaClient) {
+      if (isRestaurantSelectionClient) {
+        selectedRestaurantId = "";
+        selectedRestaurantName = "";
+        localStorage.removeItem(RESTAURANT_SELECTION_ID_KEY);
+        localStorage.removeItem(RESTAURANT_SELECTION_NAME_KEY);
+      } else if (isBastidaClient) {
         bastidaMode = "";
         localStorage.removeItem(BASTIDA_MODE_KEY);
       } else {
@@ -6692,7 +6875,10 @@ ${staffSuggestion}
       }
       hideAllMainSections();
       applyClientModuleVisibility();
-      if (isBastidaClient) {
+      if (isRestaurantSelectionClient) {
+        showRestaurantSelectScreen();
+        loadRestaurantSelectionOptions();
+      } else if (isBastidaClient) {
         showBastidaModeScreen();
       } else {
         showWestgateModeScreen();
@@ -6702,6 +6888,13 @@ ${staffSuggestion}
 
   westgateModeLogoutBtn?.addEventListener("click", logout);
   bastidaModeLogoutBtn?.addEventListener("click", logout);
+  restaurantSelectLogoutBtn?.addEventListener("click", logout);
+
+  restaurantSelectOptions?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-restaurant-id]");
+    if (!card) return;
+    selectRestaurantWorkspace(card.dataset.restaurantId, card.dataset.restaurantName);
+  });
 
   if (navRestaurants && restaurantsSection) {
     navRestaurants.addEventListener("click", (e) => {
@@ -7271,6 +7464,9 @@ ${staffSuggestion}
     showWestgateModeScreen();
   } else if (needsBastidaModeSelection()) {
     showBastidaModeScreen();
+  } else if (needsRestaurantSelection()) {
+    showRestaurantSelectScreen();
+    loadRestaurantSelectionOptions();
   } else {
     showApp();
     const initialModule = getDefaultModuleForClient();

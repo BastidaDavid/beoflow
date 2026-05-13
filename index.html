@@ -15,20 +15,62 @@
       <img src="./img/logobeoflow.png" alt="BEOFlow Logo" class="login-logo" />
       <div class="login-heading">
         <h1>BEOFlow</h1>
-        <p>Client operations portal</p>
+        <p>Public operations portal for growing teams</p>
       </div>
 
-      <form id="client-login-form" class="client-login-form">
+      <div class="auth-mode-toggle" aria-label="Authentication mode">
+        <button type="button" id="auth-mode-signin" class="auth-mode-btn active">Sign In</button>
+        <button type="button" id="auth-mode-signup" class="auth-mode-btn">Create Account</button>
+      </div>
+
+      <form id="client-login-form" class="client-login-form auth-form">
         <div class="form-group">
-          <label for="loginClientCode">Cliente</label>
-          <input type="text" id="loginClientCode" autocomplete="username" placeholder="Cliente" />
+          <label for="loginClientCode">Email or client login</label>
+          <input type="text" id="loginClientCode" autocomplete="username" placeholder="demo@bastidasystems.io" />
         </div>
         <div class="form-group">
-          <label for="loginPassword">Contraseña</label>
-          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Contraseña" />
+          <label for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" autocomplete="current-password" placeholder="Password" />
         </div>
-        <button type="submit" class="primary-btn">Iniciar sesión</button>
+        <button type="submit" class="primary-btn">Sign In</button>
         <p id="login-status" class="login-status" role="status"></p>
+      </form>
+
+      <form id="client-signup-form" class="client-login-form auth-form signup-form" hidden>
+        <div class="form-group">
+          <label for="signupAccountType">Account type</label>
+          <select id="signupAccountType" autocomplete="organization">
+            <option value="Restaurant">Restaurant</option>
+            <option value="Hospitality">Hospitality</option>
+            <option value="Casino">Casino</option>
+            <option value="Retail">Retail</option>
+            <option value="Warehouse">Warehouse</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="signupBusinessName">Business name</label>
+          <input type="text" id="signupBusinessName" autocomplete="organization" placeholder="Example: Northstar Kitchen" />
+        </div>
+        <div class="form-group">
+          <label for="signupFullName">Full name</label>
+          <input type="text" id="signupFullName" autocomplete="name" placeholder="Operations lead" />
+        </div>
+        <div class="form-group">
+          <label for="signupEmail">Business email</label>
+          <input type="email" id="signupEmail" autocomplete="email" placeholder="name@business.com" />
+        </div>
+        <div class="form-group">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" autocomplete="new-password" placeholder="8+ characters" />
+        </div>
+        <div class="form-group">
+          <label for="signupConfirmPassword">Confirm password</label>
+          <input type="password" id="signupConfirmPassword" autocomplete="new-password" placeholder="Repeat password" />
+        </div>
+        <button type="submit" class="primary-btn">Create Account</button>
+        <button type="button" id="back-to-login-btn" class="auth-link-btn">Back to Login</button>
+        <p id="signup-status" class="login-status" role="status"></p>
       </form>
 
       <div class="login-footer">
@@ -81,6 +123,22 @@
       </button>
 
       <button type="button" id="bastida-mode-logout" class="bastida-mode-logout">Cerrar sesion</button>
+    </div>
+  </section>
+
+  <section id="restaurant-select-screen" class="restaurant-select-screen" hidden>
+    <div class="restaurant-select-panel">
+      <div class="restaurant-select-heading">
+        <img src="./img/logobeoflow.png" alt="BEOFlow Logo" class="restaurant-select-logo" />
+        <span id="restaurant-select-client-label">Restaurant workspace</span>
+        <h1>Choose a restaurant</h1>
+        <p>Select the operation you want to run. BEOFlow will open the correct workspace after you choose one.</p>
+      </div>
+
+      <div id="restaurant-select-options" class="restaurant-select-options" aria-label="Choose restaurant"></div>
+      <p id="restaurant-select-status" class="restaurant-select-status" role="status"></p>
+
+      <button type="button" id="restaurant-select-logout" class="restaurant-select-logout">Sign out</button>
     </div>
   </section>
 

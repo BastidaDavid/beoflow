@@ -1758,6 +1758,84 @@ app.get("/api/auth/me", requireClient, (req, res) => {
   res.json({ ok: true, client: serializeClient(req.client) });
 });
 
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    requireDatabase();
+
+    const businessName = String(req.body.businessName || req.body.business_name || "").trim();
+    const fullName = String(req.body.fullName || req.body.full_name || "").trim();
+    const rawEmail = normalizeEmail(req.body.email || req.body.clientCode);
+    const email = resolveUnifiedAccountIdentifier(rawEmail);
+    const password = String(req.body.password || "");
+    const businessType = normalizeLineOpsBusinessType(req.body.accountType || req.body.businessType);
+
+    if (!businessName || !fullName || !isValidEmail(email)) {
+      return res.status(400).json({ error: "Business name, full name, and a valid business email are required." });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    const candidates = unifiedAccountCandidates(rawEmail);
+    const existingClient = await pool.query(
+      "SELECT id FROM clients WHERE LOWER(client_code) = ANY($1::text[]) LIMIT 1",
+      [candidates]
+    );
+    const existingLineOpsUser = await pool.query(
+      "SELECT id FROM lineops_users WHERE LOWER(email) = ANY($1::text[]) AND deleted_at IS NULL LIMIT 1",
+      [candidates]
+    );
+
+    if (existingClient.rows.length || existingLineOpsUser.rows.length) {
+      return res.status(409).json({ error: "An account already exists for this email." });
+    }
+
+    const onboarding = normalizeLineOpsOnboarding({
+      teamSize: "1-10",
+      department: businessType === "Restaurant" ? "Front of House" : "Operations",
+      goals: ["Coordinate teams", "Improve visibility", "Standardize workflows"],
+      isComplete: true
+    });
+
+    await ensureUnifiedBeoflowAccount({
+      email,
+      password,
+      businessName,
+      fullName,
+      businessType,
+      onboarding
+    }, {
+      resetPassword: true,
+      candidates: [rawEmail]
+    });
+
+    await syncAccountToFiltraCore({
+      email,
+      password,
+      businessName,
+      fullName,
+      businessType,
+      onboarding
+    });
+
+    const clientResult = await pool.query(
+      "SELECT id, client_code, display_name FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
+      [email]
+    );
+
+    const clientRecord = clientResult.rows[0];
+    res.status(201).json({
+      ok: true,
+      token: createClientToken(clientRecord),
+      client: serializeClient(clientRecord)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "Account creation failed." });
+  }
+});
+
 app.post("/api/lineops/auth/signup", async (req, res) => {
   try {
     requireDatabase();
