@@ -474,12 +474,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const navInventory = document.getElementById("nav-inventory");
   const navProduction = document.getElementById("nav-production");
   const navStaff = document.getElementById("nav-staff");
+  const navLineOpsUsers = document.getElementById("nav-lineops-users");
   const navReports = document.getElementById("nav-reports");
   const westgateModeSwitchBtn = document.getElementById("westgate-mode-switch");
   const inventorySection = document.getElementById("inventory-section");
   const productionSection = document.getElementById("production-section");
   const productionTableBody = document.getElementById("production-table-body");
   const staffSection = document.getElementById("staff-section");
+  const lineOpsUsersSection = document.getElementById("lineops-users-section");
+  const lineOpsUsersTableBody = document.getElementById("lineops-users-table-body");
+  const lineOpsUsersStatus = document.getElementById("lineops-users-status");
+  const refreshLineOpsUsersBtn = document.getElementById("refresh-lineops-users-btn");
+  const lineOpsUsersTotal = document.getElementById("lineops-users-total");
+  const lineOpsUsersActive = document.getElementById("lineops-users-active");
+  const lineOpsUsersOnboarded = document.getElementById("lineops-users-onboarded");
+  const lineOpsUsersDeleted = document.getElementById("lineops-users-deleted");
   const reportsSection = document.getElementById("reports-section");
   const reportTotalEvents = document.getElementById("report-total-events");
   const reportUpcomingEvents = document.getElementById("report-upcoming-events");
@@ -507,10 +516,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const assignmentPresetAppliesToInput = document.getElementById("assignmentPresetAppliesTo");
   const saveAssignmentPresetBtn = document.getElementById("save-assignment-preset-btn");
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
-  const assignmentPreviewPanel = document.getElementById("assignment-preview-panel");
-  const assignmentPreviewBody = document.getElementById("assignment-preview-body");
-  const confirmPrintAssignmentsBtn = document.getElementById("confirm-print-assignments-btn");
-  const closeAssignmentPreviewBtn = document.getElementById("close-assignment-preview-btn");
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
@@ -567,6 +572,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return isKnownWestgateMode(westgateMode) ? WESTGATE_DEFAULT_MODULES[westgateMode] : null;
   };
   const isModuleAvailableForClient = (moduleKey) => {
+    if (moduleKey === "lineOpsUsers") return isBastidaClient && bastidaMode === BASTIDA_CEO_MODE;
     if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE;
     if (hasConfiguredClientModules) return configuredClientModules.has(moduleKey);
     if (!isWestgateClient) return true;
@@ -586,6 +592,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         navInventory,
         navProduction,
         navStaff,
+        navLineOpsUsers,
         navReports
       ].forEach((navItem) => setClientOnlyElementVisibility(navItem, bastidaMode === BASTIDA_CEO_MODE));
       setClientOnlyElementVisibility(westgateModeSwitchBtn, bastidaMode === BASTIDA_CEO_MODE);
@@ -2097,6 +2104,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       title: "LineOps",
       subtitle: "Import schedules, assign kitchen stations, and print the station sheet"
     },
+    lineOpsUsers: {
+      title: "LineOps Users",
+      subtitle: "Businesses registered from the public LineOps iOS app"
+    },
     reports: {
       title: "Reports",
       subtitle: "Review operations, feedback, and action items"
@@ -2694,17 +2705,132 @@ ${staffSuggestion}
       inventorySection,
       productionSection,
       staffSection,
+      lineOpsUsersSection,
       reportsSection,
       createEventSection
     ].forEach(hideSection);
   };
 
   const setActiveNav = (activeNav) => {
-    [navDashboard, navRestaurants, navOrders, navKitchen, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff, navReports].forEach((navItem) => {
+    [navDashboard, navRestaurants, navOrders, navKitchen, navEvents, navMenus, navRecipes, navSubRecipes, navInventory, navProduction, navStaff, navLineOpsUsers, navReports].forEach((navItem) => {
       if (!navItem) return;
       navItem.classList.toggle("active", navItem === activeNav);
     });
   };
+
+  const setLineOpsUsersStatus = (message = "", type = "") => {
+    if (!lineOpsUsersStatus) return;
+    lineOpsUsersStatus.hidden = !message;
+    lineOpsUsersStatus.textContent = message;
+    if (type) {
+      lineOpsUsersStatus.dataset.type = type;
+    } else {
+      delete lineOpsUsersStatus.dataset.type;
+    }
+  };
+
+  const formatLineOpsDate = (value) => {
+    if (!value) return "Not available";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not available";
+
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  };
+
+  const renderLineOpsUsers = (users = []) => {
+    if (!lineOpsUsersTableBody) return;
+    lineOpsUsersTableBody.innerHTML = "";
+
+    if (!users.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 8;
+      cell.textContent = "No LineOps users yet.";
+      row.appendChild(cell);
+      lineOpsUsersTableBody.appendChild(row);
+      return;
+    }
+
+    users.forEach((user) => {
+      const row = document.createElement("tr");
+      const values = [
+        user.businessName || "Unknown business",
+        user.fullName || "Workspace owner",
+        user.email || "No email",
+        user.businessType || "Other",
+        user.teamSize || "Not set",
+        user.department || "Not set"
+      ];
+
+      values.forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+
+      const statusCell = document.createElement("td");
+      const statusBadge = document.createElement("span");
+      statusBadge.className = user.deletedAt
+        ? "status issue"
+        : user.onboardingComplete
+          ? "status ready"
+          : "status upcoming";
+      statusBadge.textContent = user.deletedAt
+        ? "Deleted"
+        : user.onboardingComplete
+          ? "Onboarded"
+          : "Signup";
+      statusCell.appendChild(statusBadge);
+      row.appendChild(statusCell);
+
+      const createdCell = document.createElement("td");
+      createdCell.textContent = formatLineOpsDate(user.createdAt);
+      row.appendChild(createdCell);
+
+      lineOpsUsersTableBody.appendChild(row);
+    });
+  };
+
+  async function loadLineOpsUsers() {
+    if (!isBastidaClient) return;
+
+    setLineOpsUsersStatus("Loading LineOps users...");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lineops/admin/users`, {
+        headers: getAuthHeaders()
+      });
+
+      if (response.status === 401) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_CLIENT_KEY);
+        authToken = "";
+        showLogin("Session expired. Sign in again.");
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to load LineOps users.");
+      }
+
+      const totals = payload.totals || {};
+      if (lineOpsUsersTotal) lineOpsUsersTotal.textContent = totals.users ?? 0;
+      if (lineOpsUsersActive) lineOpsUsersActive.textContent = totals.activeUsers ?? 0;
+      if (lineOpsUsersOnboarded) lineOpsUsersOnboarded.textContent = totals.onboardedUsers ?? 0;
+      if (lineOpsUsersDeleted) lineOpsUsersDeleted.textContent = totals.deletedUsers ?? 0;
+
+      renderLineOpsUsers(payload.users || []);
+      setLineOpsUsersStatus((payload.users || []).length ? "LineOps users synced from Render." : "No LineOps users yet.", "success");
+    } catch (error) {
+      console.error(error);
+      setLineOpsUsersStatus(error.message || "Failed to load LineOps users.", "error");
+    }
+  }
 
   const showModuleByKey = (moduleKey, options = {}) => {
     const { scroll = false } = options;
@@ -2812,6 +2938,14 @@ ${staffSuggestion}
       showSection(staffSection);
       setActiveNav(navStaff);
       renderStaff();
+      if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    if (moduleKey === "lineOpsUsers") {
+      showSection(lineOpsUsersSection);
+      setActiveNav(navLineOpsUsers);
+      loadLineOpsUsers();
       if (scroll) window.scrollTo({ top: 0, behavior: "auto" });
       return;
     }
@@ -4902,10 +5036,13 @@ ${staffSuggestion}
       ...getAssignmentOptionsForPerson(person, activeShiftDay, getStaff()),
       person.station
     ]);
+    const stationClass = getStationClass(person.station);
+    const stationSymbol = getStationSymbol(person.station);
 
     return `
       <article class="shift-employee-card" data-staff-id="${escapeHtml(person.id)}">
         <div class="shift-card-header">
+          <span class="shift-station-symbol station-${escapeHtml(stationClass)}">${escapeHtml(stationSymbol)}</span>
           <div>
             <h4>${escapeHtml(person.name || "Unnamed employee")}</h4>
             <p>${escapeHtml(person.role || "Role not set")} · ${getShiftDayLabel(activeShiftDay)}${person.substituteFor ? ` · Covers ${escapeHtml(person.substituteFor)}` : ""}</p>
@@ -5064,7 +5201,6 @@ ${staffSuggestion}
   const getAllStationCloseouts = (staff = []) =>
     shiftStations.flatMap((station) => getStationCloseouts(staff, station));
 
-  let currentPrintPreview = null;
   let activeWeekSize = "small";
   const weekSizeOrder = ["small", "normal", "large"];
   const weekSizeLabels = {
@@ -5075,6 +5211,21 @@ ${staffSuggestion}
 
   const getStationClass = (station = "") =>
     String(station || "off").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "off";
+
+  const stationSymbols = {
+    "Unassigned": "UN",
+    "Prep": "PR",
+    "Line Support": "LS",
+    "Pantry": "PA",
+    "Fry": "FR",
+    "Flat Top": "FT",
+    "Broiler/Grill": "BG",
+    "Extra Board": "EB",
+    "Expo": "EX"
+  };
+
+  const getStationSymbol = (station = "") =>
+    stationSymbols[station] || String(station || "--").slice(0, 2).toUpperCase();
 
   const renderShiftDayCounts = () => {
     const staff = getStaff();
@@ -5548,10 +5699,15 @@ ${staffSuggestion}
               .join("")
           : '<div class="shift-empty-state">No employees assigned.</div>';
 
+        const stationClass = getStationClass(station);
+
         return `
-          <section class="shift-station-column">
+          <section class="shift-station-column station-${escapeHtml(stationClass)}">
             <div class="shift-station-header">
-              <h3>${station}</h3>
+              <div class="shift-station-title">
+                <span class="shift-station-symbol station-${escapeHtml(stationClass)}">${escapeHtml(getStationSymbol(station))}</span>
+                <h3>${escapeHtml(station)}</h3>
+              </div>
               <span>${stationStaff.length}</span>
             </div>
             <div class="shift-station-cards">
@@ -6063,7 +6219,7 @@ ${staffSuggestion}
             </div>
             <div class="assignment-preset-actions">
               <button type="button" class="secondary-btn" data-load-preset="${escapeHtml(preset.id)}">Load</button>
-              <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Preview</button>
+              <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Print</button>
               <button type="button" class="secondary-btn preset-delete-btn" data-delete-preset="${escapeHtml(preset.id)}">Delete</button>
             </div>
           </article>
@@ -6110,7 +6266,7 @@ ${staffSuggestion}
     const preset = getAssignmentPresets().find((item) => item.id === presetId);
     if (!preset || !Array.isArray(preset.staff)) return;
 
-    showAssignmentPrintPreview(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
+    printAssignmentStaff(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
   };
 
   const deleteAssignmentPreset = (presetId) => {
@@ -6301,33 +6457,12 @@ ${staffSuggestion}
     document.body.appendChild(printRoot);
   };
 
-  const printAssignmentPreview = () => {
-    if (!currentPrintPreview) return;
-    renderAssignmentPrintRoot(currentPrintPreview.staff, currentPrintPreview.title, currentPrintPreview.appliesTo);
+  const printAssignmentStaff = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
+    renderAssignmentPrintRoot(staff, title, appliesTo);
     setScheduleImportStatus("Opening print dialog. Choose Print or Save as PDF.", "success");
     requestAnimationFrame(() => {
       window.print();
     });
-    return true;
-  };
-
-  const showAssignmentPrintPreview = (staff = [], title = "Kitchen Station Assignments", appliesTo = "") => {
-    if (!assignmentPreviewPanel || !assignmentPreviewBody) {
-      setScheduleImportStatus("Print preview is unavailable. Refresh the page and try again.", "error");
-      return;
-    }
-
-    currentPrintPreview = { staff, title, appliesTo };
-    assignmentPreviewBody.innerHTML = buildAssignmentPrintMarkup(staff, title, appliesTo);
-    assignmentPreviewPanel.hidden = false;
-    assignmentPreviewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-    setScheduleImportStatus("Preview ready. Review it, then press Print Now.", "success");
-  };
-
-  const closeAssignmentPrintPreview = () => {
-    if (assignmentPreviewPanel) assignmentPreviewPanel.hidden = true;
-    if (assignmentPreviewBody) assignmentPreviewBody.innerHTML = "";
-    currentPrintPreview = null;
   };
 
   const printAssignmentSheet = () => {
@@ -6337,7 +6472,7 @@ ${staffSuggestion}
       return;
     }
 
-    showAssignmentPrintPreview(staff);
+    printAssignmentStaff(staff);
   };
 
   const renderProduction = () => {
@@ -6485,6 +6620,17 @@ ${staffSuggestion}
       e.preventDefault();
       showModuleByKey("staff");
     });
+  }
+
+  if (navLineOpsUsers && lineOpsUsersSection) {
+    navLineOpsUsers.addEventListener("click", (e) => {
+      e.preventDefault();
+      showModuleByKey("lineOpsUsers");
+    });
+  }
+
+  if (refreshLineOpsUsersBtn) {
+    refreshLineOpsUsersBtn.addEventListener("click", loadLineOpsUsers);
   }
 
   if (navReports && reportsSection) {
@@ -6766,14 +6912,6 @@ ${staffSuggestion}
 
   if (printAssignmentsBtn) {
     printAssignmentsBtn.addEventListener("click", printAssignmentSheet);
-  }
-
-  if (confirmPrintAssignmentsBtn) {
-    confirmPrintAssignmentsBtn.addEventListener("click", printAssignmentPreview);
-  }
-
-  if (closeAssignmentPreviewBtn) {
-    closeAssignmentPreviewBtn.addEventListener("click", closeAssignmentPrintPreview);
   }
 
   if (saveAssignmentPresetBtn) {

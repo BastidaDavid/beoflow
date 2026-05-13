@@ -114,6 +114,7 @@
         <a href="#" id="nav-inventory">Inventory</a>
         <a href="#" id="nav-production">Production</a>
         <a href="#" id="nav-staff">LineOps</a>
+        <a href="#" id="nav-lineops-users" hidden>LineOps Users</a>
         <a href="#" id="nav-reports">Reports</a>
       </nav>
 
@@ -260,6 +261,56 @@
             <button type="button" id="calendar-go-events" class="primary-btn">Go to Events</button>
           </div>
           <div id="calendar-events-list" class="calendar-events-list"></div>
+        </div>
+      </section>
+
+      <section id="lineops-users-section" class="table-section ops-section lineops-users-section" hidden>
+        <div class="section-header">
+          <h2>LineOps Users</h2>
+          <p>Businesses registering through the public LineOps iOS app.</p>
+        </div>
+
+        <div class="reports-kpi-grid" aria-label="LineOps users overview">
+          <div class="reports-kpi-card">
+            <span id="lineops-users-total">0</span>
+            <small>Total signups</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="lineops-users-active">0</span>
+            <small>Active accounts</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="lineops-users-onboarded">0</span>
+            <small>Onboarded</small>
+          </div>
+          <div class="reports-kpi-card">
+            <span id="lineops-users-deleted">0</span>
+            <small>Deleted</small>
+          </div>
+        </div>
+
+        <div id="lineops-users-status" class="ops-status" role="status" hidden></div>
+
+        <div class="form-actions">
+          <button type="button" id="refresh-lineops-users-btn" class="secondary-btn">Refresh</button>
+        </div>
+
+        <div class="events-table-wrap">
+          <table class="events-table lineops-users-table">
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Owner</th>
+                <th>Email</th>
+                <th>Type</th>
+                <th>Team</th>
+                <th>Department</th>
+                <th>Status</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="lineops-users-table-body"></tbody>
+          </table>
         </div>
       </section>
 
@@ -1112,7 +1163,7 @@
       <section id="staff-section" class="table-section" hidden>
         <div class="section-header">
           <h2>LineOps</h2>
-          <p>Import schedules, assign each employee to a kitchen station, then print or save the station sheet as PDF.</p>
+          <p>Large shift rows for quick hour changes and clean printing.</p>
         </div>
 
         <div class="shift-day-toolbar">
@@ -1125,13 +1176,13 @@
             <button type="button" class="shift-day-tab" data-shift-day="sat">Sat</button>
             <button type="button" class="shift-day-tab" data-shift-day="sun">Sun</button>
           </div>
-          <button type="button" id="open-week-view-btn" class="secondary-btn full-week-btn">Full Week View</button>
+          <button type="button" id="open-week-view-btn" class="secondary-btn full-week-btn">View week</button>
         </div>
 
         <div class="shift-kpi-grid" aria-label="Station assignment KPIs">
           <div class="shift-kpi-card">
             <span id="shift-kpi-employees">0</span>
-            <small>Employees on shift</small>
+            <small>On shift</small>
           </div>
           <div class="shift-kpi-card assigned">
             <span id="shift-kpi-ready">0</span>
@@ -1149,16 +1200,16 @@
 
         <div class="shift-import-panel">
           <div>
-            <h3>Import schedule image</h3>
-            <p>Upload a kitchen schedule photo. Auto Assign fills stations only and keeps the imported times.</p>
+            <h3>My schedule</h3>
+            <p>Upload a photo of the printed schedule to build the full week.</p>
           </div>
           <div class="shift-import-actions">
             <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
-            <button type="button" id="import-schedule-btn" class="secondary-btn">Import Schedule Image</button>
-            <button type="button" id="auto-assign-stations-btn" class="secondary-btn">Auto Assign Stations</button>
-            <button type="button" id="reset-original-stations-btn" class="secondary-btn">Reset Original</button>
-            <button type="button" id="print-assignments-btn" class="primary-btn print-assignments-btn">Preview Assignment Sheet</button>
-            <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear Table</button>
+            <button type="button" id="import-schedule-btn" class="secondary-btn">Upload photo</button>
+            <button type="button" id="auto-assign-stations-btn" class="primary-btn">Auto Assign</button>
+            <button type="button" id="reset-original-stations-btn" class="secondary-btn">Reset</button>
+            <button type="button" id="print-assignments-btn" class="secondary-btn print-assignments-btn">Print</button>
+            <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear</button>
           </div>
           <div id="schedule-import-status" class="schedule-import-status" role="status" hidden></div>
         </div>
@@ -1182,20 +1233,6 @@
             </div>
             <div id="shift-week-schedule" class="shift-week-schedule"></div>
           </div>
-        </div>
-
-        <div id="assignment-preview-panel" class="assignment-preview-panel" hidden>
-          <div class="assignment-preview-header">
-            <div>
-              <h3>Print preview</h3>
-              <p>Review the assignment sheet before printing or saving as PDF.</p>
-            </div>
-            <div class="assignment-preview-actions">
-              <button type="button" id="confirm-print-assignments-btn" class="primary-btn print-assignments-btn">Print Now</button>
-              <button type="button" id="close-assignment-preview-btn" class="secondary-btn">Close Preview</button>
-            </div>
-          </div>
-          <div id="assignment-preview-body" class="assignment-preview-body"></div>
         </div>
 
         <div class="shift-preset-panel">

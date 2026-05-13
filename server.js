@@ -52,6 +52,19 @@ const pool = hasDatabase
 const execFileAsync = promisify(execFile);
 const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]);
 const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14;
+const LINEOPS_AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
+const LINEOPS_PASSWORD_ITERATIONS = 120000;
+const LINEOPS_BUSINESS_TYPES = new Set(["Restaurant", "Hospitality", "Casino", "Retail", "Warehouse", "Other"]);
+const LINEOPS_TEAM_SIZES = new Set(["1-10", "11-50", "51-200", "201+"]);
+const LINEOPS_DEPARTMENTS = new Set(["Operations", "Front of House", "Guest Services", "Fulfillment", "Facilities", "Safety"]);
+const LINEOPS_GOALS = new Set([
+  "Coordinate teams",
+  "Improve visibility",
+  "Reduce delays",
+  "Standardize workflows",
+  "Manage incidents",
+  "Track performance"
+]);
 const CLIENT_DATA_KEYS = new Set([
   "beoflow_events",
   "beoflow_event_menu_links",
@@ -179,6 +192,61 @@ function hashPassword(password = "") {
   return crypto.createHash("sha256").update(String(password)).digest("hex");
 }
 
+function normalizeEmail(email = "") {
+  return String(email).trim().toLowerCase();
+}
+
+function isValidEmail(email = "") {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim());
+}
+
+function normalizeLineOpsBusinessType(value = "") {
+  const match = [...LINEOPS_BUSINESS_TYPES].find(
+    (businessType) => businessType.toLowerCase() === String(value || "").trim().toLowerCase()
+  );
+  return match || "Other";
+}
+
+function normalizeLineOpsOnboarding(value = {}) {
+  const onboarding = value && typeof value === "object" ? value : {};
+  const teamSize = LINEOPS_TEAM_SIZES.has(onboarding.teamSize) ? onboarding.teamSize : null;
+  const department = LINEOPS_DEPARTMENTS.has(onboarding.department) ? onboarding.department : null;
+  const goals = Array.isArray(onboarding.goals)
+    ? onboarding.goals.filter((goal) => LINEOPS_GOALS.has(goal))
+    : [];
+
+  return {
+    teamSize,
+    department,
+    goals,
+    isComplete: Boolean(onboarding.isComplete)
+  };
+}
+
+function hashLineOpsPassword(password = "") {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(String(password), salt, LINEOPS_PASSWORD_ITERATIONS, 32, "sha256")
+    .toString("hex");
+
+  return `pbkdf2$${LINEOPS_PASSWORD_ITERATIONS}$${salt}$${hash}`;
+}
+
+function verifyLineOpsPassword(password = "", storedHash = "") {
+  const parts = String(storedHash).split("$");
+  if (parts.length === 4 && parts[0] === "pbkdf2") {
+    const iterations = Number(parts[1]);
+    const salt = parts[2];
+    const expectedHash = parts[3];
+    const actualHash = crypto
+      .pbkdf2Sync(String(password), salt, iterations, 32, "sha256")
+      .toString("hex");
+    return timingSafeEqualText(actualHash, expectedHash);
+  }
+
+  return timingSafeEqualText(hashPassword(password), storedHash);
+}
+
 function timingSafeEqualText(left = "", right = "") {
   const leftBuffer = Buffer.from(String(left));
   const rightBuffer = Buffer.from(String(right));
@@ -255,6 +323,17 @@ function createClientToken(client) {
   });
 }
 
+function createLineOpsUserToken(user) {
+  const now = Math.floor(Date.now() / 1000);
+  return signToken({
+    type: "lineops",
+    lineOpsUserId: user.id,
+    email: user.email,
+    iat: now,
+    exp: now + LINEOPS_AUTH_TOKEN_TTL_SECONDS
+  });
+}
+
 function verifyClientToken(token = "") {
   const parts = String(token).split(".");
   if (parts.length !== 3) return null;
@@ -269,6 +348,12 @@ function verifyClientToken(token = "") {
 
   const payload = base64UrlDecode(body);
   if (!payload.exp || payload.exp < Math.floor(Date.now() / 1000)) return null;
+  return payload;
+}
+
+function verifyLineOpsUserToken(token = "") {
+  const payload = verifyClientToken(token);
+  if (!payload || payload.type !== "lineops" || !payload.lineOpsUserId) return null;
   return payload;
 }
 
@@ -295,6 +380,276 @@ function serializeClient(client) {
   };
 }
 
+function readJsonObject(value, fallback = {}) {
+  if (!value) return fallback;
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function serializeLineOpsUser(user) {
+  return {
+    id: user.id,
+    businessName: user.business_name,
+    fullName: user.full_name,
+    email: user.email,
+    businessType: normalizeLineOpsBusinessType(user.business_type),
+    createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at
+  };
+}
+
+function createLineOpsWorkspace(user, onboardingProfile = {}, existingWorkspace = {}) {
+  const account = serializeLineOpsUser(user);
+  const onboarding = normalizeLineOpsOnboarding(onboardingProfile);
+  const department = onboarding.department || "Operations";
+  const teamSize = onboarding.teamSize || "11-50";
+  const goals = onboarding.goals.length
+    ? onboarding.goals
+    : ["Coordinate teams", "Improve visibility", "Standardize workflows"];
+  const createdAt = existingWorkspace.createdAt || new Date().toISOString();
+  const workspaceId = existingWorkspace.id || crypto.randomUUID();
+
+  return {
+    id: workspaceId,
+    accountID: account.id,
+    businessName: account.businessName,
+    businessType: account.businessType,
+    onboarding: {
+      teamSize: onboarding.teamSize,
+      department: onboarding.department,
+      goals: onboarding.goals,
+      isComplete: onboarding.isComplete
+    },
+    metrics: [
+      {
+        id: crypto.randomUUID(),
+        title: "Active operations",
+        value: "12",
+        trend: "+3 since open",
+        symbolName: "waveform.path.ecg",
+        tone: "mint"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Tasks coordinated",
+        value: "38",
+        trend: "91% on time",
+        symbolName: "checklist.checked",
+        tone: "cyan"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Workflow health",
+        value: "96%",
+        trend: "4 blockers cleared",
+        symbolName: "chart.line.uptrend.xyaxis",
+        tone: "blue"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Team coverage",
+        value: teamSize,
+        trend: `Ready for ${account.businessType.toLowerCase()}`,
+        symbolName: "person.3.sequence",
+        tone: "amber"
+      }
+    ],
+    operations: [
+      {
+        id: crypto.randomUUID(),
+        title: `${department} readiness board`,
+        owner: "Maya Chen",
+        location: `${account.businessType} operations`,
+        status: "Active",
+        progress: 0.82,
+        nextCheck: "Next check in 18 min",
+        tone: "mint"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Priority handoff queue",
+        owner: "Jordan Lee",
+        location: "Cross-team coordination",
+        status: "Watching",
+        progress: 0.64,
+        nextCheck: "Review at 2:30 PM",
+        tone: "cyan"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Exception response lane",
+        owner: "Sam Rivera",
+        location: "Manager escalation",
+        status: "Blocked",
+        progress: 0.36,
+        nextCheck: "Waiting on supplier update",
+        tone: "rose"
+      }
+    ],
+    tasks: [
+      {
+        id: crypto.randomUUID(),
+        title: "Confirm staffing coverage for peak window",
+        owner: account.fullName,
+        dueText: "10:30 AM",
+        priority: "High",
+        status: "In Progress",
+        department
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Approve inventory variance note",
+        owner: "Maya Chen",
+        dueText: "11:00 AM",
+        priority: "Medium",
+        status: "Review",
+        department: "Controls"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Publish shift handoff summary",
+        owner: "Jordan Lee",
+        dueText: "12:15 PM",
+        priority: "High",
+        status: "Queued",
+        department
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Audit safety checklist completion",
+        owner: "Sam Rivera",
+        dueText: "Today",
+        priority: "Medium",
+        status: "In Progress",
+        department: "Safety"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Send daily operations recap",
+        owner: "LineOps Automations",
+        dueText: "4:45 PM",
+        priority: "Low",
+        status: "Queued",
+        department: "Leadership"
+      }
+    ],
+    workflows: [
+      {
+        id: crypto.randomUUID(),
+        title: "Daily readiness",
+        stage: "In Progress",
+        owner: department,
+        updatedText: "Updated 4 min ago",
+        progress: 0.72,
+        tone: "mint"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Incident follow-up",
+        stage: "Assigned",
+        owner: "Safety",
+        updatedText: "Assigned to Sam",
+        progress: 0.28,
+        tone: "amber"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Inventory variance",
+        stage: "Review",
+        owner: "Controls",
+        updatedText: "Needs approval",
+        progress: 0.88,
+        tone: "blue"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "End-of-day closeout",
+        stage: "Intake",
+        owner: "Operations",
+        updatedText: "Starts at 3:30 PM",
+        progress: 0.12,
+        tone: "violet"
+      }
+    ],
+    notifications: [
+      {
+        id: crypto.randomUUID(),
+        title: "Sample workspace created",
+        message: `${account.businessName} is ready with demo tasks, workflows, and notifications.`,
+        timeText: "Now",
+        tone: "mint"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Workflow moved to review",
+        message: "Inventory variance is waiting for manager approval.",
+        timeText: "8 min ago",
+        tone: "blue"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Coverage risk detected",
+        message: "Peak window coverage is below the preferred threshold.",
+        timeText: "15 min ago",
+        tone: "amber"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: goals[0],
+        message: "LineOps generated a coordination plan for today's active work.",
+        timeText: "28 min ago",
+        tone: "cyan"
+      }
+    ],
+    insights: [
+      {
+        id: crypto.randomUUID(),
+        title: "Coordination score",
+        detail: "Tasks, handoffs, and workflow updates are moving on schedule.",
+        value: "92",
+        tone: "mint"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Potential delay",
+        detail: "One exception lane needs action before the afternoon peak.",
+        value: "1",
+        tone: "amber"
+      },
+      {
+        id: crypto.randomUUID(),
+        title: "Automation coverage",
+        detail: "Recurring workflows are ready for this business template.",
+        value: "7",
+        tone: "cyan"
+      }
+    ],
+    createdAt
+  };
+}
+
+async function ensureLineOpsWorkspace(user) {
+  const existingWorkspace = readJsonObject(user.workspace, {});
+  if (existingWorkspace.id && existingWorkspace.accountID) return existingWorkspace;
+
+  const onboarding = normalizeLineOpsOnboarding(readJsonObject(user.onboarding_profile, {}));
+  const workspace = createLineOpsWorkspace(user, onboarding, existingWorkspace);
+  await pool.query(
+    `UPDATE lineops_users
+     SET workspace = $1::jsonb,
+         onboarding_profile = $2::jsonb,
+         updated_at = NOW()
+     WHERE id = $3`,
+    [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), user.id]
+  );
+  return workspace;
+}
+
 async function requireClient(req, res, next) {
   try {
     requireDatabase();
@@ -314,6 +669,34 @@ async function requireClient(req, res, next) {
     }
 
     req.client = result.rows[0];
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function requireLineOpsUser(req, res, next) {
+  try {
+    requireDatabase();
+
+    const payload = verifyLineOpsUserToken(getBearerToken(req));
+    if (!payload) {
+      return res.status(401).json({ error: "Session expired. Sign in again." });
+    }
+
+    const result = await pool.query(
+      `SELECT id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at
+       FROM lineops_users
+       WHERE id = $1 AND LOWER(email) = LOWER($2) AND deleted_at IS NULL
+       LIMIT 1`,
+      [payload.lineOpsUserId, payload.email]
+    );
+
+    if (!result.rows.length) {
+      return res.status(401).json({ error: "LineOps session is not valid." });
+    }
+
+    req.lineOpsUser = result.rows[0];
     next();
   } catch (error) {
     next(error);
@@ -476,6 +859,33 @@ async function initDB() {
       updated_at TIMESTAMPTZ DEFAULT NOW(),
       PRIMARY KEY (client_id, data_key)
     );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lineops_users (
+      id UUID PRIMARY KEY,
+      business_name TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      business_type TEXT NOT NULL DEFAULT 'Other',
+      onboarding_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
+      workspace JSONB NOT NULL DEFAULT '{}'::jsonb,
+      deleted_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS lineops_users_active_email_unique_idx
+    ON lineops_users (LOWER(email))
+    WHERE deleted_at IS NULL;
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS lineops_users_created_idx
+    ON lineops_users (created_at DESC);
   `);
 
   await migrateLegacyClients();
@@ -870,6 +1280,8 @@ function apiStatus() {
       pos: "PATCH /api/pos/orders/:orderId/payment",
       analytics: "GET /api/analytics/orders/summary",
       staff: "GET/POST /api/staff/roles",
+      lineOpsAuth: "POST /api/lineops/auth/signup, POST /api/lineops/auth/login",
+      lineOpsAdminUsers: "GET /api/lineops/admin/users",
       realtime: "Socket.io orders engine gateway",
       adminApp: "GET /admin",
       orderApp: "GET /order",
@@ -945,6 +1357,234 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/auth/me", requireClient, (req, res) => {
   res.json({ ok: true, client: serializeClient(req.client) });
+});
+
+app.post("/api/lineops/auth/signup", async (req, res) => {
+  try {
+    requireDatabase();
+
+    const businessName = String(req.body.businessName || "").trim();
+    const fullName = String(req.body.fullName || "").trim();
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || "");
+    const businessType = normalizeLineOpsBusinessType(req.body.businessType);
+
+    if (!businessName || !fullName || !isValidEmail(email)) {
+      return res.status(400).json({ error: "Business name, full name, and a valid email are required." });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    const existingResult = await pool.query(
+      "SELECT id FROM lineops_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1",
+      [email]
+    );
+    if (existingResult.rows.length) {
+      return res.status(409).json({ error: "An account already exists for this email." });
+    }
+
+    const onboarding = normalizeLineOpsOnboarding(req.body.onboarding || {});
+    const insertResult = await pool.query(
+      `INSERT INTO lineops_users (id, business_name, full_name, email, password_hash, business_type, onboarding_profile, workspace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, '{}'::jsonb)
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at`,
+      [
+        crypto.randomUUID(),
+        businessName,
+        fullName,
+        email,
+        hashLineOpsPassword(password),
+        businessType,
+        JSON.stringify(onboarding)
+      ]
+    );
+
+    const user = insertResult.rows[0];
+    const workspace = createLineOpsWorkspace(user, onboarding);
+    const updateResult = await pool.query(
+      `UPDATE lineops_users
+       SET workspace = $1::jsonb,
+           onboarding_profile = $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at`,
+      [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), user.id]
+    );
+    const savedUser = updateResult.rows[0];
+
+    res.status(201).json({
+      ok: true,
+      token: createLineOpsUserToken(savedUser),
+      user: serializeLineOpsUser(savedUser),
+      workspace
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "LineOps signup failed." });
+  }
+});
+
+app.post("/api/lineops/auth/login", async (req, res) => {
+  try {
+    requireDatabase();
+
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || "");
+
+    if (!isValidEmail(email) || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const result = await pool.query(
+      `SELECT id, business_name, full_name, email, business_type, password_hash, onboarding_profile, workspace, created_at, updated_at
+       FROM lineops_users
+       WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL
+       LIMIT 1`,
+      [email]
+    );
+
+    if (!result.rows.length || !verifyLineOpsPassword(password, result.rows[0].password_hash)) {
+      return res.status(401).json({ error: "Email or password is incorrect." });
+    }
+
+    const user = result.rows[0];
+    const workspace = await ensureLineOpsWorkspace(user);
+
+    res.json({
+      ok: true,
+      token: createLineOpsUserToken(user),
+      user: serializeLineOpsUser(user),
+      workspace
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "LineOps login failed." });
+  }
+});
+
+app.post("/api/lineops/auth/password-reset", async (req, res) => {
+  const email = normalizeEmail(req.body.email);
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ error: "Enter a valid business email." });
+  }
+
+  res.json({
+    ok: true,
+    message: "If a LineOps account exists for this email, a reset link will be sent."
+  });
+});
+
+app.get("/api/lineops/auth/me", requireLineOpsUser, async (req, res) => {
+  try {
+    const workspace = await ensureLineOpsWorkspace(req.lineOpsUser);
+    res.json({
+      ok: true,
+      user: serializeLineOpsUser(req.lineOpsUser),
+      workspace
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to load LineOps account." });
+  }
+});
+
+app.post("/api/lineops/onboarding", requireLineOpsUser, async (req, res) => {
+  try {
+    const onboarding = normalizeLineOpsOnboarding(req.body.profile || req.body.onboarding || req.body);
+    onboarding.isComplete = true;
+
+    const existingWorkspace = readJsonObject(req.lineOpsUser.workspace, {});
+    const workspace = createLineOpsWorkspace(req.lineOpsUser, onboarding, existingWorkspace);
+    const result = await pool.query(
+      `UPDATE lineops_users
+       SET onboarding_profile = $1::jsonb,
+           workspace = $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $3 AND deleted_at IS NULL
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at`,
+      [JSON.stringify(onboarding), JSON.stringify(workspace), req.lineOpsUser.id]
+    );
+
+    res.json({
+      ok: true,
+      user: serializeLineOpsUser(result.rows[0]),
+      workspace
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to save LineOps onboarding." });
+  }
+});
+
+app.delete("/api/lineops/account", requireLineOpsUser, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE lineops_users
+       SET deleted_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [req.lineOpsUser.id]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to delete LineOps account." });
+  }
+});
+
+app.get("/api/lineops/admin/users", requireClient, async (req, res) => {
+  try {
+    if (String(req.client.client_code || "").trim().toLowerCase() !== "bastida01") {
+      return res.status(403).json({ error: "Only Bastida01 can view LineOps users." });
+    }
+
+    const result = await pool.query(
+      `SELECT id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at
+       FROM lineops_users
+       ORDER BY created_at DESC
+       LIMIT 500`
+    );
+
+    const users = result.rows.map((user) => {
+      const onboarding = normalizeLineOpsOnboarding(readJsonObject(user.onboarding_profile, {}));
+      const workspace = readJsonObject(user.workspace, {});
+      return {
+        id: user.id,
+        businessName: user.business_name,
+        fullName: user.full_name,
+        email: user.email,
+        businessType: normalizeLineOpsBusinessType(user.business_type),
+        teamSize: onboarding.teamSize,
+        department: onboarding.department,
+        goals: onboarding.goals,
+        onboardingComplete: onboarding.isComplete,
+        activeOperations: Array.isArray(workspace.operations) ? workspace.operations.length : 0,
+        openTasks: Array.isArray(workspace.tasks)
+          ? workspace.tasks.filter((task) => task.status !== "Done").length
+          : 0,
+        deletedAt: user.deleted_at instanceof Date ? user.deleted_at.toISOString() : user.deleted_at,
+        createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
+        updatedAt: user.updated_at instanceof Date ? user.updated_at.toISOString() : user.updated_at
+      };
+    });
+
+    res.json({
+      ok: true,
+      totals: {
+        users: users.length,
+        activeUsers: users.filter((user) => !user.deletedAt).length,
+        onboardedUsers: users.filter((user) => user.onboardingComplete && !user.deletedAt).length,
+        deletedUsers: users.filter((user) => user.deletedAt).length
+      },
+      users
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to load LineOps users." });
+  }
 });
 
 app.get("/api/client-data", requireClient, async (req, res) => {
