@@ -86,11 +86,13 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
   .map((email) => email.trim())
   .filter(Boolean);
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
+const bastidaSystemsEmail = String(process.env.BASTIDA_SYSTEMS_EMAIL || "bastidasystems@gmail.com").trim().toLowerCase();
+const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
 const DEFAULT_CLIENTS = [
   {
-    code: "Bastida01",
-    password: "Bastida01",
-    displayName: "Bastida01"
+    code: bastidaSystemsEmail,
+    password: process.env.BASTIDA_SYSTEMS_PASSWORD || "Bastida01",
+    displayName: "Bastida Systems"
   },
   {
     code: "Westgate",
@@ -112,9 +114,15 @@ const DEFAULT_CLIENTS = [
 const LEGACY_CLIENT_RENAMES = [
   {
     fromCode: "Strat01",
-    toCode: "Bastida01",
+    toCode: bastidaSystemsEmail,
     defaultPassword: "Bastida01",
-    displayName: "Bastida01"
+    displayName: "Bastida Systems"
+  },
+  {
+    fromCode: "Bastida01",
+    toCode: bastidaSystemsEmail,
+    defaultPassword: "Bastida01",
+    displayName: "Bastida Systems"
   }
 ];
 
@@ -159,6 +167,11 @@ function mergeClientConfigs(clientConfigs) {
     });
 
   return [...clientsByCode.values()];
+}
+
+function isBastidaClientCode(value = "") {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized === "bastida01" || normalized === bastidaSystemsEmail;
 }
 
 function getConfiguredClients() {
@@ -273,10 +286,9 @@ async function migrateLegacyClients() {
         `UPDATE clients
          SET client_code = $1,
              display_name = $2,
-             password_hash = $3,
              updated_at = NOW()
-         WHERE id = $4`,
-        [rename.toCode, rename.displayName, hashPassword(rename.defaultPassword), legacyId]
+         WHERE id = $3`,
+        [rename.toCode, rename.displayName, legacyId]
       );
       continue;
     }
@@ -919,13 +931,21 @@ async function initDB() {
     const result = await pool.query(
       `INSERT INTO clients (client_code, display_name, password_hash)
        VALUES ($1, $2, $3)
-       ON CONFLICT (client_code)
-       DO UPDATE SET
+      ON CONFLICT (client_code)
+      DO UPDATE SET
          display_name = EXCLUDED.display_name,
-         password_hash = EXCLUDED.password_hash,
+         password_hash = CASE
+           WHEN $4::boolean THEN EXCLUDED.password_hash
+           ELSE clients.password_hash
+         END,
          updated_at = NOW()
        RETURNING id`,
-      [clientConfig.code, clientConfig.displayName || clientConfig.code, hashPassword(clientConfig.password)]
+      [
+        clientConfig.code,
+        clientConfig.displayName || clientConfig.code,
+        hashPassword(clientConfig.password),
+        resetConfiguredClientPasswords
+      ]
     );
 
     if (!defaultClientId) defaultClientId = result.rows[0].id;
@@ -1561,8 +1581,8 @@ app.delete("/api/lineops/account", requireLineOpsUser, async (req, res) => {
 
 app.get("/api/lineops/admin/users", requireClient, async (req, res) => {
   try {
-    if (String(req.client.client_code || "").trim().toLowerCase() !== "bastida01") {
-      return res.status(403).json({ error: "Only Bastida01 can view LineOps users." });
+    if (!isBastidaClientCode(req.client.client_code)) {
+      return res.status(403).json({ error: "Only Bastida Systems can view LineOps users." });
     }
 
     const result = await pool.query(
@@ -1592,8 +1612,8 @@ app.get("/api/lineops/admin/users", requireClient, async (req, res) => {
 
 app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
   try {
-    if (String(req.client.client_code || "").trim().toLowerCase() !== "bastida01") {
-      return res.status(403).json({ error: "Only Bastida01 can edit LineOps users." });
+    if (!isBastidaClientCode(req.client.client_code)) {
+      return res.status(403).json({ error: "Only Bastida Systems can edit LineOps users." });
     }
 
     const result = await pool.query(
