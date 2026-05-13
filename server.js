@@ -650,6 +650,30 @@ async function ensureLineOpsWorkspace(user) {
   return workspace;
 }
 
+function serializeLineOpsAdminUser(user) {
+  const onboarding = normalizeLineOpsOnboarding(readJsonObject(user.onboarding_profile, {}));
+  const workspace = readJsonObject(user.workspace, {});
+
+  return {
+    id: user.id,
+    businessName: user.business_name,
+    fullName: user.full_name,
+    email: user.email,
+    businessType: normalizeLineOpsBusinessType(user.business_type),
+    teamSize: onboarding.teamSize,
+    department: onboarding.department,
+    goals: onboarding.goals,
+    onboardingComplete: onboarding.isComplete,
+    activeOperations: Array.isArray(workspace.operations) ? workspace.operations.length : 0,
+    openTasks: Array.isArray(workspace.tasks)
+      ? workspace.tasks.filter((task) => task.status !== "Done").length
+      : 0,
+    deletedAt: user.deleted_at instanceof Date ? user.deleted_at.toISOString() : user.deleted_at,
+    createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
+    updatedAt: user.updated_at instanceof Date ? user.updated_at.toISOString() : user.updated_at
+  };
+}
+
 async function requireClient(req, res, next) {
   try {
     requireDatabase();
@@ -1548,28 +1572,7 @@ app.get("/api/lineops/admin/users", requireClient, async (req, res) => {
        LIMIT 500`
     );
 
-    const users = result.rows.map((user) => {
-      const onboarding = normalizeLineOpsOnboarding(readJsonObject(user.onboarding_profile, {}));
-      const workspace = readJsonObject(user.workspace, {});
-      return {
-        id: user.id,
-        businessName: user.business_name,
-        fullName: user.full_name,
-        email: user.email,
-        businessType: normalizeLineOpsBusinessType(user.business_type),
-        teamSize: onboarding.teamSize,
-        department: onboarding.department,
-        goals: onboarding.goals,
-        onboardingComplete: onboarding.isComplete,
-        activeOperations: Array.isArray(workspace.operations) ? workspace.operations.length : 0,
-        openTasks: Array.isArray(workspace.tasks)
-          ? workspace.tasks.filter((task) => task.status !== "Done").length
-          : 0,
-        deletedAt: user.deleted_at instanceof Date ? user.deleted_at.toISOString() : user.deleted_at,
-        createdAt: user.created_at instanceof Date ? user.created_at.toISOString() : user.created_at,
-        updatedAt: user.updated_at instanceof Date ? user.updated_at.toISOString() : user.updated_at
-      };
-    });
+    const users = result.rows.map(serializeLineOpsAdminUser);
 
     res.json({
       ok: true,
@@ -1584,6 +1587,114 @@ app.get("/api/lineops/admin/users", requireClient, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to load LineOps users." });
+  }
+});
+
+app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
+  try {
+    if (String(req.client.client_code || "").trim().toLowerCase() !== "bastida01") {
+      return res.status(403).json({ error: "Only Bastida01 can edit LineOps users." });
+    }
+
+    const result = await pool.query(
+      `SELECT id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at
+       FROM lineops_users
+       WHERE id = $1
+       LIMIT 1`,
+      [req.params.id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: "LineOps user not found." });
+    }
+
+    const existingUser = result.rows[0];
+    if (existingUser.deleted_at) {
+      return res.status(400).json({ error: "Deleted LineOps users cannot be edited." });
+    }
+
+    const businessName = req.body.businessName === undefined
+      ? existingUser.business_name
+      : String(req.body.businessName || "").trim();
+    const fullName = req.body.fullName === undefined
+      ? existingUser.full_name
+      : String(req.body.fullName || "").trim();
+    const email = req.body.email === undefined
+      ? existingUser.email
+      : normalizeEmail(req.body.email);
+    const businessType = req.body.businessType === undefined
+      ? normalizeLineOpsBusinessType(existingUser.business_type)
+      : normalizeLineOpsBusinessType(req.body.businessType);
+
+    if (!businessName || !fullName || !isValidEmail(email)) {
+      return res.status(400).json({ error: "Business name, full name, and a valid email are required." });
+    }
+
+    const duplicateResult = await pool.query(
+      `SELECT id
+       FROM lineops_users
+       WHERE LOWER(email) = LOWER($1)
+         AND id <> $2
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [email, existingUser.id]
+    );
+    if (duplicateResult.rows.length) {
+      return res.status(409).json({ error: "Another LineOps user already uses this email." });
+    }
+
+    const existingOnboarding = normalizeLineOpsOnboarding(readJsonObject(existingUser.onboarding_profile, {}));
+    const onboarding = normalizeLineOpsOnboarding({
+      teamSize: req.body.teamSize === undefined ? existingOnboarding.teamSize : req.body.teamSize,
+      department: req.body.department === undefined ? existingOnboarding.department : req.body.department,
+      goals: Array.isArray(req.body.goals) ? req.body.goals : existingOnboarding.goals,
+      isComplete: req.body.onboardingComplete === undefined
+        ? existingOnboarding.isComplete
+        : Boolean(req.body.onboardingComplete)
+    });
+    const updatedUserDraft = {
+      ...existingUser,
+      business_name: businessName,
+      full_name: fullName,
+      email,
+      business_type: businessType
+    };
+    const workspace = createLineOpsWorkspace(
+      updatedUserDraft,
+      onboarding,
+      readJsonObject(existingUser.workspace, {})
+    );
+
+    const updateResult = await pool.query(
+      `UPDATE lineops_users
+       SET business_name = $1,
+           full_name = $2,
+           email = $3,
+           business_type = $4,
+           onboarding_profile = $5::jsonb,
+           workspace = $6::jsonb,
+           updated_at = NOW()
+       WHERE id = $7 AND deleted_at IS NULL
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      [
+        businessName,
+        fullName,
+        email,
+        businessType,
+        JSON.stringify(onboarding),
+        JSON.stringify(workspace),
+        existingUser.id
+      ]
+    );
+
+    res.json({
+      ok: true,
+      user: serializeLineOpsAdminUser(updateResult.rows[0]),
+      workspace
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to update LineOps user." });
   }
 });
 

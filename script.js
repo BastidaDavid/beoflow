@@ -468,6 +468,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let editingRecipeId = null;
   let currentSubRecipeIngredients = [];
   let editingSubRecipeId = null;
+  let lineOpsUsersCache = [];
   let activeModuleKey = "dashboard";
   let moduleBeforeForm = "dashboard";
   let activeEventFilter = null;
@@ -489,6 +490,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const lineOpsUsersActive = document.getElementById("lineops-users-active");
   const lineOpsUsersOnboarded = document.getElementById("lineops-users-onboarded");
   const lineOpsUsersDeleted = document.getElementById("lineops-users-deleted");
+  const lineOpsUserEditorModal = document.getElementById("lineops-user-editor-modal");
+  const lineOpsUserEditorForm = document.getElementById("lineops-user-editor-form");
+  const lineOpsEditUserIdInput = document.getElementById("lineops-edit-user-id");
+  const lineOpsEditBusinessNameInput = document.getElementById("lineops-edit-business-name");
+  const lineOpsEditFullNameInput = document.getElementById("lineops-edit-full-name");
+  const lineOpsEditEmailInput = document.getElementById("lineops-edit-email");
+  const lineOpsEditBusinessTypeInput = document.getElementById("lineops-edit-business-type");
+  const lineOpsEditTeamSizeInput = document.getElementById("lineops-edit-team-size");
+  const lineOpsEditDepartmentInput = document.getElementById("lineops-edit-department");
+  const lineOpsEditOnboardedInput = document.getElementById("lineops-edit-onboarded");
+  const lineOpsEditGoalInputs = Array.from(document.querySelectorAll("[name='lineops-edit-goal']"));
+  const lineOpsUserEditorStatus = document.getElementById("lineops-user-editor-status");
+  const closeLineOpsUserEditorBtn = document.getElementById("close-lineops-user-editor");
+  const cancelLineOpsUserEditorBtn = document.getElementById("cancel-lineops-user-editor");
+  const saveLineOpsUserEditorBtn = document.getElementById("save-lineops-user-editor");
   const reportsSection = document.getElementById("reports-section");
   const reportTotalEvents = document.getElementById("report-total-events");
   const reportUpcomingEvents = document.getElementById("report-upcoming-events");
@@ -2741,6 +2757,99 @@ ${staffSuggestion}
     });
   };
 
+  const setLineOpsUserEditorStatus = (message = "", type = "") => {
+    if (!lineOpsUserEditorStatus) return;
+    lineOpsUserEditorStatus.hidden = !message;
+    lineOpsUserEditorStatus.textContent = message;
+    if (type) {
+      lineOpsUserEditorStatus.dataset.type = type;
+    } else {
+      delete lineOpsUserEditorStatus.dataset.type;
+    }
+  };
+
+  const closeLineOpsUserEditor = () => {
+    if (!lineOpsUserEditorModal) return;
+    lineOpsUserEditorModal.hidden = true;
+    document.body.classList.remove("modal-open");
+    lineOpsUserEditorForm?.reset();
+    setLineOpsUserEditorStatus("");
+  };
+
+  const openLineOpsUserEditor = (user) => {
+    if (!lineOpsUserEditorModal || !user) return;
+
+    if (lineOpsEditUserIdInput) lineOpsEditUserIdInput.value = user.id || "";
+    if (lineOpsEditBusinessNameInput) lineOpsEditBusinessNameInput.value = user.businessName || "";
+    if (lineOpsEditFullNameInput) lineOpsEditFullNameInput.value = user.fullName || "";
+    if (lineOpsEditEmailInput) lineOpsEditEmailInput.value = user.email || "";
+    if (lineOpsEditBusinessTypeInput) lineOpsEditBusinessTypeInput.value = user.businessType || "Other";
+    if (lineOpsEditTeamSizeInput) lineOpsEditTeamSizeInput.value = user.teamSize || "";
+    if (lineOpsEditDepartmentInput) lineOpsEditDepartmentInput.value = user.department || "";
+    if (lineOpsEditOnboardedInput) lineOpsEditOnboardedInput.checked = Boolean(user.onboardingComplete);
+
+    const selectedGoals = new Set(Array.isArray(user.goals) ? user.goals : []);
+    lineOpsEditGoalInputs.forEach((input) => {
+      input.checked = selectedGoals.has(input.value);
+    });
+
+    setLineOpsUserEditorStatus("");
+    lineOpsUserEditorModal.hidden = false;
+    document.body.classList.add("modal-open");
+  };
+
+  const getLineOpsEditorPayload = () => ({
+    businessName: lineOpsEditBusinessNameInput?.value.trim() || "",
+    fullName: lineOpsEditFullNameInput?.value.trim() || "",
+    email: lineOpsEditEmailInput?.value.trim() || "",
+    businessType: lineOpsEditBusinessTypeInput?.value || "Other",
+    teamSize: lineOpsEditTeamSizeInput?.value || null,
+    department: lineOpsEditDepartmentInput?.value || null,
+    onboardingComplete: Boolean(lineOpsEditOnboardedInput?.checked),
+    goals: lineOpsEditGoalInputs
+      .filter((input) => input.checked)
+      .map((input) => input.value)
+  });
+
+  async function saveLineOpsUserEdit(event) {
+    event?.preventDefault();
+    const userId = lineOpsEditUserIdInput?.value;
+    if (!userId) return;
+
+    setLineOpsUserEditorStatus("Saving LineOps user...");
+    if (saveLineOpsUserEditorBtn) saveLineOpsUserEditorBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/lineops/admin/users/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(getLineOpsEditorPayload())
+      });
+
+      if (response.status === 401) {
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        localStorage.removeItem(AUTH_CLIENT_KEY);
+        authToken = "";
+        showLogin("Session expired. Sign in again.");
+        return;
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update LineOps user.");
+      }
+
+      await loadLineOpsUsers();
+      closeLineOpsUserEditor();
+      setLineOpsUsersStatus(`${payload.user?.businessName || "LineOps user"} updated.`, "success");
+    } catch (error) {
+      console.error(error);
+      setLineOpsUserEditorStatus(error.message || "Failed to update LineOps user.", "error");
+    } finally {
+      if (saveLineOpsUserEditorBtn) saveLineOpsUserEditorBtn.disabled = false;
+    }
+  }
+
   const renderLineOpsUsers = (users = []) => {
     if (!lineOpsUsersTableBody) return;
     lineOpsUsersTableBody.innerHTML = "";
@@ -2748,7 +2857,7 @@ ${staffSuggestion}
     if (!users.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 8;
+      cell.colSpan = 9;
       cell.textContent = "No LineOps users yet.";
       row.appendChild(cell);
       lineOpsUsersTableBody.appendChild(row);
@@ -2791,6 +2900,16 @@ ${staffSuggestion}
       createdCell.textContent = formatLineOpsDate(user.createdAt);
       row.appendChild(createdCell);
 
+      const actionsCell = document.createElement("td");
+      const editButton = document.createElement("button");
+      editButton.type = "button";
+      editButton.className = "secondary-btn lineops-user-edit-btn";
+      editButton.dataset.lineopsUserId = user.id || "";
+      editButton.textContent = "Edit";
+      editButton.disabled = Boolean(user.deletedAt);
+      actionsCell.appendChild(editButton);
+      row.appendChild(actionsCell);
+
       lineOpsUsersTableBody.appendChild(row);
     });
   };
@@ -2824,7 +2943,8 @@ ${staffSuggestion}
       if (lineOpsUsersOnboarded) lineOpsUsersOnboarded.textContent = totals.onboardedUsers ?? 0;
       if (lineOpsUsersDeleted) lineOpsUsersDeleted.textContent = totals.deletedUsers ?? 0;
 
-      renderLineOpsUsers(payload.users || []);
+      lineOpsUsersCache = payload.users || [];
+      renderLineOpsUsers(lineOpsUsersCache);
       setLineOpsUsersStatus((payload.users || []).length ? "LineOps users synced from Render." : "No LineOps users yet.", "success");
     } catch (error) {
       console.error(error);
@@ -6632,6 +6752,23 @@ ${staffSuggestion}
   if (refreshLineOpsUsersBtn) {
     refreshLineOpsUsersBtn.addEventListener("click", loadLineOpsUsers);
   }
+
+  if (lineOpsUsersTableBody) {
+    lineOpsUsersTableBody.addEventListener("click", (event) => {
+      const editButton = event.target.closest("[data-lineops-user-id]");
+      if (!editButton) return;
+
+      const user = lineOpsUsersCache.find((item) => item.id === editButton.dataset.lineopsUserId);
+      openLineOpsUserEditor(user);
+    });
+  }
+
+  lineOpsUserEditorForm?.addEventListener("submit", saveLineOpsUserEdit);
+  closeLineOpsUserEditorBtn?.addEventListener("click", closeLineOpsUserEditor);
+  cancelLineOpsUserEditorBtn?.addEventListener("click", closeLineOpsUserEditor);
+  lineOpsUserEditorModal?.addEventListener("click", (event) => {
+    if (event.target === lineOpsUserEditorModal) closeLineOpsUserEditor();
+  });
 
   if (navReports && reportsSection) {
     navReports.addEventListener("click", (e) => {

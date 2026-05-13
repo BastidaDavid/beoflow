@@ -307,6 +307,7 @@
                 <th>Department</th>
                 <th>Status</th>
                 <th>Created</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="lineops-users-table-body"></tbody>
@@ -1486,6 +1487,98 @@
         </form>
       </section>
     </main>
+  </div>
+
+  <div id="lineops-user-editor-modal" class="modal-overlay" hidden>
+    <div class="modal-card lineops-user-editor-card">
+      <div class="modal-header">
+        <div>
+          <h3>Edit LineOps User</h3>
+          <p>Update the public SaaS account profile and onboarding data.</p>
+        </div>
+        <button type="button" id="close-lineops-user-editor" class="icon-btn delete" title="Close">×</button>
+      </div>
+
+      <form id="lineops-user-editor-form" class="modal-body lineops-user-editor-form">
+        <input type="hidden" id="lineops-edit-user-id" />
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="lineops-edit-business-name">Business Name</label>
+            <input type="text" id="lineops-edit-business-name" required />
+          </div>
+
+          <div class="form-group">
+            <label for="lineops-edit-full-name">Full Name</label>
+            <input type="text" id="lineops-edit-full-name" required />
+          </div>
+
+          <div class="form-group">
+            <label for="lineops-edit-email">Email</label>
+            <input type="email" id="lineops-edit-email" required />
+          </div>
+
+          <div class="form-group">
+            <label for="lineops-edit-business-type">Business Type</label>
+            <select id="lineops-edit-business-type">
+              <option>Restaurant</option>
+              <option>Hospitality</option>
+              <option>Casino</option>
+              <option>Retail</option>
+              <option>Warehouse</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="lineops-edit-team-size">Team Size</label>
+            <select id="lineops-edit-team-size">
+              <option value="">Not set</option>
+              <option>1-10</option>
+              <option>11-50</option>
+              <option>51-200</option>
+              <option>201+</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="lineops-edit-department">Department</label>
+            <select id="lineops-edit-department">
+              <option value="">Not set</option>
+              <option>Operations</option>
+              <option>Front of House</option>
+              <option>Guest Services</option>
+              <option>Fulfillment</option>
+              <option>Facilities</option>
+              <option>Safety</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="lineops-editor-row">
+          <label class="lineops-editor-toggle">
+            <input type="checkbox" id="lineops-edit-onboarded" />
+            <span>Onboarding complete</span>
+          </label>
+        </div>
+
+        <div class="lineops-editor-goals" aria-label="Operational goals">
+          <label><input type="checkbox" name="lineops-edit-goal" value="Coordinate teams" /> Coordinate teams</label>
+          <label><input type="checkbox" name="lineops-edit-goal" value="Improve visibility" /> Improve visibility</label>
+          <label><input type="checkbox" name="lineops-edit-goal" value="Reduce delays" /> Reduce delays</label>
+          <label><input type="checkbox" name="lineops-edit-goal" value="Standardize workflows" /> Standardize workflows</label>
+          <label><input type="checkbox" name="lineops-edit-goal" value="Manage incidents" /> Manage incidents</label>
+          <label><input type="checkbox" name="lineops-edit-goal" value="Track performance" /> Track performance</label>
+        </div>
+
+        <div id="lineops-user-editor-status" class="ops-status" role="status" hidden></div>
+
+        <div class="form-actions">
+          <button type="button" id="cancel-lineops-user-editor" class="secondary-btn">Cancel</button>
+          <button type="submit" id="save-lineops-user-editor" class="primary-btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div id="ingredients-modal" class="modal-overlay" hidden>
