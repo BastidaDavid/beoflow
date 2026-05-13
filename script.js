@@ -91,9 +91,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const clientDefaultModule = String(currentClient.defaultModule || "").trim();
   const hasConfiguredClientModules = Boolean(configuredClientModules);
   const shouldShowLockedModules = Boolean(currentClient.lockedModulesVisible);
-  const isWestgateClient = String(currentClientCode).trim().toLowerCase() === "westgate";
+  const currentClientCodeKey = String(currentClientCode).trim().toLowerCase();
+  const westgateClientCodes = new Set(["westgate", "westgate@bastidasystems.io"]);
+  const isWestgateClient = westgateClientCodes.has(currentClientCodeKey);
   const bastidaClientCodes = new Set(["bastida01", "bastidasystems@gmail.com"]);
-  const isBastidaClient = bastidaClientCodes.has(String(currentClientCode).trim().toLowerCase());
+  const isBastidaClient = bastidaClientCodes.has(currentClientCodeKey);
   let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
   let bastidaMode = isBastidaClient ? localStorage.getItem(BASTIDA_MODE_KEY) || "" : "";
   const isKnownWestgateMode = (mode) => Boolean(WESTGATE_MODE_MODULES[mode]);

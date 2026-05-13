@@ -87,7 +87,23 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
   .filter(Boolean);
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
 const bastidaSystemsEmail = String(process.env.BASTIDA_SYSTEMS_EMAIL || "bastidasystems@gmail.com").trim().toLowerCase();
+const westgateAccountEmail = String(process.env.WESTGATE_ACCOUNT_EMAIL || "westgate@bastidasystems.io").trim().toLowerCase();
+const stratAccountEmail = String(process.env.STRAT_ACCOUNT_EMAIL || "strat01@bastidasystems.io").trim().toLowerCase();
+const unifiedDemoEmail = String(process.env.BASTIDA_DEMO_EMAIL || "demo@bastidasystems.io").trim().toLowerCase();
+const unifiedDemoPassword = process.env.BASTIDA_DEMO_PASSWORD || "LineOpsDemo1!";
+const bastidaSyncSecret = String(process.env.BASTIDA_SYNC_SECRET || "").trim();
+const filtraCoreApiBaseURL = String(process.env.FILTRACORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
 const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
+const UNIFIED_ACCOUNT_ALIASES = new Map([
+  ["bastida01", bastidaSystemsEmail],
+  ["westgate", westgateAccountEmail],
+  ["west@gmail.com", westgateAccountEmail],
+  ["strat01", stratAccountEmail],
+  ["ptslineops", stratAccountEmail],
+  ["ptskitchen@lineops.io", stratAccountEmail],
+  ["demo@lineops.io", unifiedDemoEmail],
+  ["demo@filtracore.io", unifiedDemoEmail]
+]);
 const DEFAULT_CLIENTS = [
   {
     code: bastidaSystemsEmail,
@@ -95,34 +111,51 @@ const DEFAULT_CLIENTS = [
     displayName: "Bastida Systems"
   },
   {
-    code: "Westgate",
-    password: "Westgate",
+    code: westgateAccountEmail,
+    password: process.env.WESTGATE_ACCOUNT_PASSWORD || "Westgate",
     displayName: "Westgate Casino"
   },
   {
-    code: "PTSLineOps",
-    password: "PTSLineOps",
-    displayName: "PTS Kitchen LineOps",
+    code: stratAccountEmail,
+    password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
+    displayName: "Strat - PTS Sport and Wings",
     modules: ["staff"],
     defaultModule: "staff",
     brandTitle: "LineOps",
-    brandSubtitle: "PTS Kitchen",
+    brandSubtitle: "PTS Sport and Wings",
     lockedModulesVisible: true
+  },
+  {
+    code: unifiedDemoEmail,
+    password: unifiedDemoPassword,
+    displayName: "Demo Workspace"
   }
 ];
 
 const LEGACY_CLIENT_RENAMES = [
   {
     fromCode: "Strat01",
-    toCode: bastidaSystemsEmail,
-    defaultPassword: "Bastida01",
-    displayName: "Bastida Systems"
+    toCode: stratAccountEmail,
+    defaultPassword: "Strat01",
+    displayName: "Strat - PTS Sport and Wings"
   },
   {
     fromCode: "Bastida01",
     toCode: bastidaSystemsEmail,
     defaultPassword: "Bastida01",
     displayName: "Bastida Systems"
+  },
+  {
+    fromCode: "Westgate",
+    toCode: westgateAccountEmail,
+    defaultPassword: "Westgate",
+    displayName: "Westgate Casino"
+  },
+  {
+    fromCode: "PTSLineOps",
+    toCode: stratAccountEmail,
+    defaultPassword: "Strat01",
+    displayName: "Strat - PTS Sport and Wings"
   }
 ];
 
@@ -170,8 +203,8 @@ function mergeClientConfigs(clientConfigs) {
 }
 
 function isBastidaClientCode(value = "") {
-  const normalized = String(value || "").trim().toLowerCase();
-  return normalized === "bastida01" || normalized === bastidaSystemsEmail;
+  const normalized = resolveUnifiedAccountIdentifier(value);
+  return normalized === bastidaSystemsEmail;
 }
 
 function getConfiguredClients() {
@@ -211,6 +244,21 @@ function normalizeEmail(email = "") {
 
 function isValidEmail(email = "") {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim());
+}
+
+function resolveUnifiedAccountIdentifier(value = "") {
+  const normalized = normalizeEmail(value);
+  return UNIFIED_ACCOUNT_ALIASES.get(normalized) || normalized;
+}
+
+function unifiedAccountCandidates(value = "") {
+  const normalized = normalizeEmail(value);
+  return [...new Set([resolveUnifiedAccountIdentifier(normalized), normalized].filter(Boolean))];
+}
+
+function isValidLoginIdentifier(value = "") {
+  const normalized = normalizeEmail(value);
+  return isValidEmail(normalized) || /^[a-z0-9][a-z0-9._-]{2,63}$/.test(normalized);
 }
 
 function normalizeLineOpsBusinessType(value = "") {
@@ -686,6 +734,271 @@ function serializeLineOpsAdminUser(user) {
   };
 }
 
+function httpError(statusCode, message) {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+}
+
+function normalizeUnifiedAccountPayload(account = {}) {
+  const email = resolveUnifiedAccountIdentifier(account.email || account.login || account.clientCode);
+  return {
+    email,
+    password: account.password ? String(account.password) : "",
+    businessName: String(account.businessName || account.business_name || account.displayName || "").trim(),
+    fullName: String(account.fullName || account.full_name || account.name || "").trim(),
+    businessType: normalizeLineOpsBusinessType(account.businessType || account.business_type),
+    onboarding: normalizeLineOpsOnboarding(account.onboarding || account.onboardingProfile || {})
+  };
+}
+
+function unifiedLineOpsSeedAccounts() {
+  return [
+    {
+      email: bastidaSystemsEmail,
+      password: process.env.BASTIDA_SYSTEMS_PASSWORD || "",
+      businessName: "Bastida Systems",
+      fullName: "Bastida Systems Admin",
+      businessType: "Other",
+      onboarding: {
+        teamSize: "1-10",
+        department: "Operations",
+        goals: ["Coordinate teams", "Improve visibility", "Track performance"],
+        isComplete: true
+      }
+    },
+    {
+      email: westgateAccountEmail,
+      password: process.env.WESTGATE_ACCOUNT_PASSWORD || "Westgate",
+      businessName: "Westgate",
+      fullName: "Westgate Admin",
+      businessType: "Casino",
+      onboarding: {
+        teamSize: "51-200",
+        department: "Operations",
+        goals: ["Coordinate teams", "Standardize workflows", "Track performance"],
+        isComplete: true
+      },
+      candidates: ["westgate", "west@gmail.com"]
+    },
+    {
+      email: stratAccountEmail,
+      password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
+      businessName: "Strat - PTS Sport and Wings",
+      fullName: "Strat Admin",
+      businessType: "Restaurant",
+      onboarding: {
+        teamSize: "11-50",
+        department: "Front of House",
+        goals: ["Coordinate teams", "Reduce delays", "Standardize workflows"],
+        isComplete: true
+      },
+      candidates: ["strat01", "ptslineops", "ptskitchen@lineops.io"]
+    },
+    {
+      email: unifiedDemoEmail,
+      password: unifiedDemoPassword,
+      businessName: "Demo Workspace",
+      fullName: "App Review Demo",
+      businessType: "Hospitality",
+      onboarding: {
+        teamSize: "11-50",
+        department: "Operations",
+        goals: ["Coordinate teams", "Improve visibility", "Manage incidents"],
+        isComplete: true
+      },
+      resetPassword: true,
+      candidates: ["demo@lineops.io", "demo@filtracore.io"]
+    }
+  ];
+}
+
+async function upsertBeoflowClientAccount(account, { resetPassword = false, skipIfMissingPassword = false } = {}) {
+  if (!account.email || !isValidEmail(account.email)) {
+    throw httpError(400, "A valid unified account email is required.");
+  }
+
+  if (!account.password) {
+    const existing = await pool.query(
+      "SELECT id FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
+      [account.email]
+    );
+    if (!existing.rows.length) {
+      if (skipIfMissingPassword) return null;
+      throw httpError(400, "Password is required for a new web system account.");
+    }
+  }
+
+  const displayName = account.businessName || account.fullName || account.email;
+  const passwordHash = account.password ? hashPassword(account.password) : "";
+  const result = await pool.query(
+    `INSERT INTO clients (client_code, display_name, password_hash)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (client_code)
+     DO UPDATE SET
+       display_name = EXCLUDED.display_name,
+       password_hash = CASE
+         WHEN $4::boolean THEN EXCLUDED.password_hash
+         ELSE clients.password_hash
+       END,
+       updated_at = NOW()
+     RETURNING id, client_code, display_name`,
+    [account.email, displayName, passwordHash || hashPassword(crypto.randomUUID()), Boolean(account.password && resetPassword)]
+  );
+
+  return result.rows[0];
+}
+
+async function upsertLineOpsAccount(account, { resetPassword = false, candidates = [] } = {}) {
+  if (!account.email || !isValidEmail(account.email)) {
+    throw httpError(400, "A valid LineOps account email is required.");
+  }
+
+  const candidateEmails = [
+    account.email,
+    ...unifiedAccountCandidates(account.email),
+    ...candidates.flatMap((candidate) => unifiedAccountCandidates(candidate))
+  ].map(normalizeEmail);
+  const uniqueCandidates = [...new Set(candidateEmails.filter(Boolean))];
+
+  const existingResult = await pool.query(
+    `SELECT id, business_name, full_name, email, business_type, password_hash, onboarding_profile, workspace, created_at, updated_at, deleted_at
+     FROM lineops_users
+     WHERE LOWER(email) = ANY($1::text[])
+     ORDER BY
+       CASE WHEN LOWER(email) = LOWER($2) THEN 0 ELSE 1 END,
+       CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END,
+       created_at ASC
+     LIMIT 1`,
+    [uniqueCandidates, account.email]
+  );
+
+  const onboarding = normalizeLineOpsOnboarding({
+    ...readJsonObject(existingResult.rows[0]?.onboarding_profile, {}),
+    ...account.onboarding
+  });
+  const businessName = account.businessName || existingResult.rows[0]?.business_name || "Business Workspace";
+  const fullName = account.fullName || existingResult.rows[0]?.full_name || "Workspace Admin";
+  const businessType = normalizeLineOpsBusinessType(account.businessType || existingResult.rows[0]?.business_type);
+  const shouldUpdatePassword = Boolean(account.password && (resetPassword || !existingResult.rows.length));
+
+  if (!existingResult.rows.length) {
+    if (!account.password) {
+      throw httpError(400, "Password is required for a new LineOps account.");
+    }
+
+    const insertResult = await pool.query(
+      `INSERT INTO lineops_users (id, business_name, full_name, email, password_hash, business_type, onboarding_profile, workspace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, '{}'::jsonb)
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      [
+        crypto.randomUUID(),
+        businessName,
+        fullName,
+        account.email,
+        hashLineOpsPassword(account.password),
+        businessType,
+        JSON.stringify(onboarding)
+      ]
+    );
+    const user = insertResult.rows[0];
+    const workspace = createLineOpsWorkspace(user, onboarding);
+    const updateResult = await pool.query(
+      `UPDATE lineops_users
+       SET workspace = $1::jsonb,
+           onboarding_profile = $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), user.id]
+    );
+    return updateResult.rows[0];
+  }
+
+  const existingUser = existingResult.rows[0];
+  const draft = {
+    ...existingUser,
+    business_name: businessName,
+    full_name: fullName,
+    email: account.email,
+    business_type: businessType
+  };
+  const workspace = createLineOpsWorkspace(draft, onboarding, readJsonObject(existingUser.workspace, {}));
+  const updateResult = await pool.query(
+    `UPDATE lineops_users
+     SET business_name = $1,
+         full_name = $2,
+         email = $3,
+         password_hash = CASE WHEN $4::boolean THEN $5 ELSE password_hash END,
+         business_type = $6,
+         onboarding_profile = $7::jsonb,
+         workspace = $8::jsonb,
+         deleted_at = NULL,
+         updated_at = NOW()
+     WHERE id = $9
+     RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+    [
+      businessName,
+      fullName,
+      account.email,
+      shouldUpdatePassword,
+      shouldUpdatePassword ? hashLineOpsPassword(account.password) : existingUser.password_hash,
+      businessType,
+      JSON.stringify(onboarding),
+      JSON.stringify(workspace),
+      existingUser.id
+    ]
+  );
+  return updateResult.rows[0];
+}
+
+async function ensureUnifiedBeoflowAccount(accountInput, options = {}) {
+  const account = normalizeUnifiedAccountPayload(accountInput);
+  const resetPassword = Boolean(options.resetPassword || accountInput.resetPassword);
+  const candidates = options.candidates || [];
+
+  await upsertBeoflowClientAccount(account, { resetPassword });
+  return upsertLineOpsAccount(account, { resetPassword, candidates });
+}
+
+async function seedUnifiedLineOpsAccounts() {
+  for (const account of unifiedLineOpsSeedAccounts()) {
+    if (!account.password && account.email === bastidaSystemsEmail) continue;
+    await ensureUnifiedBeoflowAccount(account, {
+      resetPassword: account.resetPassword || resetConfiguredClientPasswords,
+      candidates: account.candidates || []
+    });
+  }
+}
+
+async function syncAccountToFiltraCore(accountInput) {
+  if (!bastidaSyncSecret || !filtraCoreApiBaseURL) return;
+
+  const account = normalizeUnifiedAccountPayload(accountInput);
+  if (!account.email || !isValidEmail(account.email)) return;
+
+  try {
+    const response = await fetch(`${filtraCoreApiBaseURL}/api/sync/accounts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Bastida-Sync-Secret": bastidaSyncSecret
+      },
+      body: JSON.stringify({
+        source: "beoflow",
+        account
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.warn(`FiltraCore account sync failed with ${response.status}: ${body.slice(0, 160)}`);
+    }
+  } catch (error) {
+    console.warn("FiltraCore account sync failed", error.message);
+  }
+}
+
 async function requireClient(req, res, next) {
   try {
     requireDatabase();
@@ -723,9 +1036,9 @@ async function requireLineOpsUser(req, res, next) {
     const result = await pool.query(
       `SELECT id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at
        FROM lineops_users
-       WHERE id = $1 AND LOWER(email) = LOWER($2) AND deleted_at IS NULL
+       WHERE id = $1 AND LOWER(email) = ANY($2::text[]) AND deleted_at IS NULL
        LIMIT 1`,
-      [payload.lineOpsUserId, payload.email]
+      [payload.lineOpsUserId, unifiedAccountCandidates(payload.email)]
     );
 
     if (!result.rows.length) {
@@ -950,6 +1263,8 @@ async function initDB() {
 
     if (!defaultClientId) defaultClientId = result.rows[0].id;
   }
+
+  await seedUnifiedLineOpsAccounts();
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS client_data_client_updated_idx
@@ -1367,20 +1682,60 @@ app.get("/health", (req, res) => {
   res.json(apiStatus());
 });
 
+app.post("/api/sync/accounts", async (req, res) => {
+  try {
+    requireDatabase();
+
+    if (!bastidaSyncSecret || req.get("x-bastida-sync-secret") !== bastidaSyncSecret) {
+      return res.status(404).json({ error: "Not found." });
+    }
+
+    const account = normalizeUnifiedAccountPayload(req.body.account || req.body);
+    if (!account.email || !isValidEmail(account.email)) {
+      return res.status(400).json({ error: "A valid account email is required." });
+    }
+
+    const user = await ensureUnifiedBeoflowAccount(account, {
+      resetPassword: Boolean(account.password),
+      candidates: [
+        req.body.account?.email,
+        req.body.account?.login,
+        req.body.account?.clientCode,
+        req.body.email,
+        req.body.login,
+        req.body.clientCode
+      ].filter(Boolean)
+    });
+
+    res.json({
+      ok: true,
+      user: serializeLineOpsAdminUser(user)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "Account sync failed." });
+  }
+});
+
 app.post("/api/auth/login", async (req, res) => {
   try {
     requireDatabase();
 
-    const clientCode = String(req.body.clientCode || req.body.client_id || "").trim();
+    const rawClientCode = String(req.body.clientCode || req.body.client_id || "").trim();
+    const clientCode = resolveUnifiedAccountIdentifier(rawClientCode);
     const password = String(req.body.password || "");
 
-    if (!clientCode || !password) {
+    if (!rawClientCode || !password) {
       return res.status(400).json({ error: "Client and password are required." });
     }
 
     const result = await pool.query(
-      "SELECT id, client_code, display_name, password_hash FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
-      [clientCode]
+      `SELECT id, client_code, display_name, password_hash
+       FROM clients
+       WHERE LOWER(client_code) = ANY($1::text[])
+       ORDER BY CASE WHEN LOWER(client_code) = LOWER($2) THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [unifiedAccountCandidates(rawClientCode), clientCode]
     );
 
     if (!result.rows.length || !timingSafeEqualText(result.rows[0].password_hash, hashPassword(password))) {
@@ -1409,7 +1764,8 @@ app.post("/api/lineops/auth/signup", async (req, res) => {
 
     const businessName = String(req.body.businessName || "").trim();
     const fullName = String(req.body.fullName || "").trim();
-    const email = normalizeEmail(req.body.email);
+    const rawEmail = normalizeEmail(req.body.email);
+    const email = resolveUnifiedAccountIdentifier(rawEmail);
     const password = String(req.body.password || "");
     const businessType = normalizeLineOpsBusinessType(req.body.businessType);
 
@@ -1422,8 +1778,8 @@ app.post("/api/lineops/auth/signup", async (req, res) => {
     }
 
     const existingResult = await pool.query(
-      "SELECT id FROM lineops_users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL LIMIT 1",
-      [email]
+      "SELECT id FROM lineops_users WHERE LOWER(email) = ANY($1::text[]) AND deleted_at IS NULL LIMIT 1",
+      [unifiedAccountCandidates(rawEmail)]
     );
     if (existingResult.rows.length) {
       return res.status(409).json({ error: "An account already exists for this email." });
@@ -1457,6 +1813,21 @@ app.post("/api/lineops/auth/signup", async (req, res) => {
       [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), user.id]
     );
     const savedUser = updateResult.rows[0];
+    await upsertBeoflowClientAccount({
+      email: savedUser.email,
+      password,
+      businessName: savedUser.business_name,
+      fullName: savedUser.full_name,
+      businessType: savedUser.business_type
+    });
+    await syncAccountToFiltraCore({
+      email: savedUser.email,
+      password,
+      businessName: savedUser.business_name,
+      fullName: savedUser.full_name,
+      businessType: savedUser.business_type,
+      onboarding: workspace.onboarding
+    });
 
     res.status(201).json({
       ok: true,
@@ -1474,19 +1845,21 @@ app.post("/api/lineops/auth/login", async (req, res) => {
   try {
     requireDatabase();
 
-    const email = normalizeEmail(req.body.email);
+    const rawEmail = normalizeEmail(req.body.email || req.body.username);
+    const email = resolveUnifiedAccountIdentifier(rawEmail);
     const password = String(req.body.password || "");
 
-    if (!isValidEmail(email) || !password) {
-      return res.status(400).json({ error: "Email and password are required." });
+    if (!isValidLoginIdentifier(rawEmail) || !password) {
+      return res.status(400).json({ error: "Email or login and password are required." });
     }
 
     const result = await pool.query(
       `SELECT id, business_name, full_name, email, business_type, password_hash, onboarding_profile, workspace, created_at, updated_at
        FROM lineops_users
-       WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL
+       WHERE LOWER(email) = ANY($1::text[]) AND deleted_at IS NULL
+       ORDER BY CASE WHEN LOWER(email) = LOWER($2) THEN 0 ELSE 1 END
        LIMIT 1`,
-      [email]
+      [unifiedAccountCandidates(rawEmail), email]
     );
 
     if (!result.rows.length || !verifyLineOpsPassword(password, result.rows[0].password_hash)) {
@@ -1509,7 +1882,7 @@ app.post("/api/lineops/auth/login", async (req, res) => {
 });
 
 app.post("/api/lineops/auth/password-reset", async (req, res) => {
-  const email = normalizeEmail(req.body.email);
+  const email = resolveUnifiedAccountIdentifier(req.body.email);
   if (!isValidEmail(email)) {
     return res.status(400).json({ error: "Enter a valid business email." });
   }
@@ -1706,10 +2079,24 @@ app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
         existingUser.id
       ]
     );
+    const updatedUser = updateResult.rows[0];
+    await upsertBeoflowClientAccount({
+      email: updatedUser.email,
+      businessName: updatedUser.business_name,
+      fullName: updatedUser.full_name,
+      businessType: updatedUser.business_type
+    }, { skipIfMissingPassword: true });
+    await syncAccountToFiltraCore({
+      email: updatedUser.email,
+      businessName: updatedUser.business_name,
+      fullName: updatedUser.full_name,
+      businessType: updatedUser.business_type,
+      onboarding
+    });
 
     res.json({
       ok: true,
-      user: serializeLineOpsAdminUser(updateResult.rows[0]),
+      user: serializeLineOpsAdminUser(updatedUser),
       workspace
     });
   } catch (error) {
