@@ -3485,6 +3485,38 @@ body.modal-open {
   background: var(--lineops-background);
 }
 
+.lineops-daily-section {
+  margin-top: 22px;
+  padding: 16px;
+  border: 1px solid var(--lineops-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.lineops-subsection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--lineops-border);
+}
+
+.lineops-subsection-header h3 {
+  color: var(--lineops-ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.lineops-subsection-header p {
+  color: var(--lineops-muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .shift-readiness-board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4250,6 +4282,11 @@ body.modal-open {
 
   .lineops-compact-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lineops-subsection-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .shift-day-toolbar {
