@@ -644,6 +644,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const clearResolvedFeedbackBtn = document.getElementById("clear-resolved-feedback-btn");
   const printReportBtn = document.getElementById("print-report-btn");
   const addStaffBtn = document.getElementById("add-staff-btn");
+  const addScheduleRowBtn = document.getElementById("add-schedule-row-btn");
+  const loadReferenceScheduleBtn = document.getElementById("load-reference-schedule-btn");
   const importScheduleBtn = document.getElementById("import-schedule-btn");
   const autoAssignStationsBtn = document.getElementById("auto-assign-stations-btn");
   const resetOriginalStationsBtn = document.getElementById("reset-original-stations-btn");
@@ -655,6 +657,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
+  const scheduleEditorTable = document.getElementById("schedule-editor-table");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
   const openWeekViewBtn = document.getElementById("open-week-view-btn");
   const closeWeekViewBtn = document.getElementById("close-week-view-btn");
@@ -4965,6 +4968,9 @@ ${staffSuggestion}
   const fixedMorningStaffNames = new Set(["eduardo", "lila"]);
   const fixedLateNightStaffNames = new Set(["manuel", "david"]);
   const shiftHandoffWindowMinutes = 60;
+  const PTS_REFERENCE_SCHEDULE_SEED_KEY = "beoflow_pts_reference_schedule_seeded";
+  const PTS_REFERENCE_SCHEDULE_VERSION = "2026-05-11-v1";
+  const PTS_REFERENCE_SHEET_LABEL = "PTS reference sheet 5/11/2026";
   const shiftDays = [
     { key: "mon", label: "Mon" },
     { key: "tue", label: "Tue" },
@@ -4973,6 +4979,23 @@ ${staffSuggestion}
     { key: "fri", label: "Fri" },
     { key: "sat", label: "Sat" },
     { key: "sun", label: "Sun" }
+  ];
+  const ptsReferenceScheduleRows = [
+    { name: "EDUARDO", shifts: { tue: ["06:00", "14:00"], wed: ["06:00", "14:00"], thu: ["06:00", "14:00"], fri: ["06:00", "14:00"], sat: ["06:00", "14:00"] } },
+    { name: "RUSTY", shifts: { wed: ["06:00", "14:00"], thu: ["06:00", "14:00"], fri: ["06:00", "14:00"], sat: ["06:00", "14:00"], sun: ["06:00", "14:00"] } },
+    { name: "ROBERT", shifts: { mon: ["08:00", "16:00"], tue: ["08:00", "16:00"], fri: ["08:00", "16:00"], sat: ["08:00", "16:00"], sun: ["08:00", "16:00"] } },
+    { name: "BRYAN", shifts: { mon: ["08:00", "16:00"], tue: ["08:00", "16:00"], fri: ["12:00", "20:00"], sat: ["11:00", "19:00"], sun: ["11:00", "19:00"] } },
+    { name: "LILA", shifts: { mon: ["08:00", "16:00"], thu: ["08:00", "16:00"], fri: ["08:00", "16:00"], sat: ["08:00", "16:00"], sun: ["07:00", "15:00"] } },
+    { name: "RANDY", shifts: { fri: ["14:00", "22:00"], sat: ["14:00", "22:00"], sun: ["14:00", "22:00"] } },
+    { name: "JERONIMO", shifts: { wed: ["14:30", "22:30"], thu: ["14:30", "22:30"], fri: ["14:00", "22:00"], sat: ["11:00", "19:00"], sun: ["11:00", "19:00"] } },
+    { name: "JUAN", shifts: { fri: ["16:30", "00:30"], sat: ["16:30", "00:30"], sun: ["14:00", "22:00"] } },
+    { name: "JUAN H", shifts: { mon: ["14:30", "22:30"], tue: ["14:30", "22:30"], fri: ["16:30", "00:30"], sat: ["16:30", "00:30"], sun: ["14:30", "22:30"] } },
+    { name: "CARLOS", shifts: { mon: ["14:30", "22:30"], tue: ["14:30", "22:30"], wed: ["14:30", "22:30"], sat: ["16:30", "00:30"], sun: ["14:00", "22:00"] } },
+    { name: "AARON", shifts: { wed: ["14:30", "22:30"], thu: ["14:30", "22:30"], fri: ["16:30", "00:30"], sat: ["12:00", "20:00"], sun: ["12:00", "20:00"] } },
+    { name: "DAVID", shifts: { wed: ["18:30", "02:30"], thu: ["18:30", "02:30"], fri: ["19:00", "03:00"], sat: ["19:00", "03:00"], sun: ["19:00", "03:00"] } },
+    { name: "ADRIANA", shifts: { mon: ["14:30", "22:30"], thu: ["14:30", "22:30"], fri: ["16:30", "00:30"], sat: ["16:30", "00:30"] } },
+    { name: "MANUEL", shifts: { mon: ["19:00", "03:00"], tue: ["19:00", "03:00"], fri: ["22:00", "06:00"], sat: ["22:00", "06:00"], sun: ["19:00", "03:00"] } },
+    { name: "Ivan", shifts: { mon: ["14:30", "22:30"], tue: ["14:30", "22:30"], fri: ["16:30", "00:30"], sat: ["16:30", "00:30"], sun: ["14:30", "22:30"] } }
   ];
   let activeShiftDay = "mon";
 
@@ -5247,6 +5270,204 @@ ${staffSuggestion}
       items[day.key] = { ...(assignments[day.key] || {}) };
       return items;
     }, {});
+
+  const buildBlankWeekAssignments = () =>
+    shiftDays.reduce((items, day) => {
+      items[day.key] = { station: "", shiftStart: "", shiftEnd: "", off: true };
+      return items;
+    }, {});
+
+  const getNormalizedWeekAssignments = (person = {}) =>
+    shiftDays.reduce((items, day) => {
+      const hasAssignments = person.assignments && typeof person.assignments === "object";
+      const assignment = hasAssignments
+        ? getPersonDayAssignment(person, day.key)
+        : day.key === activeShiftDay
+          ? {
+              station: person.station || person.originalStation || UNASSIGNED_STATION,
+              shiftStart: person.shiftStart || "",
+              shiftEnd: person.shiftEnd || "",
+              off: false
+            }
+          : { station: "", shiftStart: "", shiftEnd: "", off: true };
+      const shiftStart = assignment.shiftStart || "";
+      const shiftEnd = assignment.shiftEnd || "";
+      const isOff = Boolean(assignment.off) || Boolean(assignment.absent) || !shiftStart || !shiftEnd;
+
+      items[day.key] = {
+        station: isOff ? assignment.station || "" : assignment.station || person.station || person.originalStation || UNASSIGNED_STATION,
+        shiftStart,
+        shiftEnd,
+        off: isOff,
+        absent: Boolean(assignment.absent),
+        substituteFor: assignment.substituteFor || "",
+        replacedBy: assignment.replacedBy || ""
+      };
+      return items;
+    }, {});
+
+  const getFirstWorkingAssignment = (assignments = {}) =>
+    shiftDays.map((day) => assignments[day.key]).find(isAssignmentWorking) || null;
+
+  const buildPtsReferenceAssignments = (shifts = {}) =>
+    shiftDays.reduce((items, day) => {
+      const range = shifts[day.key] || [];
+      const shiftStart = range[0] || "";
+      const shiftEnd = range[1] || "";
+      const isWorking = Boolean(shiftStart && shiftEnd);
+
+      items[day.key] = {
+        station: isWorking ? UNASSIGNED_STATION : "",
+        shiftStart,
+        shiftEnd,
+        off: !isWorking
+      };
+      return items;
+    }, {});
+
+  const buildPtsReferenceStaff = () =>
+    ptsReferenceScheduleRows.map((row) => {
+      const assignments = buildPtsReferenceAssignments(row.shifts);
+      const firstWorkingAssignment = getFirstWorkingAssignment(assignments);
+      const employeeKey = normalizeStaffName(row.name).replace(/[^a-z0-9]+/g, "-");
+
+      return {
+        id: `pts-reference-${employeeKey}`,
+        name: row.name,
+        role: "Line Cook",
+        station: firstWorkingAssignment?.station || UNASSIGNED_STATION,
+        originalStation: UNASSIGNED_STATION,
+        shiftStart: firstWorkingAssignment?.shiftStart || "",
+        shiftEnd: firstWorkingAssignment?.shiftEnd || "",
+        assignments,
+        originalAssignments: cloneShiftAssignments(assignments),
+        sourceLabel: PTS_REFERENCE_SHEET_LABEL
+      };
+    });
+
+  const shouldSeedPtsReferenceSchedule = () =>
+    isRestaurantSelectionClient
+    || currentClientCodeKey.includes("pts")
+    || selectedRestaurantName.toLowerCase().includes("pts");
+
+  const hasPtsReferenceSchedule = (staff = getStaff()) =>
+    staff.some((person) => person.sourceLabel === PTS_REFERENCE_SHEET_LABEL);
+
+  const loadPtsReferenceSchedule = (options = {}) => {
+    const currentStaff = getStaff();
+    if (currentStaff.length && options.confirm !== false) {
+      const shouldReplace = window.confirm("Replace the current weekly table with the PTS reference sheet?");
+      if (!shouldReplace) return false;
+    }
+
+    localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
+    saveStaff(buildPtsReferenceStaff());
+    renderStaff();
+    setScheduleImportStatus("PTS reference sheet loaded with the saved names and week layout.", "success");
+    return true;
+  };
+
+  const seedPtsReferenceScheduleIfNeeded = () => {
+    if (!shouldSeedPtsReferenceSchedule()) return false;
+    if (localStorage.getItem(PTS_REFERENCE_SCHEDULE_SEED_KEY) === PTS_REFERENCE_SCHEDULE_VERSION) return false;
+    if (hasPtsReferenceSchedule()) {
+      localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
+      return false;
+    }
+
+    localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
+    saveStaff(buildPtsReferenceStaff());
+    setScheduleImportStatus("PTS reference sheet is ready. Use it as the base for rotation.", "success");
+    return true;
+  };
+
+  const syncPersonFromAssignments = (person = {}, assignments = {}) => {
+    const firstWorkingAssignment = getFirstWorkingAssignment(assignments);
+
+    return {
+      ...person,
+      station: firstWorkingAssignment?.station || person.station || person.originalStation || UNASSIGNED_STATION,
+      shiftStart: firstWorkingAssignment?.shiftStart || "",
+      shiftEnd: firstWorkingAssignment?.shiftEnd || "",
+      assignments
+    };
+  };
+
+  const renderScheduleEditor = () => {
+    if (!scheduleEditorTable) return;
+
+    const staff = getStaff();
+    if (!staff.length) {
+      scheduleEditorTable.innerHTML = `
+        <div class="schedule-editor-empty">
+          Add a row or upload a photo to build the saved weekly schedule.
+        </div>
+      `;
+      return;
+    }
+
+    const dayHeaders = shiftDays
+      .map((day) => `<th scope="col">${escapeHtml(day.label)}</th>`)
+      .join("");
+
+    const rows = staff
+      .map((person) => {
+        const personId = escapeHtml(person.id);
+        const assignments = getNormalizedWeekAssignments(person);
+        const dayCells = shiftDays
+          .map((day) => {
+            const assignment = assignments[day.key] || {};
+            const isOff = Boolean(assignment.off) || !assignment.shiftStart || !assignment.shiftEnd;
+            const dayLabel = escapeHtml(day.label);
+            const personName = escapeHtml(person.name || "this employee");
+
+            return `
+              <td class="schedule-editor-day-cell ${isOff ? "is-off" : "is-working"}">
+                <label class="schedule-off-toggle">
+                  <input type="checkbox" data-schedule-off="${personId}" data-schedule-day="${escapeHtml(day.key)}" ${isOff ? "checked" : ""} />
+                  <span>Off</span>
+                </label>
+                <div class="schedule-editor-times">
+                  <label>
+                    <span>In</span>
+                    <input type="time" data-schedule-time="${personId}" data-schedule-day="${escapeHtml(day.key)}" data-schedule-field="shiftStart" value="${escapeHtml(assignment.shiftStart || "")}" aria-label="${dayLabel} in time for ${personName}" />
+                  </label>
+                  <label>
+                    <span>Out</span>
+                    <input type="time" data-schedule-time="${personId}" data-schedule-day="${escapeHtml(day.key)}" data-schedule-field="shiftEnd" value="${escapeHtml(assignment.shiftEnd || "")}" aria-label="${dayLabel} out time for ${personName}" />
+                  </label>
+                </div>
+              </td>
+            `;
+          })
+          .join("");
+
+        return `
+          <tr>
+            <th scope="row" class="schedule-editor-person-cell">
+              <input type="text" data-schedule-name="${personId}" value="${escapeHtml(person.name || "")}" placeholder="Employee name" aria-label="Employee name" />
+              <button type="button" class="secondary-btn schedule-remove-row-btn" data-schedule-delete-row="${personId}">Remove</button>
+            </th>
+            ${dayCells}
+          </tr>
+        `;
+      })
+      .join("");
+
+    scheduleEditorTable.innerHTML = `
+      <div class="schedule-editor-scroll">
+        <table class="schedule-editor-grid">
+          <thead>
+            <tr>
+              <th scope="col">Employee</th>
+              ${dayHeaders}
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  };
 
   const getHandoffKey = (station, outgoingId, incomingId, dayKey = activeShiftDay) =>
     `${dayKey}|${station}|${outgoingId}|${incomingId}`;
@@ -5986,6 +6207,8 @@ ${staffSuggestion}
   };
 
   const renderStaff = () => {
+    seedPtsReferenceScheduleIfNeeded();
+
     const allStaff = getStaff();
     const staff = getStaffForDay(allStaff);
     const offStaff = getOffStaffForDay();
@@ -5996,6 +6219,7 @@ ${staffSuggestion}
     const smartBreaks = getSmartBreaks(staff);
 
     renderShiftDayCounts();
+    renderScheduleEditor();
     if (shiftWeekModal && !shiftWeekModal.hidden) renderWeeklySchedule();
     if (shiftKpiEmployees) shiftKpiEmployees.textContent = staff.length;
     if (shiftKpiReady) shiftKpiReady.textContent = assignedCount;
@@ -6266,6 +6490,106 @@ ${staffSuggestion}
     scheduleImportStatus.hidden = !message;
   };
 
+  const updateScheduleName = (staffId, name, options = {}) => {
+    const updatedStaff = getStaff().map((person) =>
+      String(person.id) === String(staffId)
+        ? { ...person, name: String(name || "").trim() }
+        : person
+    );
+
+    saveStaff(updatedStaff);
+    if (options.render !== false) renderStaff();
+    setScheduleImportStatus("Weekly table saved.", "success");
+  };
+
+  const updateScheduleDayTime = (staffId, dayKey, field, value) => {
+    const normalizedDay = normalizeShiftDayKey(dayKey);
+    if (!normalizedDay || !["shiftStart", "shiftEnd"].includes(field)) return;
+
+    const updatedStaff = getStaff().map((person) => {
+      if (String(person.id) !== String(staffId)) return person;
+
+      const assignments = getNormalizedWeekAssignments(person);
+      const currentAssignment = assignments[normalizedDay] || { station: "", shiftStart: "", shiftEnd: "", off: true };
+      const nextAssignment = {
+        ...currentAssignment,
+        [field]: value,
+        absent: false,
+        replacedBy: ""
+      };
+      const hasCompleteShift = Boolean(nextAssignment.shiftStart && nextAssignment.shiftEnd);
+
+      nextAssignment.off = !hasCompleteShift;
+      if (hasCompleteShift && !nextAssignment.station) {
+        nextAssignment.station = person.station || person.originalStation || UNASSIGNED_STATION;
+      }
+
+      assignments[normalizedDay] = nextAssignment;
+      return syncPersonFromAssignments(person, assignments);
+    });
+
+    saveStaff(updatedStaff);
+    renderStaff();
+    setScheduleImportStatus(`${getShiftDayLabel(normalizedDay)} time saved in the weekly table.`, "success");
+  };
+
+  const updateScheduleDayOff = (staffId, dayKey, isOff) => {
+    const normalizedDay = normalizeShiftDayKey(dayKey);
+    if (!normalizedDay) return;
+
+    const updatedStaff = getStaff().map((person) => {
+      if (String(person.id) !== String(staffId)) return person;
+
+      const assignments = getNormalizedWeekAssignments(person);
+      const currentAssignment = assignments[normalizedDay] || { station: "", shiftStart: "", shiftEnd: "", off: true };
+      assignments[normalizedDay] = isOff
+        ? {
+            ...currentAssignment,
+            shiftStart: "",
+            shiftEnd: "",
+            off: true,
+            absent: false,
+            replacedBy: ""
+          }
+        : {
+            ...currentAssignment,
+            station: currentAssignment.station || person.station || person.originalStation || UNASSIGNED_STATION,
+            off: false,
+            absent: false,
+            replacedBy: ""
+          };
+
+      return syncPersonFromAssignments(person, assignments);
+    });
+
+    saveStaff(updatedStaff);
+    renderStaff();
+    setScheduleImportStatus(`${getShiftDayLabel(normalizedDay)} ${isOff ? "off day" : "row"} saved in the weekly table.`, "success");
+  };
+
+  const addScheduleRow = () => {
+    const assignments = buildBlankWeekAssignments();
+    const row = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      name: "",
+      role: "Line Cook",
+      station: UNASSIGNED_STATION,
+      originalStation: UNASSIGNED_STATION,
+      shiftStart: "",
+      shiftEnd: "",
+      assignments,
+      originalAssignments: cloneShiftAssignments(assignments),
+      sourceLabel: "Manual schedule"
+    };
+
+    saveStaff([...getStaff(), row]);
+    renderStaff();
+    setScheduleImportStatus("Blank row added. Add the name and times, then it will stay saved.", "success");
+    requestAnimationFrame(() => {
+      scheduleEditorTable?.querySelector(`[data-schedule-name="${row.id}"]`)?.focus();
+    });
+  };
+
   const normalizeImportedEmployee = (employee = {}) => {
     const name = String(employee.name || "").trim();
     if (!name) return null;
@@ -6342,7 +6666,7 @@ ${staffSuggestion}
       renderStaff();
 
       const notes = Array.isArray(result.notes) && result.notes.length ? ` ${result.notes.slice(0, 2).join(" ")}` : "";
-      setScheduleImportStatus(`Schedule saved with ${importedStaff.length} employees. Imported times were kept. Station mix was not applied.${notes}`, "success");
+      setScheduleImportStatus(`Photo loaded ${importedStaff.length} rows into the weekly table. Review and correct the saved table before assigning stations.${notes}`, "success");
     } catch (error) {
       console.error(error);
       const message = error instanceof TypeError && error.message === "Failed to fetch"
@@ -6505,6 +6829,7 @@ ${staffSuggestion}
   };
 
   const clearShiftReadiness = () => {
+    localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
     saveStaff([]);
     renderStaff();
     setScheduleImportStatus("LineOps table cleared.", "success");
@@ -7192,6 +7517,65 @@ ${staffSuggestion}
 
   if (addStaffBtn) {
     addStaffBtn.addEventListener("click", addStaff);
+  }
+
+  if (addScheduleRowBtn) {
+    addScheduleRowBtn.addEventListener("click", addScheduleRow);
+  }
+
+  if (loadReferenceScheduleBtn) {
+    loadReferenceScheduleBtn.addEventListener("click", () => {
+      loadPtsReferenceSchedule();
+    });
+  }
+
+  if (scheduleEditorTable) {
+    scheduleEditorTable.addEventListener("input", (e) => {
+      const nameInput = e.target.closest("[data-schedule-name]");
+      if (!nameInput) return;
+
+      updateScheduleName(nameInput.dataset.scheduleName, nameInput.value, { render: false });
+    });
+
+    scheduleEditorTable.addEventListener("change", (e) => {
+      const nameInput = e.target.closest("[data-schedule-name]");
+      if (nameInput) {
+        updateScheduleName(nameInput.dataset.scheduleName, nameInput.value);
+        return;
+      }
+
+      const timeInput = e.target.closest("[data-schedule-time]");
+      if (timeInput) {
+        updateScheduleDayTime(
+          timeInput.dataset.scheduleTime,
+          timeInput.dataset.scheduleDay,
+          timeInput.dataset.scheduleField,
+          timeInput.value
+        );
+        return;
+      }
+
+      const offInput = e.target.closest("[data-schedule-off]");
+      if (!offInput) return;
+
+      updateScheduleDayOff(offInput.dataset.scheduleOff, offInput.dataset.scheduleDay, offInput.checked);
+    });
+
+    scheduleEditorTable.addEventListener("keydown", (e) => {
+      const nameInput = e.target.closest("[data-schedule-name]");
+      if (!nameInput || e.key !== "Enter") return;
+
+      e.preventDefault();
+      nameInput.blur();
+    });
+
+    scheduleEditorTable.addEventListener("click", (e) => {
+      const deleteButton = e.target.closest("[data-schedule-delete-row]");
+      if (!deleteButton) return;
+
+      deleteStaff(deleteButton.dataset.scheduleDeleteRow);
+      setScheduleImportStatus("Schedule row removed.", "success");
+    });
   }
 
   shiftDayTabs.forEach((tab) => {

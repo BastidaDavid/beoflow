@@ -1260,7 +1260,7 @@
         <div class="shift-import-panel">
           <div>
             <h3>My schedule</h3>
-            <p>Upload a photo of the printed schedule to build the full week.</p>
+            <p>Upload a photo as a draft, then correct and save the weekly table below.</p>
           </div>
           <div class="shift-import-actions">
             <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
@@ -1271,6 +1271,20 @@
             <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear</button>
           </div>
           <div id="schedule-import-status" class="schedule-import-status" role="status" hidden></div>
+        </div>
+
+        <div class="shift-schedule-editor-panel">
+          <div class="shift-schedule-editor-header">
+            <div>
+              <h3>Weekly table</h3>
+              <p>This is the saved schedule. Edit names, days, and times here before assigning stations.</p>
+            </div>
+            <div class="shift-schedule-editor-actions">
+              <button type="button" id="load-reference-schedule-btn" class="secondary-btn">Load PTS sheet</button>
+              <button type="button" id="add-schedule-row-btn" class="secondary-btn">Add row</button>
+            </div>
+          </div>
+          <div id="schedule-editor-table" class="schedule-editor-table"></div>
         </div>
 
         <div id="shift-week-modal" class="shift-week-modal" hidden>
