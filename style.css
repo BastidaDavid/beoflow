@@ -2895,186 +2895,65 @@ body.modal-open {
   align-items: end;
 }
 
-.lineops-command-center {
+.lineops-simple-panel {
   display: grid;
-  gap: 14px;
-  margin-bottom: 22px;
-  padding: 14px;
-  border: 1px solid var(--lineops-border);
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.lineops-command-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-}
-
-.lineops-eyebrow {
-  color: var(--lineops-blue);
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.lineops-command-header h3 {
-  margin-top: 4px;
-  font-family: var(--font-display);
-  color: var(--lineops-ink);
-  font-size: 1.08rem;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.lineops-command-header p {
-  margin-top: 4px;
-  color: var(--lineops-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
-
-.lineops-action-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.25fr) repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.lineops-action-card {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid var(--lineops-border);
-  border-radius: 8px;
-  background: var(--lineops-background);
-}
-
-.lineops-action-card.schedule {
-  align-content: stretch;
-  background: #f8fbff;
-}
-
-.lineops-action-card.rotation {
-  background: #f0fdf4;
-}
-
-.lineops-action-card.output {
-  background: #fffdf4;
-}
-
-.lineops-action-title {
-  display: flex;
   gap: 10px;
-  align-items: flex-start;
-  min-width: 0;
+  margin-bottom: 18px;
 }
 
-.lineops-step-badge {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: var(--lineops-night);
-  color: #ffffff;
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  font-weight: 900;
-}
-
-.lineops-action-title h4 {
-  color: var(--lineops-ink);
-  font-family: var(--font-display);
-  font-size: 0.98rem;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.lineops-action-title p {
-  margin-top: 4px;
-  color: var(--lineops-muted);
-  font-size: 0.84rem;
-  line-height: 1.42;
-}
-
-.lineops-action-buttons {
+.lineops-simple-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 8px;
 }
 
-.lineops-action-buttons .primary-btn,
-.lineops-action-buttons .secondary-btn {
+.lineops-simple-actions .primary-btn,
+.lineops-simple-actions .secondary-btn {
+  min-height: 42px;
   border-radius: 8px;
   box-shadow: none;
 }
 
-.lineops-action-buttons .primary-btn {
+.lineops-simple-actions .primary-btn {
   background: var(--lineops-green);
   border-color: var(--lineops-green);
 }
 
-.lineops-status-kpis {
+.lineops-simple-status {
   display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--lineops-border);
+  align-items: stretch;
 }
 
-.lineops-status-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-}
-
-.lineops-status-heading h4 {
-  color: var(--lineops-ink);
-  font-family: var(--font-display);
-  font-size: 0.92rem;
-  font-weight: 900;
-  letter-spacing: 0;
-}
-
-.lineops-status-heading p {
-  color: var(--lineops-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.lineops-command-center .shift-kpi-grid {
-  gap: 10px;
+.lineops-simple-summary,
+.lineops-compact-kpis {
   margin-bottom: 0;
 }
 
-.lineops-board-intro {
-  margin: 22px 0 12px;
-  padding: 14px;
-  border: 1px solid var(--lineops-border);
-  border-radius: 8px;
-  background: #ffffff;
+.lineops-simple-summary {
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
 
-.lineops-board-intro h3 {
-  margin-top: 4px;
-  color: var(--lineops-ink);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 900;
-  letter-spacing: 0;
+.lineops-simple-summary > div,
+.lineops-compact-kpis .shift-kpi-card {
+  padding: 9px 10px;
 }
 
-.lineops-board-intro p {
+.lineops-simple-summary strong,
+.lineops-compact-kpis .shift-kpi-card span {
+  font-size: 1.05rem;
+}
+
+.lineops-simple-summary span,
+.lineops-compact-kpis .shift-kpi-card small {
   margin-top: 4px;
-  color: var(--lineops-muted);
-  font-size: 0.9rem;
-  line-height: 1.45;
+  font-size: 0.74rem;
+}
+
+.lineops-compact-kpis {
+  gap: 8px;
 }
 
 .shift-import-panel {
@@ -4295,10 +4174,6 @@ body.modal-open {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lineops-action-grid {
-    grid-template-columns: 1fr;
-  }
-
   .shift-import-panel {
     grid-template-columns: 1fr;
   }
@@ -4332,23 +4207,27 @@ body.modal-open {
   }
 
   .shift-kpi-grid,
-  .lineops-action-grid,
   .shift-readiness-form,
   .shift-readiness-board {
     grid-template-columns: 1fr;
   }
 
-  .lineops-command-header,
-  .lineops-action-title,
-  .lineops-action-buttons,
-  .lineops-status-heading {
-    align-items: stretch;
-    flex-direction: column;
+  .lineops-simple-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lineops-action-buttons .primary-btn,
-  .lineops-action-buttons .secondary-btn {
+  .lineops-simple-actions .primary-btn,
+  .lineops-simple-actions .secondary-btn {
     width: 100%;
+  }
+
+  .lineops-simple-status {
+    grid-template-columns: 1fr;
+  }
+
+  .lineops-compact-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .shift-day-toolbar {
@@ -4379,15 +4258,15 @@ body.modal-open {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .lineops-action-card.schedule .schedule-editor-summary > div {
+  .lineops-simple-summary > div {
     padding: 9px;
   }
 
-  .lineops-action-card.schedule .schedule-editor-summary strong {
+  .lineops-simple-summary strong {
     font-size: 0.9rem;
   }
 
-  .lineops-action-card.schedule .schedule-editor-summary span {
+  .lineops-simple-summary span {
     font-size: 0.68rem;
   }
 

@@ -1220,11 +1220,6 @@
       </section>
 
       <section id="staff-section" class="table-section" hidden>
-        <div class="section-header">
-          <h2>LineOps</h2>
-          <p>Large shift rows for quick hour changes and clean printing.</p>
-        </div>
-
         <div class="shift-day-toolbar">
           <div class="shift-day-tabs" role="tablist" aria-label="Schedule day">
             <button type="button" class="shift-day-tab is-active" data-shift-day="mon">Mon</button>
@@ -1237,81 +1232,35 @@
           </div>
         </div>
 
-        <div class="lineops-command-center">
-          <div class="lineops-command-header">
-            <div>
-              <span class="lineops-eyebrow">Operate left to right</span>
-              <h3>LineOps Control Center</h3>
-              <p>Use the schedule as the reference, generate the station rotation, then view or print the result.</p>
-            </div>
+        <div class="lineops-simple-panel">
+          <div class="lineops-simple-actions">
+            <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
+            <button type="button" id="open-schedule-editor-btn" class="primary-btn">Weekly table</button>
+            <button type="button" id="auto-assign-stations-btn" class="primary-btn">Auto Assign</button>
+            <button type="button" id="import-schedule-btn" class="secondary-btn">Upload</button>
+            <button type="button" id="open-week-view-btn" class="secondary-btn">Week</button>
+            <button type="button" id="print-assignments-btn" class="secondary-btn print-assignments-btn">Print</button>
+            <button type="button" id="reset-original-stations-btn" class="secondary-btn">Reset</button>
+            <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear</button>
           </div>
-          <div class="lineops-action-grid">
-            <article class="lineops-action-card schedule">
-              <div class="lineops-action-title">
-                <span class="lineops-step-badge">1</span>
-                <div>
-                  <h4>Schedule reference</h4>
-                  <p>Open the saved PTS sheet or upload a photo draft, then correct the table before rotation.</p>
-                </div>
-              </div>
-              <div id="schedule-editor-summary" class="schedule-editor-summary"></div>
-              <div class="lineops-action-buttons">
-                <input type="file" id="scheduleImage" accept="image/png,image/jpeg,image/webp,image/gif,image/heic,image/heif,.heic,.heif" hidden />
-                <button type="button" id="open-schedule-editor-btn" class="primary-btn">Open weekly table</button>
-                <button type="button" id="import-schedule-btn" class="secondary-btn">Upload photo</button>
-              </div>
-            </article>
-
-            <article class="lineops-action-card rotation">
-              <div class="lineops-action-title">
-                <span class="lineops-step-badge">2</span>
-                <div>
-                  <h4>Station rotation</h4>
-                  <p>Assign the active day's employees to stations from the saved weekly table.</p>
-                </div>
-              </div>
-              <div class="lineops-action-buttons">
-                <button type="button" id="auto-assign-stations-btn" class="primary-btn">Auto Assign</button>
-                <button type="button" id="reset-original-stations-btn" class="secondary-btn">Reset stations</button>
-              </div>
-            </article>
-
-            <article class="lineops-action-card output">
-              <div class="lineops-action-title">
-                <span class="lineops-step-badge">3</span>
-                <div>
-                  <h4>Review and output</h4>
-                  <p>Open the week view, print the station sheet, or clear the table when starting over.</p>
-                </div>
-              </div>
-              <div class="lineops-action-buttons">
-                <button type="button" id="open-week-view-btn" class="secondary-btn">View week</button>
-                <button type="button" id="print-assignments-btn" class="secondary-btn print-assignments-btn">Print</button>
-                <button type="button" id="clear-shift-readiness-btn" class="secondary-btn clear-shift-table-btn">Clear</button>
-              </div>
-            </article>
-          </div>
-          <div class="lineops-status-kpis">
-            <div class="lineops-status-heading">
-              <h4>Selected day status</h4>
-              <p>Numbers update when you change the day tabs above.</p>
-            </div>
-            <div class="shift-kpi-grid" aria-label="Station assignment KPIs">
+          <div class="lineops-simple-status">
+            <div id="schedule-editor-summary" class="schedule-editor-summary lineops-simple-summary"></div>
+            <div class="shift-kpi-grid lineops-compact-kpis" aria-label="Station assignment KPIs">
               <div class="shift-kpi-card">
                 <span id="shift-kpi-employees">0</span>
                 <small>On shift</small>
               </div>
               <div class="shift-kpi-card assigned">
                 <span id="shift-kpi-ready">0</span>
-                <small>Assigned employees</small>
+                <small>Assigned</small>
               </div>
               <div class="shift-kpi-card unassigned">
                 <span id="shift-kpi-not-ready">0</span>
-                <small>Open stations</small>
+                <small>Open</small>
               </div>
               <div class="shift-kpi-card handoff">
                 <span id="shift-kpi-handoffs">0</span>
-                <small>Smart breaks</small>
+                <small>Breaks</small>
               </div>
             </div>
           </div>
@@ -1358,8 +1307,7 @@
 
         <div class="shift-preset-panel">
           <div>
-            <h3>Saved station setups</h3>
-            <p>Optional: save a station mix after Auto Assign and load it again for repeated shifts.</p>
+            <h3>Saved setups</h3>
           </div>
           <div class="shift-preset-save">
             <input type="text" id="assignmentPresetName" placeholder="Example: Friday PM line" />
@@ -1367,12 +1315,6 @@
             <button type="button" id="save-assignment-preset-btn" class="primary-btn">Save Current</button>
           </div>
           <div id="assignment-presets-list" class="assignment-presets-list"></div>
-        </div>
-
-        <div class="lineops-board-intro">
-          <span class="lineops-eyebrow">Daily board</span>
-          <h3>Manual changes for the selected day</h3>
-          <p>Add one-off employees or replacements here. The station columns below follow the active day tab.</p>
         </div>
 
         <div class="form-grid shift-readiness-form">

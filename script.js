@@ -5381,7 +5381,6 @@ ${staffSuggestion}
 
     localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
     saveStaff(buildPtsReferenceStaff());
-    setScheduleImportStatus("PTS reference sheet is ready. Use it as the base for rotation.", "success");
     return true;
   };
 
@@ -5405,26 +5404,14 @@ ${staffSuggestion}
       scheduleEditorSummary.innerHTML = staff.length
         ? `
           <div>
-            <strong>${staff.length}</strong>
-            <span>People</span>
-          </div>
-          <div>
-            <strong>${weekShiftCount}</strong>
-            <span>Shifts</span>
-          </div>
-          <div>
             <strong>PTS sheet</strong>
-            <span>Base</span>
+            <span>${staff.length} people / ${weekShiftCount} shifts</span>
           </div>
         `
         : `
           <div>
-            <strong>0</strong>
-            <span>rows saved</span>
-          </div>
-          <div>
-            <strong>Open</strong>
-            <span>the table to add the PTS sheet</span>
+            <strong>No sheet</strong>
+            <span>Open weekly table</span>
           </div>
         `;
     }
