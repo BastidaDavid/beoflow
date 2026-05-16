@@ -5406,15 +5406,15 @@ ${staffSuggestion}
         ? `
           <div>
             <strong>${staff.length}</strong>
-            <span>employees saved</span>
+            <span>People</span>
           </div>
           <div>
             <strong>${weekShiftCount}</strong>
-            <span>weekly shifts</span>
+            <span>Shifts</span>
           </div>
           <div>
-            <strong>${escapeHtml(PTS_REFERENCE_SHEET_LABEL)}</strong>
-            <span>reference layout</span>
+            <strong>PTS sheet</strong>
+            <span>Base</span>
           </div>
         `
         : `
