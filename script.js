@@ -646,6 +646,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addStaffBtn = document.getElementById("add-staff-btn");
   const addScheduleRowBtn = document.getElementById("add-schedule-row-btn");
   const loadReferenceScheduleBtn = document.getElementById("load-reference-schedule-btn");
+  const openScheduleEditorBtn = document.getElementById("open-schedule-editor-btn");
+  const closeScheduleEditorBtn = document.getElementById("close-schedule-editor-btn");
   const importScheduleBtn = document.getElementById("import-schedule-btn");
   const autoAssignStationsBtn = document.getElementById("auto-assign-stations-btn");
   const resetOriginalStationsBtn = document.getElementById("reset-original-stations-btn");
@@ -657,6 +659,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
   const scheduleImageInput = document.getElementById("scheduleImage");
   const scheduleImportStatus = document.getElementById("schedule-import-status");
+  const scheduleEditorModal = document.getElementById("schedule-editor-modal");
+  const scheduleEditorSummary = document.getElementById("schedule-editor-summary");
   const scheduleEditorTable = document.getElementById("schedule-editor-table");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
   const openWeekViewBtn = document.getElementById("open-week-view-btn");
@@ -5394,9 +5398,39 @@ ${staffSuggestion}
   };
 
   const renderScheduleEditor = () => {
+    const staff = getStaff();
+    const weekShiftCount = shiftDays.reduce((total, day) => total + getStaffForDay(staff, day.key).length, 0);
+
+    if (scheduleEditorSummary) {
+      scheduleEditorSummary.innerHTML = staff.length
+        ? `
+          <div>
+            <strong>${staff.length}</strong>
+            <span>employees saved</span>
+          </div>
+          <div>
+            <strong>${weekShiftCount}</strong>
+            <span>weekly shifts</span>
+          </div>
+          <div>
+            <strong>${escapeHtml(PTS_REFERENCE_SHEET_LABEL)}</strong>
+            <span>reference layout</span>
+          </div>
+        `
+        : `
+          <div>
+            <strong>0</strong>
+            <span>rows saved</span>
+          </div>
+          <div>
+            <strong>Open</strong>
+            <span>the table to add the PTS sheet</span>
+          </div>
+        `;
+    }
+
     if (!scheduleEditorTable) return;
 
-    const staff = getStaff();
     if (!staff.length) {
       scheduleEditorTable.innerHTML = `
         <div class="schedule-editor-empty">
@@ -5898,6 +5932,26 @@ ${staffSuggestion}
 
     shiftWeekModal.hidden = true;
     document.body.classList.remove("modal-open");
+  };
+
+  const openScheduleEditor = () => {
+    if (!scheduleEditorModal) return;
+
+    renderScheduleEditor();
+    scheduleEditorModal.hidden = false;
+    document.body.classList.add("modal-open");
+    requestAnimationFrame(() => {
+      scheduleEditorModal.querySelector("[data-schedule-name], #load-reference-schedule-btn, #add-schedule-row-btn")?.focus();
+    });
+  };
+
+  const closeScheduleEditor = () => {
+    if (!scheduleEditorModal) return;
+
+    scheduleEditorModal.hidden = true;
+    if (!shiftWeekModal || shiftWeekModal.hidden) {
+      document.body.classList.remove("modal-open");
+    }
   };
 
   const printWeeklyScheduleView = () => {
@@ -7529,6 +7583,20 @@ ${staffSuggestion}
     });
   }
 
+  if (openScheduleEditorBtn) {
+    openScheduleEditorBtn.addEventListener("click", openScheduleEditor);
+  }
+
+  if (closeScheduleEditorBtn) {
+    closeScheduleEditorBtn.addEventListener("click", closeScheduleEditor);
+  }
+
+  if (scheduleEditorModal) {
+    scheduleEditorModal.addEventListener("click", (e) => {
+      if (e.target === scheduleEditorModal) closeScheduleEditor();
+    });
+  }
+
   if (scheduleEditorTable) {
     scheduleEditorTable.addEventListener("input", (e) => {
       const nameInput = e.target.closest("[data-schedule-name]");
@@ -7609,6 +7677,11 @@ ${staffSuggestion}
   }
 
   document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && scheduleEditorModal && !scheduleEditorModal.hidden) {
+      closeScheduleEditor();
+      return;
+    }
+
     if (e.key === "Escape" && shiftWeekModal && !shiftWeekModal.hidden) {
       closeWeeklyScheduleView();
     }

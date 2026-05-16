@@ -1277,14 +1277,30 @@
           <div class="shift-schedule-editor-header">
             <div>
               <h3>Weekly table</h3>
-              <p>This is the saved schedule. Edit names, days, and times here before assigning stations.</p>
+              <p>This saved PTS sheet is the reference for the rotation. Open it to edit names, days, and times.</p>
             </div>
             <div class="shift-schedule-editor-actions">
-              <button type="button" id="load-reference-schedule-btn" class="secondary-btn">Load PTS sheet</button>
-              <button type="button" id="add-schedule-row-btn" class="secondary-btn">Add row</button>
+              <button type="button" id="open-schedule-editor-btn" class="primary-btn">Open weekly table</button>
             </div>
           </div>
-          <div id="schedule-editor-table" class="schedule-editor-table"></div>
+          <div id="schedule-editor-summary" class="schedule-editor-summary"></div>
+        </div>
+
+        <div id="schedule-editor-modal" class="schedule-editor-modal" hidden>
+          <div class="schedule-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="schedule-editor-title">
+            <div class="schedule-editor-modal-header">
+              <div>
+                <h3 id="schedule-editor-title">PTS Weekly Table</h3>
+                <p>Saved schedule reference for station rotation. Edit this sheet, then run Auto Assign.</p>
+              </div>
+              <div class="schedule-editor-modal-actions">
+                <button type="button" id="load-reference-schedule-btn" class="secondary-btn">Load PTS sheet</button>
+                <button type="button" id="add-schedule-row-btn" class="secondary-btn">Add row</button>
+                <button type="button" id="close-schedule-editor-btn" class="secondary-btn icon-only-btn" aria-label="Close weekly table">x</button>
+              </div>
+            </div>
+            <div id="schedule-editor-table" class="schedule-editor-table"></div>
+          </div>
         </div>
 
         <div id="shift-week-modal" class="shift-week-modal" hidden>
