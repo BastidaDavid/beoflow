@@ -2388,6 +2388,22 @@ tbody tr:hover {
   border: 1px solid var(--lineops-border);
   border-radius: 8px;
   padding: 12px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.shift-kpi-card.kpi-action {
+  cursor: pointer;
+}
+
+.shift-kpi-card.kpi-action:hover {
+  transform: translateY(-1px);
+}
+
+.shift-kpi-card.kpi-action:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
 }
 
 .shift-kpi-card span {
@@ -3385,7 +3401,7 @@ body.modal-open {
 
 .shift-preset-save {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 160px minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) 160px auto;
   gap: 10px;
 }
 

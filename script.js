@@ -655,7 +655,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const clearShiftReadinessBtn = document.getElementById("clear-shift-readiness-btn");
   const assignmentPresetNameInput = document.getElementById("assignmentPresetName");
   const assignmentPresetDateInput = document.getElementById("assignmentPresetDate");
-  const assignmentPresetAppliesToInput = document.getElementById("assignmentPresetAppliesTo");
   const saveAssignmentPresetBtn = document.getElementById("save-assignment-preset-btn");
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
   const scheduleImageInput = document.getElementById("scheduleImage");
@@ -669,6 +668,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const closeWeekViewBtn = document.getElementById("close-week-view-btn");
   const printWeekViewBtn = document.getElementById("print-week-view-btn");
   const shiftWeekModal = document.getElementById("shift-week-modal");
+  const shiftWeekTitle = document.getElementById("shift-week-title");
+  const shiftWeekSubtitle = document.getElementById("shift-week-subtitle");
   const shiftWeekSchedule = document.getElementById("shift-week-schedule");
   const weekSizeActionButtons = Array.from(document.querySelectorAll("[data-week-size-action]"));
   const westgateModeButtons = Array.from(document.querySelectorAll("[data-westgate-mode]"));
@@ -797,6 +798,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const shiftKpiReady = document.getElementById("shift-kpi-ready");
   const shiftKpiNotReady = document.getElementById("shift-kpi-not-ready");
   const shiftKpiHandoffs = document.getElementById("shift-kpi-handoffs");
+  const openStationsKpi = document.getElementById("open-stations-kpi");
   const staffNameInput = document.getElementById("staffName");
   const staffRoleInput = document.getElementById("staffRole");
   const staffStationInput = document.getElementById("staffStation");
@@ -5200,6 +5202,25 @@ ${staffSuggestion}
     return orderedStations([...staffedStations, ...morningStations, ...variableAfternoonStations, ...lateNightStations]);
   };
 
+  const getOpenStationsForDay = (staff = getStaff(), dayKey = activeShiftDay) => {
+    const dayStaff = getStaffForDay(staff, dayKey);
+    return getVisibleStationsForDay(staff, dayKey).filter((station) =>
+      !dayStaff.some((person) => person.station === station)
+    );
+  };
+
+  const showOpenStationsForActiveDay = () => {
+    const openStations = getOpenStationsForDay(getStaff(), activeShiftDay);
+    const dayLabel = getShiftDayLabel(activeShiftDay);
+
+    if (!openStations.length) {
+      setScheduleImportStatus(`No open stations on ${dayLabel}. Every station has someone assigned.`, "success");
+      return;
+    }
+
+    setScheduleImportStatus(`Open stations on ${dayLabel}: ${openStations.join(", ")}.`, "info");
+  };
+
   const normalizeImportedTime = (rawValue = "") => {
     const trimmed = String(rawValue || "").trim();
     if (!trimmed) return "";
@@ -5761,6 +5782,7 @@ ${staffSuggestion}
     shiftStations.flatMap((station) => getStationCloseouts(staff, station));
 
   let activeWeekSize = "small";
+  let weeklySchedulePreviewPreset = null;
   const weekSizeOrder = ["small", "normal", "large"];
   const weekSizeLabels = {
     small: "1x",
@@ -5796,8 +5818,26 @@ ${staffSuggestion}
     });
   };
 
-  const buildWeeklyScheduleMarkup = () => {
-    const staff = getStaff();
+  const getWeeklyScheduleStaff = () =>
+    Array.isArray(weeklySchedulePreviewPreset?.staff) ? weeklySchedulePreviewPreset.staff : getStaff();
+
+  const updateWeeklyScheduleHeader = () => {
+    const isPreview = Boolean(weeklySchedulePreviewPreset);
+    if (shiftWeekTitle) {
+      shiftWeekTitle.textContent = isPreview
+        ? `Preview: ${weeklySchedulePreviewPreset.name || "Saved setup"}`
+        : "Full Week Schedule";
+    }
+    if (shiftWeekSubtitle) {
+      shiftWeekSubtitle.textContent = isPreview
+        ? `${getPresetSetupLabel(weeklySchedulePreviewPreset) || "Saved setup"} · Preview only`
+        : "Digital view of imported shifts, stations, substitutions, off days, and smart breaks.";
+    }
+    if (autoAssignWeekBtn) autoAssignWeekBtn.hidden = isPreview;
+  };
+
+  const buildWeeklyScheduleMarkup = (sourceStaff = getWeeklyScheduleStaff()) => {
+    const staff = sourceStaff;
 
     if (!staff.length) {
       return '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
@@ -5883,6 +5923,7 @@ ${staffSuggestion}
   const renderWeeklySchedule = () => {
     if (!shiftWeekSchedule) return;
 
+    updateWeeklyScheduleHeader();
     shiftWeekSchedule.dataset.weekSize = activeWeekSize;
     shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup();
   };
@@ -5910,6 +5951,7 @@ ${staffSuggestion}
   const openWeeklyScheduleView = () => {
     if (!shiftWeekModal) return;
 
+    weeklySchedulePreviewPreset = null;
     setWeeklyScheduleSize(activeWeekSize);
     renderWeeklySchedule();
     shiftWeekModal.hidden = false;
@@ -5920,7 +5962,25 @@ ${staffSuggestion}
     if (!shiftWeekModal) return;
 
     shiftWeekModal.hidden = true;
+    weeklySchedulePreviewPreset = null;
+    updateWeeklyScheduleHeader();
     document.body.classList.remove("modal-open");
+  };
+
+  const openAssignmentPresetPreview = (presetId) => {
+    if (!shiftWeekModal) return;
+
+    const preset = getAssignmentPresets().find((item) => item.id === presetId);
+    if (!preset || !Array.isArray(preset.staff)) return;
+
+    weeklySchedulePreviewPreset = {
+      ...preset,
+      staff: preset.staff.map((person) => ({ ...person }))
+    };
+    setWeeklyScheduleSize(activeWeekSize);
+    renderWeeklySchedule();
+    shiftWeekModal.hidden = false;
+    document.body.classList.add("modal-open");
   };
 
   const openScheduleEditor = () => {
@@ -5945,6 +6005,12 @@ ${staffSuggestion}
 
   const printWeeklyScheduleView = () => {
     document.getElementById("assignment-print-root")?.remove();
+    const printTitle = weeklySchedulePreviewPreset
+      ? `Preview: ${weeklySchedulePreviewPreset.name || "Saved setup"}`
+      : "Full Week Schedule";
+    const printSubtitle = weeklySchedulePreviewPreset
+      ? getPresetSetupLabel(weeklySchedulePreviewPreset) || "Saved setup"
+      : "BEOFlow LineOps · Bastida Systems";
 
     const printRoot = document.createElement("div");
     printRoot.id = "assignment-print-root";
@@ -5952,8 +6018,8 @@ ${staffSuggestion}
     printRoot.innerHTML = `
       <div class="shift-week-print-sheet">
         <header>
-          <h1>Full Week Schedule</h1>
-          <p>BEOFlow LineOps · Bastida Systems</p>
+          <h1>${escapeHtml(printTitle)}</h1>
+          <p>${escapeHtml(printSubtitle)}</p>
         </header>
         <div class="shift-week-schedule" data-week-size="small">
           ${buildWeeklyScheduleMarkup()}
@@ -6257,7 +6323,7 @@ ${staffSuggestion}
     const offStaff = getOffStaffForDay();
     const visibleStations = getVisibleStationsForDay(allStaff, activeShiftDay);
     const assignedCount = staff.filter((person) => shiftStations.includes(person.station)).length;
-    const openStationsCount = visibleStations.filter((station) => !staff.some((person) => person.station === station)).length;
+    const openStationsCount = getOpenStationsForDay(allStaff, activeShiftDay).length;
     const handoffs = getAllStationHandoffs(staff);
     const smartBreaks = getSmartBreaks(staff);
 
@@ -6697,9 +6763,6 @@ ${staffSuggestion}
   const getPresetSetupLabel = (preset = {}) =>
     formatSetupWeekLabel(preset.setupWeekStart || preset.setupDate || preset.weekStartDate || "");
 
-  const getPresetPrintLabel = (preset = {}) =>
-    [getPresetSetupLabel(preset), preset.appliesTo || ""].filter(Boolean).join(" · ");
-
   const setDefaultAssignmentPresetDate = () => {
     if (assignmentPresetDateInput && !assignmentPresetDateInput.value) {
       assignmentPresetDateInput.value = formatDateInputValue(new Date());
@@ -6936,8 +6999,7 @@ ${staffSuggestion}
         const setupLabel = getPresetSetupLabel(preset);
         const details = [
           setupLabel || createdAt,
-          `${Array.isArray(preset.staff) ? preset.staff.length : 0} employees`,
-          preset.appliesTo || ""
+          `${Array.isArray(preset.staff) ? preset.staff.length : 0} employees`
         ].filter(Boolean);
 
         return `
@@ -6947,6 +7009,7 @@ ${staffSuggestion}
               <p>${escapeHtml(details.join(" · "))}</p>
             </div>
             <div class="assignment-preset-actions">
+              <button type="button" class="secondary-btn" data-preview-preset="${escapeHtml(preset.id)}">Preview</button>
               <button type="button" class="secondary-btn" data-load-preset="${escapeHtml(preset.id)}">Load</button>
               <button type="button" class="secondary-btn" data-print-preset="${escapeHtml(preset.id)}">Print</button>
               <button type="button" class="secondary-btn preset-delete-btn" data-delete-preset="${escapeHtml(preset.id)}">Delete</button>
@@ -6968,20 +7031,17 @@ ${staffSuggestion}
     const name = assignmentPresetNameInput?.value.trim() || `Assignment ${presets.length + 1}`;
     const setupDate = assignmentPresetDateInput?.value || formatDateInputValue(new Date());
     const setupWeekStart = formatDateInputValue(getWeekStartDate(setupDate));
-    const appliesTo = assignmentPresetAppliesToInput?.value.trim() || "";
     const preset = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name,
       setupDate,
       setupWeekStart,
-      appliesTo,
       createdAt: new Date().toISOString(),
       staff: staff.map((person) => ({ ...person }))
     };
 
     saveAssignmentPresets([preset, ...presets]);
     if (assignmentPresetNameInput) assignmentPresetNameInput.value = "";
-    if (assignmentPresetAppliesToInput) assignmentPresetAppliesToInput.value = "";
     renderAssignmentPresets();
     const setupLabel = formatSetupWeekLabel(setupWeekStart);
     setScheduleImportStatus(`Saved assignment "${name}"${setupLabel ? ` for ${setupLabel}` : ""}.`, "success");
@@ -6993,7 +7053,7 @@ ${staffSuggestion}
 
     saveStaff(preset.staff.map((person) => ({ ...person })));
     renderStaff();
-    const setupLabel = getPresetPrintLabel(preset);
+    const setupLabel = getPresetSetupLabel(preset);
     setScheduleImportStatus(`Loaded assignment "${preset.name || "Saved assignment"}"${setupLabel ? ` for ${setupLabel}` : ""}.`, "success");
   };
 
@@ -7001,7 +7061,7 @@ ${staffSuggestion}
     const preset = getAssignmentPresets().find((item) => item.id === presetId);
     if (!preset || !Array.isArray(preset.staff)) return;
 
-    printAssignmentStaff(preset.staff, preset.name || "Saved assignment", getPresetPrintLabel(preset));
+    printAssignmentStaff(preset.staff, preset.name || "Saved assignment", getPresetSetupLabel(preset));
   };
 
   const deleteAssignmentPreset = (presetId) => {
@@ -7755,6 +7815,10 @@ ${staffSuggestion}
     autoAssignWeekBtn.addEventListener("click", autoAssignStaffStations);
   }
 
+  if (openStationsKpi) {
+    openStationsKpi.addEventListener("click", showOpenStationsForActiveDay);
+  }
+
   if (resetOriginalStationsBtn) {
     resetOriginalStationsBtn.addEventListener("click", resetOriginalStaffStations);
   }
@@ -7785,17 +7849,14 @@ ${staffSuggestion}
     });
   }
 
-  if (assignmentPresetAppliesToInput) {
-    assignmentPresetAppliesToInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        saveCurrentAssignmentPreset();
-      }
-    });
-  }
-
   if (assignmentPresetsList) {
     assignmentPresetsList.addEventListener("click", (e) => {
+      const previewButton = e.target.closest("[data-preview-preset]");
+      if (previewButton) {
+        openAssignmentPresetPreview(previewButton.dataset.previewPreset);
+        return;
+      }
+
       const loadButton = e.target.closest("[data-load-preset]");
       if (loadButton) {
         loadAssignmentPreset(loadButton.dataset.loadPreset);
