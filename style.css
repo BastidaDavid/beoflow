@@ -3487,7 +3487,7 @@ body.modal-open {
 
 .lineops-daily-section {
   margin-top: 22px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--lineops-border);
   border-radius: 8px;
   background: #ffffff;
@@ -3517,11 +3517,38 @@ body.modal-open {
   font-weight: 700;
 }
 
+.lineops-daily-section .shift-readiness-form {
+  grid-template-columns: minmax(180px, 1.1fr) minmax(150px, 0.75fr) minmax(170px, 1fr) minmax(145px, 0.7fr) minmax(145px, 0.7fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.lineops-daily-section .form-group {
+  gap: 7px;
+}
+
+.lineops-daily-section .form-group input,
+.lineops-daily-section .form-group select {
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.lineops-daily-actions {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
+
+.lineops-daily-actions .primary-btn {
+  min-width: 150px;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
 .shift-readiness-board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .shift-station-column {
@@ -4224,6 +4251,10 @@ body.modal-open {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .lineops-daily-section .shift-readiness-form {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .shift-readiness-board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4264,6 +4295,18 @@ body.modal-open {
   .shift-readiness-form,
   .shift-readiness-board {
     grid-template-columns: 1fr;
+  }
+
+  .lineops-daily-section {
+    padding: 14px;
+  }
+
+  .lineops-daily-section .shift-readiness-form {
+    grid-template-columns: 1fr;
+  }
+
+  .lineops-daily-actions .primary-btn {
+    width: 100%;
   }
 
   .lineops-simple-actions {
