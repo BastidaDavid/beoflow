@@ -2495,6 +2495,12 @@ body.modal-open {
   color: #ffffff;
 }
 
+.shift-week-header .primary-btn {
+  background: var(--lineops-green);
+  border-color: var(--lineops-green);
+  box-shadow: none;
+}
+
 .shift-week-actions {
   display: flex;
   flex-wrap: wrap;

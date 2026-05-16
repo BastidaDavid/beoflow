@@ -664,6 +664,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const scheduleEditorTable = document.getElementById("schedule-editor-table");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
   const openWeekViewBtn = document.getElementById("open-week-view-btn");
+  const autoAssignWeekBtn = document.getElementById("auto-assign-week-btn");
   const closeWeekViewBtn = document.getElementById("close-week-view-btn");
   const printWeekViewBtn = document.getElementById("print-week-view-btn");
   const shiftWeekModal = document.getElementById("shift-week-modal");
@@ -7695,6 +7696,10 @@ ${staffSuggestion}
 
   if (autoAssignStationsBtn) {
     autoAssignStationsBtn.addEventListener("click", autoAssignStaffStations);
+  }
+
+  if (autoAssignWeekBtn) {
+    autoAssignWeekBtn.addEventListener("click", autoAssignStaffStations);
   }
 
   if (resetOriginalStationsBtn) {
