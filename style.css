@@ -3358,7 +3358,7 @@ body.modal-open {
 
 .shift-preset-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.65fr);
+  grid-template-columns: 1fr;
   gap: 16px;
   align-items: start;
   margin-bottom: 22px;
@@ -3385,7 +3385,7 @@ body.modal-open {
 
 .shift-preset-save {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(180px, 1fr) 160px minmax(180px, 1fr) auto;
   gap: 10px;
 }
 

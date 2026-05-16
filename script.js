@@ -654,6 +654,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const printAssignmentsBtn = document.getElementById("print-assignments-btn");
   const clearShiftReadinessBtn = document.getElementById("clear-shift-readiness-btn");
   const assignmentPresetNameInput = document.getElementById("assignmentPresetName");
+  const assignmentPresetDateInput = document.getElementById("assignmentPresetDate");
   const assignmentPresetAppliesToInput = document.getElementById("assignmentPresetAppliesTo");
   const saveAssignmentPresetBtn = document.getElementById("save-assignment-preset-btn");
   const assignmentPresetsList = document.getElementById("assignment-presets-list");
@@ -6665,6 +6666,46 @@ ${staffSuggestion}
     return "image/jpeg";
   };
 
+  const formatDateInputValue = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseLocalDateInput = (value = "") => {
+    const [year, month, day] = String(value || "").split("-").map(Number);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+    const date = new Date(year, month - 1, day);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const getWeekStartDate = (value = "") => {
+    const date = parseLocalDateInput(value) || new Date();
+    const weekStart = new Date(date);
+    const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+    weekStart.setDate(weekStart.getDate() - daysSinceMonday);
+    return weekStart;
+  };
+
+  const formatSetupWeekLabel = (value = "") => {
+    if (!value) return "";
+    const weekStart = getWeekStartDate(value);
+    return `Week of ${weekStart.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`;
+  };
+
+  const getPresetSetupLabel = (preset = {}) =>
+    formatSetupWeekLabel(preset.setupWeekStart || preset.setupDate || preset.weekStartDate || "");
+
+  const getPresetPrintLabel = (preset = {}) =>
+    [getPresetSetupLabel(preset), preset.appliesTo || ""].filter(Boolean).join(" · ");
+
+  const setDefaultAssignmentPresetDate = () => {
+    if (assignmentPresetDateInput && !assignmentPresetDateInput.value) {
+      assignmentPresetDateInput.value = formatDateInputValue(new Date());
+    }
+  };
+
   const importScheduleImage = async (file) => {
     if (!file) return;
 
@@ -6892,12 +6933,18 @@ ${staffSuggestion}
         const createdAt = preset.createdAt
           ? new Date(preset.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })
           : "Saved";
+        const setupLabel = getPresetSetupLabel(preset);
+        const details = [
+          setupLabel || createdAt,
+          `${Array.isArray(preset.staff) ? preset.staff.length : 0} employees`,
+          preset.appliesTo || ""
+        ].filter(Boolean);
 
         return `
           <article class="assignment-preset-card">
             <div>
               <h4>${escapeHtml(preset.name || "Saved assignment")}</h4>
-              <p>${escapeHtml(createdAt)} · ${Array.isArray(preset.staff) ? preset.staff.length : 0} employees${preset.appliesTo ? ` · ${escapeHtml(preset.appliesTo)}` : ""}</p>
+              <p>${escapeHtml(details.join(" · "))}</p>
             </div>
             <div class="assignment-preset-actions">
               <button type="button" class="secondary-btn" data-load-preset="${escapeHtml(preset.id)}">Load</button>
@@ -6919,10 +6966,14 @@ ${staffSuggestion}
 
     const presets = getAssignmentPresets();
     const name = assignmentPresetNameInput?.value.trim() || `Assignment ${presets.length + 1}`;
+    const setupDate = assignmentPresetDateInput?.value || formatDateInputValue(new Date());
+    const setupWeekStart = formatDateInputValue(getWeekStartDate(setupDate));
     const appliesTo = assignmentPresetAppliesToInput?.value.trim() || "";
     const preset = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       name,
+      setupDate,
+      setupWeekStart,
       appliesTo,
       createdAt: new Date().toISOString(),
       staff: staff.map((person) => ({ ...person }))
@@ -6932,7 +6983,8 @@ ${staffSuggestion}
     if (assignmentPresetNameInput) assignmentPresetNameInput.value = "";
     if (assignmentPresetAppliesToInput) assignmentPresetAppliesToInput.value = "";
     renderAssignmentPresets();
-    setScheduleImportStatus(`Saved assignment "${name}".`, "success");
+    const setupLabel = formatSetupWeekLabel(setupWeekStart);
+    setScheduleImportStatus(`Saved assignment "${name}"${setupLabel ? ` for ${setupLabel}` : ""}.`, "success");
   };
 
   const loadAssignmentPreset = (presetId) => {
@@ -6941,14 +6993,15 @@ ${staffSuggestion}
 
     saveStaff(preset.staff.map((person) => ({ ...person })));
     renderStaff();
-    setScheduleImportStatus(`Loaded assignment "${preset.name || "Saved assignment"}"${preset.appliesTo ? ` for ${preset.appliesTo}` : ""}.`, "success");
+    const setupLabel = getPresetPrintLabel(preset);
+    setScheduleImportStatus(`Loaded assignment "${preset.name || "Saved assignment"}"${setupLabel ? ` for ${setupLabel}` : ""}.`, "success");
   };
 
   const printAssignmentPreset = (presetId) => {
     const preset = getAssignmentPresets().find((item) => item.id === presetId);
     if (!preset || !Array.isArray(preset.staff)) return;
 
-    printAssignmentStaff(preset.staff, preset.name || "Saved assignment", preset.appliesTo || "");
+    printAssignmentStaff(preset.staff, preset.name || "Saved assignment", getPresetPrintLabel(preset));
   };
 
   const deleteAssignmentPreset = (presetId) => {
@@ -7723,6 +7776,15 @@ ${staffSuggestion}
     });
   }
 
+  if (assignmentPresetDateInput) {
+    assignmentPresetDateInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        saveCurrentAssignmentPreset();
+      }
+    });
+  }
+
   if (assignmentPresetAppliesToInput) {
     assignmentPresetAppliesToInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
@@ -7963,6 +8025,7 @@ ${staffSuggestion}
       console.warn("Using local inventory because API is unavailable:", error);
     })
     .finally(renderInventory);
+  setDefaultAssignmentPresetDate();
   renderStaff();
   renderAssignmentPresets();
   setInterval(renderStaff, 60000);
