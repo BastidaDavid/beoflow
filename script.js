@@ -276,18 +276,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     const result = await response.json();
+    const refreshedClient = result.client && typeof result.client === "object" ? result.client : null;
+    if (refreshedClient) {
+      const currentClientSnapshot = localStorage.getItem(AUTH_CLIENT_KEY) || "";
+      const nextClientSnapshot = JSON.stringify(refreshedClient);
+      if (currentClientSnapshot !== nextClientSnapshot) {
+        localStorage.setItem(AUTH_CLIENT_KEY, nextClientSnapshot);
+        window.location.reload();
+        return false;
+      }
+    }
+
     const remoteData = result.data || {};
     const hasRemoteData = Object.keys(remoteData).length > 0;
 
     if (!hasRemoteData) {
       await saveClientDataNow(localSnapshot);
-      return;
+      return true;
     }
 
     Object.entries(remoteData).forEach(([key, value]) => {
       if (!CLIENT_DATA_KEY_SET.has(key)) return;
       localStorage.setItem(key, JSON.stringify(value));
     });
+
+    return true;
   };
 
   const syncClientDataKey = (key, value) => {
@@ -424,7 +437,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    await hydrateClientData();
+    const didHydrate = await hydrateClientData();
+    if (!didHydrate) return;
   } catch (error) {
     console.warn(error);
     showLogin(error.message || "Sign in again.");

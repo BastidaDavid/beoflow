@@ -94,6 +94,7 @@ const unifiedDemoPassword = process.env.BASTIDA_DEMO_PASSWORD || "LineOpsDemo1!"
 const bastidaSyncSecret = String(process.env.BASTIDA_SYNC_SECRET || "").trim();
 const filtraCoreApiBaseURL = String(process.env.FILTRACORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
 const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
+const STRAT_PTS_LINEOPS_MODULES = ["dashboard", "restaurants", "orders", "kitchen", "menus", "recipes", "staff"];
 const UNIFIED_ACCOUNT_ALIASES = new Map([
   ["bastida01", bastidaSystemsEmail],
   ["westgate", westgateAccountEmail],
@@ -119,11 +120,10 @@ const DEFAULT_CLIENTS = [
     code: stratAccountEmail,
     password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
     displayName: "Strat - PTS Sport and Wings",
-    modules: ["staff"],
+    modules: STRAT_PTS_LINEOPS_MODULES,
     defaultModule: "staff",
     brandTitle: "LineOps",
-    brandSubtitle: "PTS Sport and Wings",
-    lockedModulesVisible: true
+    brandSubtitle: "PTS Sport and Wings"
   },
   {
     code: unifiedDemoEmail,
@@ -171,7 +171,7 @@ function normalizeClientConfig(clientConfig = {}) {
   const rawPassword = String(clientConfig.password || "");
   const rawDisplayName = String(clientConfig.displayName || clientConfig.name || rawCode || "").trim();
 
-  return {
+  const normalizedConfig = {
     code: legacyRename?.toCode || rawCode,
     password: legacyRename && rawPassword.toLowerCase() === legacyRename.fromCode.toLowerCase()
       ? legacyRename.defaultPassword
@@ -187,6 +187,20 @@ function normalizeClientConfig(clientConfig = {}) {
     brandSubtitle: clientConfig.brandSubtitle ? String(clientConfig.brandSubtitle).trim() : "",
     lockedModulesVisible: Boolean(clientConfig.lockedModulesVisible)
   };
+
+  if (normalizedConfig.code.toLowerCase() === stratAccountEmail) {
+    return {
+      ...normalizedConfig,
+      displayName: normalizedConfig.displayName || "Strat - PTS Sport and Wings",
+      modules: STRAT_PTS_LINEOPS_MODULES,
+      defaultModule: "staff",
+      brandTitle: "LineOps",
+      brandSubtitle: "PTS Sport and Wings",
+      lockedModulesVisible: false
+    };
+  }
+
+  return normalizedConfig;
 }
 
 function mergeClientConfigs(clientConfigs) {
