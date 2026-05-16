@@ -557,12 +557,69 @@ body {
   line-height: 1.5;
 }
 
+.restaurant-select-add {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.restaurant-select-add > .secondary-btn {
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.restaurant-select-add-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
+  gap: 10px;
+  width: min(560px, 100%);
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.restaurant-select-add-form[hidden] {
+  display: none;
+}
+
+.restaurant-select-add-form input {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.restaurant-select-add-form input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.restaurant-select-add-form .primary-btn,
+.restaurant-select-add-form .secondary-btn {
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
 .restaurant-select-status {
   min-height: 22px;
   margin-top: 16px;
   color: var(--muted);
   font-weight: 800;
   text-align: center;
+}
+
+.restaurant-select-status[data-type="success"] {
+  color: var(--success-text);
+}
+
+.restaurant-select-status[data-type="info"] {
+  color: var(--accent);
 }
 
 .restaurant-select-status[data-type="warning"] {
@@ -1313,6 +1370,15 @@ body {
 
   .restaurant-select-card {
     min-height: 170px;
+  }
+
+  .restaurant-select-add-form {
+    grid-template-columns: 1fr;
+  }
+
+  .restaurant-select-add-form .primary-btn,
+  .restaurant-select-add-form .secondary-btn {
+    width: 100%;
   }
 
   .smart-setup-header,

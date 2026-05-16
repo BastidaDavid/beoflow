@@ -81,6 +81,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const restaurantSelectClientLabel = document.getElementById("restaurant-select-client-label");
   const restaurantSelectOptions = document.getElementById("restaurant-select-options");
   const restaurantSelectStatus = document.getElementById("restaurant-select-status");
+  const restaurantSelectAddToggleBtn = document.getElementById("restaurant-select-add-toggle");
+  const restaurantSelectAddForm = document.getElementById("restaurant-select-add-form");
+  const restaurantSelectNameInput = document.getElementById("restaurant-select-name");
+  const restaurantSelectSaveBtn = document.getElementById("restaurant-select-save");
+  const restaurantSelectCancelBtn = document.getElementById("restaurant-select-cancel");
   const syncTimers = new Map();
   let authToken = localStorage.getItem(AUTH_TOKEN_KEY) || "";
   const readStoredClient = () => {
@@ -1573,9 +1578,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!restaurantSelectOptions) return;
 
     const activeRestaurants = restaurants.filter((restaurant) => restaurant.active_status !== false);
-    const items = activeRestaurants.length ? activeRestaurants : [fallbackRestaurantSelection()];
+    const fallbackRestaurant = fallbackRestaurantSelection();
+    const hasFallbackRestaurant = activeRestaurants.some((restaurant) => {
+      const restaurantId = getRestaurantId(restaurant);
+      const restaurantName = String(restaurant.restaurant_name || restaurant.restaurantName || "").trim().toLowerCase();
+      return restaurantId === getRestaurantId(fallbackRestaurant)
+        || restaurantName === String(fallbackRestaurant.restaurant_name || "").trim().toLowerCase();
+    });
+    const items = [
+      ...(isRestaurantSelectionClient && !hasFallbackRestaurant ? [fallbackRestaurant] : []),
+      ...activeRestaurants
+    ];
+    const visibleItems = items.length ? items : [fallbackRestaurant];
 
-    restaurantSelectOptions.innerHTML = items.map((restaurant, index) => {
+    restaurantSelectOptions.innerHTML = visibleItems.map((restaurant, index) => {
       const restaurantId = getRestaurantId(restaurant) || `restaurant-${index + 1}`;
       const name = restaurant.restaurant_name || restaurant.restaurantName || "Restaurant";
       const category = formatOpsLabel(restaurant.category || "restaurant");
@@ -1589,6 +1605,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         </button>
       `;
     }).join("");
+  };
+
+  const setRestaurantSelectStatus = (message = "", type = "") => {
+    if (!restaurantSelectStatus) return;
+    restaurantSelectStatus.textContent = message;
+    if (type) {
+      restaurantSelectStatus.dataset.type = type;
+    } else {
+      delete restaurantSelectStatus.dataset.type;
+    }
+  };
+
+  const setRestaurantSelectAddOpen = (isOpen) => {
+    if (!restaurantSelectAddForm) return;
+    restaurantSelectAddForm.hidden = !isOpen;
+    if (restaurantSelectAddToggleBtn) restaurantSelectAddToggleBtn.hidden = isOpen;
+    if (isOpen) restaurantSelectNameInput?.focus();
   };
 
   const loadRestaurantSelectionOptions = async () => {
@@ -1616,6 +1649,45 @@ document.addEventListener("DOMContentLoaded", async () => {
         restaurantSelectStatus.dataset.type = "warning";
       }
     }
+  };
+
+  const addRestaurantFromSelection = async () => {
+    const restaurantName = restaurantSelectNameInput?.value.trim() || "";
+    if (!restaurantName) {
+      setRestaurantSelectStatus("Restaurant name is required.", "warning");
+      restaurantSelectNameInput?.focus();
+      return;
+    }
+
+    const payload = {
+      restaurant_name: restaurantName,
+      category: "restaurant",
+      location: "Operations workspace",
+      active_status: true
+    };
+
+    if (restaurantSelectSaveBtn) restaurantSelectSaveBtn.disabled = true;
+    setRestaurantSelectStatus("Saving restaurant...", "info");
+
+    let savedRestaurant;
+    try {
+      savedRestaurant = await createRestaurantInApi(payload);
+      setRestaurantSelectStatus(`${savedRestaurant.restaurant_name || restaurantName} saved. Select it to open.`, "success");
+    } catch (error) {
+      savedRestaurant = mapRestaurantFromApi({
+        ...payload,
+        restaurant_id: makeLocalId("restaurant")
+      });
+      setRestaurantSelectStatus(`${restaurantName} saved locally. Select it to open.`, "warning");
+    } finally {
+      if (restaurantSelectSaveBtn) restaurantSelectSaveBtn.disabled = false;
+    }
+
+    saveRestaurants(mergeById(getRestaurants(), [savedRestaurant], getRestaurantId));
+    renderRestaurantSelectionOptions(getRestaurants());
+    populateRestaurantOptions();
+    if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+    setRestaurantSelectAddOpen(false);
   };
 
   const selectRestaurantWorkspace = (restaurantId, restaurantName) => {
@@ -7388,6 +7460,34 @@ ${staffSuggestion}
     const card = event.target.closest("[data-restaurant-id]");
     if (!card) return;
     selectRestaurantWorkspace(card.dataset.restaurantId, card.dataset.restaurantName);
+  });
+
+  restaurantSelectAddToggleBtn?.addEventListener("click", () => {
+    setRestaurantSelectAddOpen(true);
+    setRestaurantSelectStatus("");
+  });
+
+  restaurantSelectCancelBtn?.addEventListener("click", () => {
+    if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+    setRestaurantSelectAddOpen(false);
+    setRestaurantSelectStatus("");
+  });
+
+  restaurantSelectSaveBtn?.addEventListener("click", addRestaurantFromSelection);
+
+  restaurantSelectNameInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addRestaurantFromSelection();
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+      setRestaurantSelectAddOpen(false);
+      setRestaurantSelectStatus("");
+    }
   });
 
   if (navRestaurants && restaurantsSection) {

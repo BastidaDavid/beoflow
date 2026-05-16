@@ -136,6 +136,14 @@
       </div>
 
       <div id="restaurant-select-options" class="restaurant-select-options" aria-label="Choose restaurant"></div>
+      <div class="restaurant-select-add">
+        <button type="button" id="restaurant-select-add-toggle" class="secondary-btn">Add restaurant</button>
+        <div id="restaurant-select-add-form" class="restaurant-select-add-form" hidden>
+          <input type="text" id="restaurant-select-name" placeholder="Restaurant name" />
+          <button type="button" id="restaurant-select-save" class="primary-btn">Save</button>
+          <button type="button" id="restaurant-select-cancel" class="secondary-btn">Cancel</button>
+        </div>
+      </div>
       <p id="restaurant-select-status" class="restaurant-select-status" role="status"></p>
 
       <button type="button" id="restaurant-select-logout" class="restaurant-select-logout">Sign out</button>
