@@ -4968,7 +4968,7 @@ ${staffSuggestion}
   const afternoonCoreStations = ["Pantry", "Fry", "Flat Top", "Broiler/Grill"];
   const flexibleSupportStation = "Extra Board";
   const variableAfternoonStations = [...afternoonCoreStations, flexibleSupportStation];
-  const lateNightStations = ["Fry", "Flat Top"];
+  const lateNightStations = ["Fry", "Flat Top", "Broiler/Grill"];
   const fixedMorningStaffNames = new Set(["eduardo", "lila"]);
   const fixedLateNightStaffNames = new Set(["manuel", "david"]);
   const shiftHandoffWindowMinutes = 60;
