@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const http = require("http");
 const { Server } = require("socket.io");
 const OpenAI = require("openai");
+const sharp = require("sharp");
 const nodemailer = require("nodemailer");
 const { Pool } = require("pg");
 const crypto = require("crypto");
@@ -1100,6 +1101,26 @@ function requireOpenAI() {
   throw error;
 }
 
+function parseModelJsonObject(outputText = "") {
+  const cleaned = String(outputText || "")
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const start = cleaned.indexOf("{");
+    const end = cleaned.lastIndexOf("}");
+
+    if (start === -1 || end === -1 || end <= start) {
+      throw error;
+    }
+
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
+
 function requireDatabase() {
   if (pool) return;
 
@@ -1145,6 +1166,28 @@ async function prepareVisionImage(imageBase64, mimeType = "") {
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
   }
+}
+
+async function prepareScheduleVisionImages(imageBase64, mimeType = "") {
+  const originalImage = await prepareVisionImage(imageBase64, mimeType);
+
+  try {
+    const imageBuffer = Buffer.from(originalImage.imageBase64, "base64");
+    const enhancedImage = await sharp(imageBuffer)
+      .rotate()
+      .jpeg({ quality: 95 })
+      .toBuffer();
+
+    return [{
+      imageBase64: enhancedImage.toString("base64"),
+      mimeType: "image/jpeg",
+      label: "Auto-oriented full schedule photo. Use this image to read names and day cells."
+    }];
+  } catch (error) {
+    console.warn("SCHEDULE IMAGE ENHANCEMENT WARNING:", error.message);
+  }
+
+  return [{ ...originalImage, label: "Original uploaded schedule photo." }];
 }
 
 function decodeImageBase64(imageBase64 = "") {
@@ -1348,10 +1391,21 @@ app.post("/api/extract-shift-schedule", async (req, res) => {
       return res.status(400).json({ error: "Missing schedule image data." });
     }
 
-    const preparedImage = await prepareVisionImage(imageBase64, mimeType);
+    const preparedImages = await prepareScheduleVisionImages(imageBase64, mimeType);
+    const imageContent = preparedImages.flatMap((preparedImage, index) => [
+      {
+        type: "input_text",
+        text: `Image ${index + 1}: ${preparedImage.label}`
+      },
+      {
+        type: "input_image",
+        image_url: `data:${preparedImage.mimeType};base64,${preparedImage.imageBase64}`,
+        detail: "high"
+      }
+    ]);
 
     const response = await client.responses.create({
-      model: "gpt-4.1",
+      model: process.env.OPENAI_SCHEDULE_MODEL || "gpt-5.5",
       input: [
         {
           role: "user",
@@ -1359,11 +1413,9 @@ app.post("/api/extract-shift-schedule", async (req, res) => {
             {
               type: "input_text",
               text: `
-You extract kitchen employee schedules from photos of printed grid schedules.
+Extract the exact weekly employee schedule from the provided PTS Staples grid photo. The image may be sideways or angled; rotate it mentally before reading.
 
-The image may be sideways, rotated, skewed, or photographed at an angle. Mentally rotate the image so the printed text is readable before extracting. The image may contain employee names in a colored name column and repeated day blocks across each row. Each working shift usually has start time, end time, and hours in day subcolumns labeled in/out/total. Cells may also include labels like LINE, PT'S, MGALS, Off, or off.
-
-Return ONLY valid JSON in this exact shape:
+Return ONLY valid JSON in this exact shape, with no explanation before or after it:
 
 {
   "employees": [
@@ -1389,62 +1441,30 @@ Return ONLY valid JSON in this exact shape:
 }
 
 Rules:
-- Read every visible day column. Put each day in assignments using keys mon, tue, wed, thu, fri, sat, sun.
-- First identify the employee-name column. Only after a real employee name is identified, read that same horizontal row group across the day blocks.
-- Preserve employee names from the printed employee-name column. A name can be uppercase or mixed-case, such as EDUARDO or Ivan.
-- Return every visible named employee row, even if every visible day for that employee is off or blank.
-- Ignore non-employee rows and headers. Never return rows named "Hours of operations", "in", "out", "total", day names, dates, or blank grid separators.
-- Never return station-label rows as employees. Labels such as LINE, PT'S, MGALS, Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, or Extra Board can describe an employee's station only when they sit in that employee's row group.
-- Only extract rows that have a visible employee name in the left employee-name column. If the name cell is blank, ignore that entire row even when it contains times, off labels, or colored cells.
-- Stop reading employee shifts after the last visible named employee row, but do not assume the list ends at MANUEL or any specific name. If a named row such as Ivan appears below, include it. Blank template rows below the last named employee are not part of the schedule.
-- Never carry a blank row's times into the employee above it. A blank lower line may only be treated as part of the employee above when it contains station text like LINE, PT'S, MGALS, or a clear station label, not when it contains separate in/out times.
-- Before returning JSON, verify every working assignment came from the same horizontal row group as that employee's printed name.
-- Never auto-fill missing days by copying a shift from another day. If a day is blank, unreadable, or says off, return off true for that day.
-- Do not use the "Hours of operations" row as an employee schedule. Values such as "2PM to 2AM" or "11AM to 4AM" describe the restaurant's operating window, not employee shifts.
-- The first row immediately below "Hours of operations" can still be a real employee row, such as EDUARDO. Do not discard that employee just because it is near the operating-hours header.
-- For each employee/day, read only the in and out cells inside that employee's row under the day block. Use the total cell only as a cross-check.
-- If a day block shows in=6.00 A, out=2.00 P, total=8, return shiftStart "06:00" and shiftEnd "14:00"; do not return the day operating window.
-- If the extracted shift duration strongly conflicts with the visible total hours, re-read the employee row and prefer the in/out cells over nearby headers.
-- Day cells that say off/Off or have no working shift must be returned with off true and empty shiftStart/shiftEnd.
-- For working day cells, set off false and include shiftStart and shiftEnd.
-- Keep top-level shiftStart and shiftEnd as the first clear working shift found for that employee, for backward compatibility.
-- Many schedules use two visual lines per employee: the top line has start/end/hours, and the lower line has labels like LINE or PT'S. Treat those two lines as the same employee and keep both the time and the label.
-- For named employees with no readable working days, still return the employee with every assignment off true and empty shiftStart/shiftEnd.
-- If a label is visible but the time is not visible, mark that day off true and add a note.
-- Normalize times to 24-hour HH:MM.
-- Interpret A/a as AM and P/p as PM. If end time is earlier than start time, keep the normalized overnight end time.
-- Do not include hours as a separate field.
-- If a label says LINE, set role to "Line Cook" and station to "Line Support".
-- If a label says PT'S, set role to "Prep Cook" and station to "Prep".
-- If a label says extra board or extra, set station to "Extra Board".
-- If a label says flat, grilled, or plancha, set station to "Flat Top".
-- If a label or note says broiler, grill, parrilla, carbon, charcoal, or charbroiler, set station to "Broiler/Grill".
-- If a label says fry, freidora, or wings, set station to "Fry".
-- If a label says pantry, set station to "Pantry".
-- If a label says expo, set station to "Expo".
-- Do not infer stations from cell color alone.
-- If the station is unclear for a specific day, leave that day's station empty. Do not invent Flat Top, Broiler/Grill, Fry, Pantry, Prep, Expo, Line Support, or Extra Board unless a visible label supports it.
-- Keep top-level station empty unless a station is visible for that employee; the app can assign stations later without changing the imported times.
-- Use kitchen roles only. Do not invent dishwasher, steward, server, or external staff roles.
-- Add a short note only for rows that are unreadable or uncertain.
+- The left blue column contains the employee names. Preserve visible names exactly and read only names printed in that column.
+- Keep similar names separate when they are printed separately, such as JUAN and JUAN H.
+- Map the visible Monday through Sunday day columns to mon, tue, wed, thu, fri, sat, sun.
+- Each day block has three subcolumns: in, out, total. Read only the in and out cells from the same horizontal band as that employee name.
+- Ignore the Hours of operations row. Values like 2PM to 2AM or 11AM to 4AM are not employee shifts.
+- LINE, PT'S, MCALLS, MGALS, Off, off, in, out, total, day names, and dates are not employee names.
+- Do not copy or extrapolate shifts. Read each employee/day cell independently.
+- If the in/out cells for an employee/day are blank, say off, or are not clearly readable, return off true with empty times for that day.
+- Return every visible named employee row, even if every day is off.
+- Keep role, station, and each assignment station as empty strings for this import. The app will assign stations later.
+- Put visible labels such as LINE, PT'S, or MCALLS in sourceLabel only if useful; never use them as names.
+- Normalize readable times to 24-hour HH:MM. Examples: 6.00 A -> 06:00, 2.00 P -> 14:00, 4.30 P -> 16:30, 12.30 A -> 00:30, 7.00 P -> 19:00, 3.00 A -> 03:00.
+- Use the total cell only to resolve 12 o'clock ambiguity. A visible 12.00 to 8.00 P with total 8 is 12:00 to 20:00.
+- Keep top-level shiftStart and shiftEnd as the first readable working shift for that employee, otherwise empty.
+- Add notes only for genuinely unreadable rows/cells.
               `,
             },
-            {
-              type: "input_image",
-              image_url: `data:${preparedImage.mimeType};base64,${preparedImage.imageBase64}`,
-              detail: "high"
-            },
+            ...imageContent,
           ],
         },
       ],
     });
 
-    const cleaned = response.output_text
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    const parsed = JSON.parse(cleaned);
+    const parsed = parseModelJsonObject(response.output_text);
     const blockedScheduleNames = new Set([
       "hours of operations",
       "hour of operations",
@@ -1458,6 +1478,10 @@ Rules:
       "line",
       "pts",
       "pt's",
+      "mcalls",
+      "m calls",
+      "mcall",
+      "mcall's",
       "mgals",
       "flat top",
       "broiler",
@@ -1495,10 +1519,54 @@ Rules:
       if (normalized.includes("to") && /\d/.test(normalized)) return false;
       return true;
     };
+    const ptsScheduleRoster = [
+      "EDUARDO",
+      "RUSTY",
+      "ROBERT",
+      "BRYAN",
+      "LILA",
+      "RANDY",
+      "JERONIMO",
+      "JUAN",
+      "JUAN H",
+      "CARLOS",
+      "AARON",
+      "DAVID",
+      "ADRIANA",
+      "MANUEL",
+      "Ivan"
+    ];
+    const getScheduleNameKey = (value = "") =>
+      String(value)
+        .trim()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+    const ptsScheduleRosterMap = new Map(
+      ptsScheduleRoster.map((name) => [getScheduleNameKey(name), name])
+    );
+    const ptsScheduleAliasMap = new Map([
+      ["brian", "BRYAN"],
+      ["lili", "LILA"],
+      ["lilia", "LILA"],
+      ["juanm", "JUAN H"]
+    ]);
+    const normalizeScheduleEmployee = (employee = {}) => {
+      if (!isEmployeeScheduleName(employee?.name)) return null;
+
+      const rawName = String(employee.name || "").trim();
+      const nameKey = getScheduleNameKey(rawName);
+      const canonicalName = ptsScheduleRosterMap.get(nameKey) || ptsScheduleAliasMap.get(nameKey) || rawName;
+      return {
+        ...employee,
+        name: canonicalName
+      };
+    };
 
     res.json({
       employees: Array.isArray(parsed.employees)
-        ? parsed.employees.filter((employee) => isEmployeeScheduleName(employee?.name))
+        ? parsed.employees.map(normalizeScheduleEmployee).filter(Boolean)
         : [],
       notes: Array.isArray(parsed.notes) ? parsed.notes : []
     });
