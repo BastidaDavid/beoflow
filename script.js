@@ -669,6 +669,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const scheduleEditorTable = document.getElementById("schedule-editor-table");
   const shiftDayTabs = Array.from(document.querySelectorAll("[data-shift-day]"));
   const openWeekViewBtn = document.getElementById("open-week-view-btn");
+  const addWeekRowBtn = document.getElementById("add-week-row-btn");
   const autoAssignWeekBtn = document.getElementById("auto-assign-week-btn");
   const closeWeekViewBtn = document.getElementById("close-week-view-btn");
   const printWeekViewBtn = document.getElementById("print-week-view-btn");
@@ -5903,13 +5904,15 @@ ${staffSuggestion}
     if (shiftWeekSubtitle) {
       shiftWeekSubtitle.textContent = isPreview
         ? `${getPresetSetupLabel(weeklySchedulePreviewPreset) || "Saved setup"} · Preview only`
-        : "Digital view of imported shifts, stations, substitutions, off days, and smart breaks.";
+        : "Editable view of imported shifts, stations, substitutions, off days, and smart breaks.";
     }
+    if (addWeekRowBtn) addWeekRowBtn.hidden = isPreview;
     if (autoAssignWeekBtn) autoAssignWeekBtn.hidden = isPreview;
   };
 
-  const buildWeeklyScheduleMarkup = (sourceStaff = getWeeklyScheduleStaff()) => {
+  const buildWeeklyScheduleMarkup = (sourceStaff = getWeeklyScheduleStaff(), options = {}) => {
     const staff = sourceStaff;
+    const isEditable = Boolean(options.editable);
 
     if (!staff.length) {
       return '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
@@ -5950,15 +5953,71 @@ ${staffSuggestion}
 
     const rows = staff
       .map((person) => {
+        const personId = escapeHtml(person.id);
+        const personName = person.name || "Unnamed employee";
+        const employeeCell = isEditable
+          ? `
+            <div class="shift-week-employee shift-week-employee-edit">
+              <input type="text" class="shift-week-name-input" data-week-name="${personId}" value="${escapeHtml(person.name || "")}" placeholder="Employee name" aria-label="Employee name" />
+              <span>${escapeHtml(person.role || "Role not set")}</span>
+              <button type="button" class="secondary-btn shift-week-remove-row-btn" data-week-delete-row="${personId}" aria-label="Remove ${escapeHtml(personName)}">Remove</button>
+            </div>
+          `
+          : `
+            <div class="shift-week-employee">
+              <strong>${escapeHtml(personName)}</strong>
+              <span>${escapeHtml(person.role || "Role not set")}</span>
+            </div>
+          `;
         const cells = shiftDays
           .map((day) => {
             const assignment = normalizePersonForDay(person, day.key);
             const isWorking = isAssignmentWorking(assignment);
             const statusLabel = assignment.absent ? "Absent" : assignment.off || !isWorking ? "Off" : assignment.station || DEFAULT_STATION;
             const stationClass = isWorking ? getStationClass(assignment.station) : "off";
+            const dayKey = escapeHtml(day.key);
+            const selectedStation = assignment.station || UNASSIGNED_STATION;
+            const stationOptions = shiftAssignmentStations
+              .map((station) => `<option value="${escapeHtml(station)}" ${selectedStation === station ? "selected" : ""}>${escapeHtml(station)}</option>`)
+              .join("");
+
+            if (isEditable) {
+              return `
+                <div class="shift-week-cell is-editable ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-cell-day="${dayKey}" data-week-staff-id="${personId}">
+                  <div class="shift-week-cell-summary">
+                    <strong>${escapeHtml(statusLabel)}</strong>
+                    <span>${isWorking ? escapeHtml(formatShiftTimeRange(assignment)) : "No shift"}</span>
+                    ${assignment.substituteFor ? `<em>Covers ${escapeHtml(assignment.substituteFor)}</em>` : ""}
+                    ${assignment.replacedBy ? `<em>Covered by ${escapeHtml(assignment.replacedBy)}</em>` : ""}
+                  </div>
+                  <div class="shift-week-cell-controls">
+                    <label class="shift-week-off-toggle">
+                      <input type="checkbox" data-week-off="${personId}" data-week-day="${dayKey}" ${!isWorking ? "checked" : ""} />
+                      <span>Off</span>
+                    </label>
+                    <div class="shift-week-time-row">
+                      <label>
+                        <span>In</span>
+                        <input type="time" data-week-time="${personId}" data-week-day="${dayKey}" data-week-field="shiftStart" value="${escapeHtml(assignment.shiftStart || "")}" aria-label="${escapeHtml(day.label)} in time for ${escapeHtml(personName)}" />
+                      </label>
+                      <label>
+                        <span>Out</span>
+                        <input type="time" data-week-time="${personId}" data-week-day="${dayKey}" data-week-field="shiftEnd" value="${escapeHtml(assignment.shiftEnd || "")}" aria-label="${escapeHtml(day.label)} out time for ${escapeHtml(personName)}" />
+                      </label>
+                    </div>
+                    <label class="shift-week-station-control">
+                      <span>Station</span>
+                      <select data-week-station="${personId}" data-week-day="${dayKey}" aria-label="${escapeHtml(day.label)} station for ${escapeHtml(personName)}">
+                        ${stationOptions}
+                      </select>
+                    </label>
+                  </div>
+                </div>
+              `;
+            }
 
             return `
-              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-day="${day.key}">
+              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-cell-day="${dayKey}">
                 <strong>${escapeHtml(statusLabel)}</strong>
                 <span>${isWorking ? escapeHtml(formatShiftTimeRange(assignment)) : "No shift"}</span>
                 ${assignment.substituteFor ? `<em>Covers ${escapeHtml(assignment.substituteFor)}</em>` : ""}
@@ -5970,10 +6029,7 @@ ${staffSuggestion}
 
         return `
           <div class="shift-week-row">
-            <div class="shift-week-employee">
-              <strong>${escapeHtml(person.name || "Unnamed employee")}</strong>
-              <span>${escapeHtml(person.role || "Role not set")}</span>
-            </div>
+            ${employeeCell}
             ${cells}
           </div>
         `;
@@ -5995,9 +6051,11 @@ ${staffSuggestion}
   const renderWeeklySchedule = () => {
     if (!shiftWeekSchedule) return;
 
+    const isEditable = !weeklySchedulePreviewPreset;
     updateWeeklyScheduleHeader();
     shiftWeekSchedule.dataset.weekSize = activeWeekSize;
-    shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup();
+    shiftWeekSchedule.dataset.editable = String(isEditable);
+    shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup(getWeeklyScheduleStaff(), { editable: isEditable });
   };
 
   const setWeeklyScheduleSize = (size = "small") => {
@@ -6748,7 +6806,36 @@ ${staffSuggestion}
     setScheduleImportStatus(`${getShiftDayLabel(normalizedDay)} ${isOff ? "off day" : "row"} saved in the weekly table.`, "success");
   };
 
-  const addScheduleRow = () => {
+  const updateScheduleDayStation = (staffId, dayKey, station) => {
+    const normalizedDay = normalizeShiftDayKey(dayKey);
+    if (!normalizedDay || !shiftAssignmentStations.includes(station)) return;
+
+    const updatedStaff = getStaff().map((person) => {
+      if (String(person.id) !== String(staffId)) return person;
+
+      const assignments = getNormalizedWeekAssignments(person);
+      const currentAssignment = assignments[normalizedDay] || { station: "", shiftStart: "", shiftEnd: "", off: true };
+      const nextAssignment = {
+        ...currentAssignment,
+        station,
+        absent: false,
+        replacedBy: ""
+      };
+
+      if (nextAssignment.shiftStart && nextAssignment.shiftEnd) {
+        nextAssignment.off = false;
+      }
+
+      assignments[normalizedDay] = nextAssignment;
+      return syncPersonFromAssignments(person, assignments);
+    });
+
+    saveStaff(updatedStaff);
+    renderStaff();
+    setScheduleImportStatus(`${getShiftDayLabel(normalizedDay)} station saved in the weekly table.`, "success");
+  };
+
+  const addScheduleRow = (options = {}) => {
     const assignments = buildBlankWeekAssignments();
     const row = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -6767,7 +6854,10 @@ ${staffSuggestion}
     renderStaff();
     setScheduleImportStatus("Blank row added. Add the name and times, then it will stay saved.", "success");
     requestAnimationFrame(() => {
-      scheduleEditorTable?.querySelector(`[data-schedule-name="${row.id}"]`)?.focus();
+      const focusTarget = options?.focus === "week"
+        ? shiftWeekSchedule?.querySelector(`[data-week-name="${row.id}"]`)
+        : scheduleEditorTable?.querySelector(`[data-schedule-name="${row.id}"]`);
+      focusTarget?.focus();
     });
   };
 
@@ -7775,7 +7865,7 @@ ${staffSuggestion}
   }
 
   if (addScheduleRowBtn) {
-    addScheduleRowBtn.addEventListener("click", addScheduleRow);
+    addScheduleRowBtn.addEventListener("click", () => addScheduleRow());
   }
 
   if (loadReferenceScheduleBtn) {
@@ -7857,6 +7947,10 @@ ${staffSuggestion}
     openWeekViewBtn.addEventListener("click", openWeeklyScheduleView);
   }
 
+  if (addWeekRowBtn) {
+    addWeekRowBtn.addEventListener("click", () => addScheduleRow({ focus: "week" }));
+  }
+
   if (closeWeekViewBtn) {
     closeWeekViewBtn.addEventListener("click", closeWeeklyScheduleView);
   }
@@ -7889,11 +7983,75 @@ ${staffSuggestion}
   });
 
   if (shiftWeekSchedule) {
-    shiftWeekSchedule.addEventListener("click", (e) => {
-      const dayButton = e.target.closest("[data-week-day]");
-      if (!dayButton) return;
+    shiftWeekSchedule.addEventListener("input", (e) => {
+      const nameInput = e.target.closest("[data-week-name]");
+      if (!nameInput) return;
 
-      setActiveShiftDay(dayButton.dataset.weekDay);
+      updateScheduleName(nameInput.dataset.weekName, nameInput.value, { render: false });
+    });
+
+    shiftWeekSchedule.addEventListener("change", (e) => {
+      const nameInput = e.target.closest("[data-week-name]");
+      if (nameInput) {
+        updateScheduleName(nameInput.dataset.weekName, nameInput.value);
+        return;
+      }
+
+      const timeInput = e.target.closest("[data-week-time]");
+      if (timeInput) {
+        updateScheduleDayTime(
+          timeInput.dataset.weekTime,
+          timeInput.dataset.weekDay,
+          timeInput.dataset.weekField,
+          timeInput.value
+        );
+        return;
+      }
+
+      const stationSelect = e.target.closest("[data-week-station]");
+      if (stationSelect) {
+        updateScheduleDayStation(
+          stationSelect.dataset.weekStation,
+          stationSelect.dataset.weekDay,
+          stationSelect.value
+        );
+        return;
+      }
+
+      const offInput = e.target.closest("[data-week-off]");
+      if (!offInput) return;
+
+      updateScheduleDayOff(offInput.dataset.weekOff, offInput.dataset.weekDay, offInput.checked);
+    });
+
+    shiftWeekSchedule.addEventListener("keydown", (e) => {
+      const nameInput = e.target.closest("[data-week-name]");
+      if (!nameInput || e.key !== "Enter") return;
+
+      e.preventDefault();
+      nameInput.blur();
+    });
+
+    shiftWeekSchedule.addEventListener("click", (e) => {
+      const deleteButton = e.target.closest("[data-week-delete-row]");
+      if (deleteButton) {
+        deleteStaff(deleteButton.dataset.weekDeleteRow);
+        setScheduleImportStatus("Schedule row removed.", "success");
+        return;
+      }
+
+      const dayButton = e.target.closest(".shift-week-day[data-week-day]");
+      if (dayButton) {
+        setActiveShiftDay(dayButton.dataset.weekDay);
+        return;
+      }
+
+      if (e.target.closest("input, select, button, label")) return;
+
+      const weekCell = e.target.closest("[data-week-cell-day]");
+      if (!weekCell) return;
+
+      setActiveShiftDay(weekCell.dataset.weekCellDay);
     });
   }
 

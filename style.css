@@ -2707,6 +2707,36 @@ body.modal-open {
   grid-template-columns: 190px repeat(7, minmax(145px, 1fr));
 }
 
+.shift-week-schedule[data-editable="true"][data-week-size="small"] .shift-week-grid,
+.shift-week-schedule[data-editable="true"][data-week-size="small"] .shift-week-legend {
+  min-width: 1320px;
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="small"] .shift-week-header-row,
+.shift-week-schedule[data-editable="true"][data-week-size="small"] .shift-week-row {
+  grid-template-columns: 168px repeat(7, minmax(154px, 1fr));
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="normal"] .shift-week-grid,
+.shift-week-schedule[data-editable="true"][data-week-size="normal"] .shift-week-legend {
+  min-width: 1540px;
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="normal"] .shift-week-header-row,
+.shift-week-schedule[data-editable="true"][data-week-size="normal"] .shift-week-row {
+  grid-template-columns: 190px repeat(7, minmax(184px, 1fr));
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="large"] .shift-week-grid,
+.shift-week-schedule[data-editable="true"][data-week-size="large"] .shift-week-legend {
+  min-width: 1780px;
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="large"] .shift-week-header-row,
+.shift-week-schedule[data-editable="true"][data-week-size="large"] .shift-week-row {
+  grid-template-columns: 220px repeat(7, minmax(220px, 1fr));
+}
+
 .shift-week-corner,
 .shift-week-day,
 .shift-week-employee,
@@ -2790,6 +2820,61 @@ body.modal-open {
   box-shadow: 1px 0 0 var(--border);
 }
 
+.shift-week-employee-edit {
+  align-content: start;
+}
+
+.shift-week-name-input,
+.shift-week-cell input,
+.shift-week-cell select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+
+.shift-week-name-input {
+  padding: 7px 8px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.shift-week-cell input,
+.shift-week-cell select {
+  min-height: 30px;
+  padding: 5px 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.shift-week-cell select {
+  appearance: auto;
+}
+
+.shift-week-name-input:focus,
+.shift-week-cell input:focus,
+.shift-week-cell select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.16);
+}
+
+.shift-week-remove-row-btn {
+  width: 100%;
+  min-height: 30px;
+  margin-top: 2px;
+  border-color: #fecaca;
+  border-radius: 7px;
+  background: #fff7f7;
+  color: #991b1b;
+  box-shadow: none;
+  font-size: 0.72rem;
+}
+
 .shift-week-cell {
   display: grid;
   align-content: start;
@@ -2798,6 +2883,59 @@ body.modal-open {
   padding: 9px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.shift-week-cell.is-editable {
+  gap: 8px;
+  min-height: 158px;
+  cursor: default;
+}
+
+.shift-week-cell.is-editable:hover {
+  transform: none;
+}
+
+.shift-week-cell-summary {
+  display: grid;
+  gap: 3px;
+}
+
+.shift-week-cell-controls {
+  display: grid;
+  gap: 6px;
+}
+
+.shift-week-cell-controls label {
+  display: grid;
+  gap: 3px;
+  color: #475569;
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.shift-week-time-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+}
+
+.shift-week-off-toggle {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px !important;
+  color: #334155 !important;
+  text-transform: none !important;
+}
+
+.shift-week-off-toggle input {
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  accent-color: #2563eb;
 }
 
 .shift-week-schedule[data-week-size="small"] .shift-week-corner,
@@ -2809,6 +2947,10 @@ body.modal-open {
 
 .shift-week-schedule[data-week-size="small"] .shift-week-cell {
   min-height: 54px;
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="small"] .shift-week-cell {
+  min-height: 150px;
 }
 
 .shift-week-schedule[data-week-size="small"] .shift-week-day strong,
@@ -2833,6 +2975,10 @@ body.modal-open {
 
 .shift-week-schedule[data-week-size="large"] .shift-week-cell {
   min-height: 94px;
+}
+
+.shift-week-schedule[data-editable="true"][data-week-size="large"] .shift-week-cell {
+  min-height: 176px;
 }
 
 .shift-week-cell:hover {
