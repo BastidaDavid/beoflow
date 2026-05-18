@@ -55,21 +55,7 @@ const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/j
 const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14;
 const LINEOPS_AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const LINEOPS_PASSWORD_ITERATIONS = 120000;
-const LINEOPS_BUSINESS_TYPES = new Set([
-  "Restaurant / Kitchen",
-  "Hotel / Hospitality",
-  "Events / Catering",
-  "Healthcare / Clinic",
-  "Office / Admin Team",
-  "Retail / Store",
-  "Personal / Household",
-  "Restaurant",
-  "Hospitality",
-  "Casino",
-  "Retail",
-  "Warehouse",
-  "Other"
-]);
+const LINEOPS_BUSINESS_TYPES = new Set(["Restaurant", "Hospitality", "Casino", "Retail", "Warehouse", "Other"]);
 const LINEOPS_TEAM_SIZES = new Set(["1-10", "11-50", "51-200", "201+"]);
 const LINEOPS_DEPARTMENTS = new Set(["Operations", "Front of House", "Guest Services", "Fulfillment", "Facilities", "Safety"]);
 const LINEOPS_GOALS = new Set([
@@ -797,7 +783,7 @@ function unifiedLineOpsSeedAccounts() {
       password: unifiedDemoPassword,
       businessName: "Demo Workspace",
       fullName: "App Review Demo",
-      businessType: "Hotel / Hospitality",
+      businessType: "Hospitality",
       onboarding: {
         teamSize: "11-50",
         department: "Operations",

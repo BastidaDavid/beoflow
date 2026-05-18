@@ -571,9 +571,9 @@ body {
 
 .restaurant-select-add-form {
   display: grid;
-  grid-template-columns: minmax(200px, 1.2fr) minmax(180px, 0.8fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
   gap: 10px;
-  width: min(760px, 100%);
+  width: min(560px, 100%);
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -584,8 +584,7 @@ body {
   display: none;
 }
 
-.restaurant-select-add-form input,
-.restaurant-select-add-form select {
+.restaurant-select-add-form input {
   min-width: 0;
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -593,11 +592,9 @@ body {
   color: var(--text);
   font: inherit;
   outline: none;
-  background: #fff;
 }
 
-.restaurant-select-add-form input:focus,
-.restaurant-select-add-form select:focus {
+.restaurant-select-add-form input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
 }
