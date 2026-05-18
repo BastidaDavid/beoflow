@@ -84,6 +84,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const restaurantSelectAddToggleBtn = document.getElementById("restaurant-select-add-toggle");
   const restaurantSelectAddForm = document.getElementById("restaurant-select-add-form");
   const restaurantSelectNameInput = document.getElementById("restaurant-select-name");
+  const restaurantSelectTypeInput = document.getElementById("restaurant-select-type");
   const restaurantSelectSaveBtn = document.getElementById("restaurant-select-save");
   const restaurantSelectCancelBtn = document.getElementById("restaurant-select-cancel");
   const syncTimers = new Map();
@@ -161,7 +162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         appBrandLogo.src = BEOFLOW_LOGO_SRC;
         appBrandLogo.alt = "BEOFlow Logo";
       }
-      if (appBrandTitle) appBrandTitle.textContent = currentClient.brandTitle || "Beoflow";
+      if (appBrandTitle) appBrandTitle.textContent = isRestaurantSelectionClient ? "RotaFlow" : currentClient.brandTitle || "Beoflow";
       if (appBrandSubtitle) {
         appBrandSubtitle.textContent = selectedRestaurantName || currentClient.brandSubtitle || currentClient.displayName || "Bastida Systems";
       }
@@ -761,7 +762,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
       setClientOnlyElementVisibility(westgateModeSwitchBtn, isRestaurantSelectionClient && Boolean(selectedRestaurantId));
       if (westgateModeSwitchBtn && isRestaurantSelectionClient) {
-        westgateModeSwitchBtn.textContent = "Cambiar restaurante";
+        westgateModeSwitchBtn.textContent = "Cambiar operacion";
       }
       hideClientOnlyElement(smartSetupSection);
       hideClientOnlyElement(smartSetupLauncher);
@@ -1408,11 +1409,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   const formatOpsCurrency = (amount = 0) =>
     `$${Number(amount || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const formatOpsLabel = (value = "") =>
-    String(value || "")
+  const OPERATION_TYPE_LABELS = {
+    restaurant: "Restaurant / Kitchen",
+    hotel_hospitality: "Hotel / Hospitality",
+    events_catering: "Events / Catering",
+    healthcare_clinic: "Healthcare / Clinic",
+    office_admin: "Office / Admin Team",
+    retail_store: "Retail / Store",
+    personal_household: "Personal / Household",
+    other: "Other"
+  };
+
+  const formatOpsLabel = (value = "") => {
+    const normalizedValue = String(value || "").trim();
+    return OPERATION_TYPE_LABELS[normalizedValue] || normalizedValue
       .replace(/_/g, " ")
       .toLowerCase()
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  };
 
   const getOpsStatusClass = (status = "") => {
     const normalized = String(status || "").toLowerCase();
@@ -1559,7 +1573,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (error) {
       if (!quiet) {
-        setOpsStatus(restaurantsStatus, "Using local restaurant data until Render is updated.", "warning");
+        setOpsStatus(restaurantsStatus, "Using local operation data until Render is updated.", "warning");
         setOpsStatus(ordersStatus, "Using local order data until Render is updated.", "warning");
         setOpsStatus(kitchenStatus, "Using local KDS data until Render is updated.", "warning");
       }
@@ -1569,7 +1583,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fallbackRestaurantSelection = () => ({
     id: `workspace-${currentClientCodeKey || "restaurant"}`,
     restaurant_id: `workspace-${currentClientCodeKey || "restaurant"}`,
-    restaurant_name: currentClient.brandSubtitle || currentClient.displayName || "Primary Restaurant",
+    restaurant_name: currentClient.brandSubtitle || currentClient.displayName || "Primary Operation",
     category: "restaurant",
     location: "Primary workspace",
     active_status: true
@@ -1594,7 +1608,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     restaurantSelectOptions.innerHTML = visibleItems.map((restaurant, index) => {
       const restaurantId = getRestaurantId(restaurant) || `restaurant-${index + 1}`;
-      const name = restaurant.restaurant_name || restaurant.restaurantName || "Restaurant";
+      const name = restaurant.restaurant_name || restaurant.restaurantName || "Operation";
       const category = formatOpsLabel(restaurant.category || "restaurant");
       const location = restaurant.location || "Operations workspace";
 
@@ -1627,10 +1641,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const loadRestaurantSelectionOptions = async () => {
     if (restaurantSelectClientLabel) {
-      restaurantSelectClientLabel.textContent = currentClient.displayName || "Restaurant workspace";
+      restaurantSelectClientLabel.textContent = currentClient.displayName || "Operation workspace";
     }
     if (restaurantSelectStatus) {
-      restaurantSelectStatus.textContent = "Loading restaurants...";
+      restaurantSelectStatus.textContent = "Loading operations...";
       restaurantSelectStatus.dataset.type = "info";
     }
 
@@ -1655,20 +1669,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addRestaurantFromSelection = async () => {
     const restaurantName = restaurantSelectNameInput?.value.trim() || "";
     if (!restaurantName) {
-      setRestaurantSelectStatus("Restaurant name is required.", "warning");
+      setRestaurantSelectStatus("Operation name is required.", "warning");
       restaurantSelectNameInput?.focus();
       return;
     }
 
     const payload = {
       restaurant_name: restaurantName,
-      category: "restaurant",
+      category: restaurantSelectTypeInput?.value || "restaurant",
       location: "Operations workspace",
       active_status: true
     };
 
     if (restaurantSelectSaveBtn) restaurantSelectSaveBtn.disabled = true;
-    setRestaurantSelectStatus("Saving restaurant...", "info");
+    setRestaurantSelectStatus("Saving operation...", "info");
 
     let savedRestaurant;
     try {
@@ -1688,13 +1702,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderRestaurantSelectionOptions(getRestaurants());
     populateRestaurantOptions();
     if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+    if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
     setRestaurantSelectAddOpen(false);
   };
 
   const selectRestaurantWorkspace = (restaurantId, restaurantName) => {
     if (!restaurantId) return;
     selectedRestaurantId = restaurantId;
-    selectedRestaurantName = restaurantName || "Restaurant Workspace";
+    selectedRestaurantName = restaurantName || "Operation Workspace";
     localStorage.setItem(RESTAURANT_SELECTION_ID_KEY, selectedRestaurantId);
     localStorage.setItem(RESTAURANT_SELECTION_NAME_KEY, selectedRestaurantName);
     applyClientModuleVisibility();
@@ -1709,8 +1724,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const restaurantOptions = restaurants
       .map((restaurant) => `<option value="${escapeHtml(getRestaurantId(restaurant))}">${escapeHtml(restaurant.restaurant_name)}</option>`)
       .join("");
-    const filterOptions = `<option value="">All Restaurants</option>${restaurantOptions}`;
-    const createFirstOption = '<option value="">Create a restaurant first</option>';
+    const filterOptions = `<option value="">All Operations</option>${restaurantOptions}`;
+    const createFirstOption = '<option value="">Create an operation first</option>';
 
     [orderRestaurantInput, stationRestaurantInput].forEach((select) => {
       if (!select) return;
@@ -1760,7 +1775,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const restaurants = getRestaurants();
 
     if (!restaurants.length) {
-      restaurantsTableBody.innerHTML = '<tr><td colspan="4" class="ops-empty-cell">No restaurants yet.</td></tr>';
+      restaurantsTableBody.innerHTML = '<tr><td colspan="4" class="ops-empty-cell">No operations yet.</td></tr>';
       return;
     }
 
@@ -1777,7 +1792,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addRestaurant = async () => {
     const restaurantName = restaurantNameInput?.value.trim();
     if (!restaurantName) {
-      setOpsStatus(restaurantsStatus, "Restaurant name is required.", "error");
+      setOpsStatus(restaurantsStatus, "Operation name is required.", "error");
       return;
     }
 
@@ -1791,13 +1806,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     let savedRestaurant;
     try {
       savedRestaurant = await createRestaurantInApi(payload);
-      setOpsStatus(restaurantsStatus, "Restaurant saved.", "success");
+      setOpsStatus(restaurantsStatus, "Operation saved.", "success");
     } catch (error) {
       savedRestaurant = mapRestaurantFromApi({
         ...payload,
         restaurant_id: makeLocalId("restaurant")
       });
-      setOpsStatus(restaurantsStatus, "Restaurant saved locally until Render is updated.", "warning");
+      setOpsStatus(restaurantsStatus, "Operation saved locally until Render is updated.", "warning");
     }
 
     saveRestaurants(mergeById(getRestaurants(), [savedRestaurant], getRestaurantId));
@@ -1812,7 +1827,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const restaurantId = stationRestaurantInput?.value || "";
     const stationName = stationNameInput?.value.trim();
     if (!restaurantId || !stationName) {
-      setOpsStatus(kitchenStatus, "Restaurant and station name are required.", "error");
+      setOpsStatus(kitchenStatus, "Operation and station name are required.", "error");
       return;
     }
 
@@ -1853,7 +1868,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const restaurantId = orderRestaurantInput?.value || "";
     const itemName = orderItemNameInput?.value.trim();
     if (!restaurantId || !itemName) {
-      setOpsStatus(ordersStatus, "Restaurant and item are required.", "error");
+      setOpsStatus(ordersStatus, "Operation and item are required.", "error");
       return;
     }
 
@@ -2360,12 +2375,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       subtitle: "Event & Banquet Operations Control"
     },
     restaurants: {
-      title: "Restaurants",
-      subtitle: "Multi-venue hospitality operations"
+      title: "Operations",
+      subtitle: "Workspaces by team, company, or location"
     },
     orders: {
       title: "Orders",
-      subtitle: "Live order management across restaurants"
+      subtitle: "Live order management across operations"
     },
     kitchen: {
       title: "Kitchen Display",
@@ -2396,8 +2411,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       subtitle: "Track what needs to be prepared and assigned"
     },
     staff: {
-      title: "LineOps",
-      subtitle: "Import schedules, assign kitchen stations, and print the station sheet"
+      title: "RotaFlow",
+      subtitle: "Schedules, rotations, coverage, and station boards by LineOps"
     },
     lineOpsUsers: {
       title: "LineOps Users",
@@ -6169,7 +6184,7 @@ ${staffSuggestion}
       : "Full Week Schedule";
     const printSubtitle = weeklySchedulePreviewPreset
       ? getPresetSetupLabel(weeklySchedulePreviewPreset) || "Saved setup"
-      : "BEOFlow LineOps · Bastida Systems";
+      : "RotaFlow by LineOps · Bastida Systems";
 
     const printRoot = document.createElement("div");
     printRoot.id = "assignment-print-root";
@@ -6271,7 +6286,7 @@ ${staffSuggestion}
 
     const staff = getStaff();
     if (!staff.length) {
-      shiftReportSummary.innerHTML = '<div class="report-empty-state">No LineOps data yet.</div>';
+      shiftReportSummary.innerHTML = '<div class="report-empty-state">No RotaFlow data yet.</div>';
       return;
     }
 
@@ -6599,7 +6614,7 @@ ${staffSuggestion}
     const selectedPerson = staff.find((person) => person.id === staffId);
     if (!selectedPerson) return;
     if (station !== UNASSIGNED_STATION && !getAssignmentOptionsForPerson(selectedPerson, activeShiftDay, staff).includes(station)) {
-      setScheduleImportStatus("That station is outside this employee's LineOps block.", "warning");
+      setScheduleImportStatus("That station is outside this employee's RotaFlow block.", "warning");
       return;
     }
 
@@ -7174,7 +7189,7 @@ ${staffSuggestion}
     localStorage.setItem(PTS_REFERENCE_SCHEDULE_SEED_KEY, PTS_REFERENCE_SCHEDULE_VERSION);
     saveStaff([]);
     renderStaff();
-    setScheduleImportStatus("LineOps table cleared.", "success");
+    setScheduleImportStatus("RotaFlow table cleared.", "success");
   };
 
   const renderAssignmentPresets = () => {
@@ -7384,7 +7399,7 @@ ${staffSuggestion}
             <img src="img/logobeoflow.png" alt="Bastida Systems logo" />
             <div>
             <h1>${escapeHtml(title)}</h1>
-              <p>BEOFlow LineOps · Bastida Systems · ${getShiftDayLabel(activeShiftDay)}${appliesTo ? ` · ${escapeHtml(appliesTo)}` : ""}</p>
+              <p>RotaFlow by LineOps · Bastida Systems · ${getShiftDayLabel(activeShiftDay)}${appliesTo ? ` · ${escapeHtml(appliesTo)}` : ""}</p>
             </div>
           </div>
           <div class="meta">
@@ -7593,6 +7608,7 @@ ${staffSuggestion}
 
   restaurantSelectCancelBtn?.addEventListener("click", () => {
     if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+    if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
     setRestaurantSelectAddOpen(false);
     setRestaurantSelectStatus("");
   });
@@ -7609,6 +7625,7 @@ ${staffSuggestion}
     if (event.key === "Escape") {
       event.preventDefault();
       if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+      if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
       setRestaurantSelectAddOpen(false);
       setRestaurantSelectStatus("");
     }

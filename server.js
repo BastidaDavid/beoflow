@@ -55,7 +55,21 @@ const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/j
 const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14;
 const LINEOPS_AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const LINEOPS_PASSWORD_ITERATIONS = 120000;
-const LINEOPS_BUSINESS_TYPES = new Set(["Restaurant", "Hospitality", "Casino", "Retail", "Warehouse", "Other"]);
+const LINEOPS_BUSINESS_TYPES = new Set([
+  "Restaurant / Kitchen",
+  "Hotel / Hospitality",
+  "Events / Catering",
+  "Healthcare / Clinic",
+  "Office / Admin Team",
+  "Retail / Store",
+  "Personal / Household",
+  "Restaurant",
+  "Hospitality",
+  "Casino",
+  "Retail",
+  "Warehouse",
+  "Other"
+]);
 const LINEOPS_TEAM_SIZES = new Set(["1-10", "11-50", "51-200", "201+"]);
 const LINEOPS_DEPARTMENTS = new Set(["Operations", "Front of House", "Guest Services", "Fulfillment", "Facilities", "Safety"]);
 const LINEOPS_GOALS = new Set([
@@ -123,7 +137,7 @@ const DEFAULT_CLIENTS = [
     displayName: "Strat - PTS Sport and Wings",
     modules: STRAT_PTS_LINEOPS_MODULES,
     defaultModule: "staff",
-    brandTitle: "LineOps",
+    brandTitle: "RotaFlow",
     brandSubtitle: "PTS Sport and Wings"
   },
   {
@@ -195,7 +209,7 @@ function normalizeClientConfig(clientConfig = {}) {
       displayName: normalizedConfig.displayName || "Strat - PTS Sport and Wings",
       modules: STRAT_PTS_LINEOPS_MODULES,
       defaultModule: "staff",
-      brandTitle: "LineOps",
+      brandTitle: "RotaFlow",
       brandSubtitle: "PTS Sport and Wings",
       lockedModulesVisible: false
     };
@@ -801,7 +815,7 @@ function unifiedLineOpsSeedAccounts() {
       password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
       businessName: "Strat - PTS Sport and Wings",
       fullName: "Strat Admin",
-      businessType: "Restaurant",
+      businessType: "Restaurant / Kitchen",
       onboarding: {
         teamSize: "11-50",
         department: "Front of House",
@@ -815,7 +829,7 @@ function unifiedLineOpsSeedAccounts() {
       password: unifiedDemoPassword,
       businessName: "Demo Workspace",
       fullName: "App Review Demo",
-      businessType: "Hospitality",
+      businessType: "Hotel / Hospitality",
       onboarding: {
         teamSize: "11-50",
         department: "Operations",
