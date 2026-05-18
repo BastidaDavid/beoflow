@@ -5894,6 +5894,9 @@ ${staffSuggestion}
   const getWeeklyScheduleStaff = () =>
     Array.isArray(weeklySchedulePreviewPreset?.staff) ? weeklySchedulePreviewPreset.staff : getStaff();
 
+  let activeWeekEditCell = null;
+  let activeWeekEditEmployeeId = "";
+
   const updateWeeklyScheduleHeader = () => {
     const isPreview = Boolean(weeklySchedulePreviewPreset);
     if (shiftWeekTitle) {
@@ -5904,7 +5907,7 @@ ${staffSuggestion}
     if (shiftWeekSubtitle) {
       shiftWeekSubtitle.textContent = isPreview
         ? `${getPresetSetupLabel(weeklySchedulePreviewPreset) || "Saved setup"} · Preview only`
-        : "Editable view of imported shifts, stations, substitutions, off days, and smart breaks.";
+        : "Digital view of imported shifts, stations, substitutions, off days, and smart breaks.";
     }
     if (addWeekRowBtn) addWeekRowBtn.hidden = isPreview;
     if (autoAssignWeekBtn) autoAssignWeekBtn.hidden = isPreview;
@@ -5912,7 +5915,7 @@ ${staffSuggestion}
 
   const buildWeeklyScheduleMarkup = (sourceStaff = getWeeklyScheduleStaff(), options = {}) => {
     const staff = sourceStaff;
-    const isEditable = Boolean(options.editable);
+    const canEdit = Boolean(options.editable);
 
     if (!staff.length) {
       return '<div class="shift-week-empty">Import or add employees to see the weekly schedule.</div>';
@@ -5955,7 +5958,8 @@ ${staffSuggestion}
       .map((person) => {
         const personId = escapeHtml(person.id);
         const personName = person.name || "Unnamed employee";
-        const employeeCell = isEditable
+        const isEmployeeEditing = canEdit && String(activeWeekEditEmployeeId) === String(person.id);
+        const employeeCell = isEmployeeEditing
           ? `
             <div class="shift-week-employee shift-week-employee-edit">
               <input type="text" class="shift-week-name-input" data-week-name="${personId}" value="${escapeHtml(person.name || "")}" placeholder="Employee name" aria-label="Employee name" />
@@ -5964,7 +5968,7 @@ ${staffSuggestion}
             </div>
           `
           : `
-            <div class="shift-week-employee">
+            <div class="shift-week-employee ${canEdit ? "is-clickable" : ""}" ${canEdit ? `data-week-employee-id="${personId}" role="button" tabindex="0" aria-label="Edit ${escapeHtml(personName)}"` : ""}>
               <strong>${escapeHtml(personName)}</strong>
               <span>${escapeHtml(person.role || "Role not set")}</span>
             </div>
@@ -5980,8 +5984,12 @@ ${staffSuggestion}
             const stationOptions = shiftAssignmentStations
               .map((station) => `<option value="${escapeHtml(station)}" ${selectedStation === station ? "selected" : ""}>${escapeHtml(station)}</option>`)
               .join("");
+            const isCellEditing =
+              canEdit
+              && String(activeWeekEditCell?.staffId || "") === String(person.id)
+              && activeWeekEditCell?.dayKey === day.key;
 
-            if (isEditable) {
+            if (isCellEditing) {
               return `
                 <div class="shift-week-cell is-editable ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-cell-day="${dayKey}" data-week-staff-id="${personId}">
                   <div class="shift-week-cell-summary">
@@ -6017,7 +6025,7 @@ ${staffSuggestion}
             }
 
             return `
-              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-cell-day="${dayKey}">
+              <button type="button" class="shift-week-cell ${day.key === activeShiftDay ? "is-active" : ""} ${isWorking ? "is-working" : "is-off"} station-${stationClass}" data-week-cell-day="${dayKey}" ${canEdit ? `data-week-staff-id="${personId}" aria-label="Edit ${escapeHtml(day.label)} shift for ${escapeHtml(personName)}"` : ""}>
                 <strong>${escapeHtml(statusLabel)}</strong>
                 <span>${isWorking ? escapeHtml(formatShiftTimeRange(assignment)) : "No shift"}</span>
                 ${assignment.substituteFor ? `<em>Covers ${escapeHtml(assignment.substituteFor)}</em>` : ""}
@@ -6055,6 +6063,9 @@ ${staffSuggestion}
     updateWeeklyScheduleHeader();
     shiftWeekSchedule.dataset.weekSize = activeWeekSize;
     shiftWeekSchedule.dataset.editable = String(isEditable);
+    shiftWeekSchedule.dataset.editing = isEditable
+      ? activeWeekEditCell ? "cell" : activeWeekEditEmployeeId ? "employee" : "none"
+      : "none";
     shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup(getWeeklyScheduleStaff(), { editable: isEditable });
   };
 
@@ -6082,6 +6093,8 @@ ${staffSuggestion}
     if (!shiftWeekModal) return;
 
     weeklySchedulePreviewPreset = null;
+    activeWeekEditCell = null;
+    activeWeekEditEmployeeId = "";
     setWeeklyScheduleSize(activeWeekSize);
     renderWeeklySchedule();
     shiftWeekModal.hidden = false;
@@ -6093,6 +6106,8 @@ ${staffSuggestion}
 
     shiftWeekModal.hidden = true;
     weeklySchedulePreviewPreset = null;
+    activeWeekEditCell = null;
+    activeWeekEditEmployeeId = "";
     updateWeeklyScheduleHeader();
     document.body.classList.remove("modal-open");
   };
@@ -6107,6 +6122,8 @@ ${staffSuggestion}
       ...preset,
       staff: preset.staff.map((person) => ({ ...person }))
     };
+    activeWeekEditCell = null;
+    activeWeekEditEmployeeId = "";
     setWeeklyScheduleSize(activeWeekSize);
     renderWeeklySchedule();
     shiftWeekModal.hidden = false;
@@ -6849,6 +6866,11 @@ ${staffSuggestion}
       originalAssignments: cloneShiftAssignments(assignments),
       sourceLabel: "Manual schedule"
     };
+
+    if (options?.focus === "week") {
+      activeWeekEditCell = null;
+      activeWeekEditEmployeeId = row.id;
+    }
 
     saveStaff([...getStaff(), row]);
     renderStaff();
@@ -8026,15 +8048,29 @@ ${staffSuggestion}
 
     shiftWeekSchedule.addEventListener("keydown", (e) => {
       const nameInput = e.target.closest("[data-week-name]");
-      if (!nameInput || e.key !== "Enter") return;
+      if (nameInput && e.key === "Enter") {
+        e.preventDefault();
+        nameInput.blur();
+        return;
+      }
+
+      const employeeCell = e.target.closest("[data-week-employee-id]");
+      if (!employeeCell || !["Enter", " "].includes(e.key) || weeklySchedulePreviewPreset) return;
 
       e.preventDefault();
-      nameInput.blur();
+      activeWeekEditCell = null;
+      activeWeekEditEmployeeId = employeeCell.dataset.weekEmployeeId;
+      renderWeeklySchedule();
+      requestAnimationFrame(() => {
+        shiftWeekSchedule.querySelector(`[data-week-name="${activeWeekEditEmployeeId}"]`)?.focus();
+      });
     });
 
     shiftWeekSchedule.addEventListener("click", (e) => {
       const deleteButton = e.target.closest("[data-week-delete-row]");
       if (deleteButton) {
+        activeWeekEditCell = null;
+        activeWeekEditEmployeeId = "";
         deleteStaff(deleteButton.dataset.weekDeleteRow);
         setScheduleImportStatus("Schedule row removed.", "success");
         return;
@@ -8046,10 +8082,35 @@ ${staffSuggestion}
         return;
       }
 
-      if (e.target.closest("input, select, button, label")) return;
+      const formControl = e.target.closest("input, select, label, button");
+      if (formControl && !formControl.classList.contains("shift-week-cell")) return;
+
+      const employeeCell = e.target.closest("[data-week-employee-id]");
+      if (employeeCell && !weeklySchedulePreviewPreset) {
+        activeWeekEditCell = null;
+        activeWeekEditEmployeeId = employeeCell.dataset.weekEmployeeId;
+        renderWeeklySchedule();
+        requestAnimationFrame(() => {
+          shiftWeekSchedule.querySelector(`[data-week-name="${activeWeekEditEmployeeId}"]`)?.focus();
+        });
+        return;
+      }
 
       const weekCell = e.target.closest("[data-week-cell-day]");
       if (!weekCell) return;
+
+      if (!weeklySchedulePreviewPreset && weekCell.dataset.weekStaffId) {
+        activeWeekEditEmployeeId = "";
+        activeWeekEditCell = {
+          staffId: weekCell.dataset.weekStaffId,
+          dayKey: weekCell.dataset.weekCellDay
+        };
+        setActiveShiftDay(weekCell.dataset.weekCellDay);
+        requestAnimationFrame(() => {
+          shiftWeekSchedule.querySelector(`[data-week-time="${activeWeekEditCell.staffId}"][data-week-day="${activeWeekEditCell.dayKey}"]`)?.focus();
+        });
+        return;
+      }
 
       setActiveShiftDay(weekCell.dataset.weekCellDay);
     });
