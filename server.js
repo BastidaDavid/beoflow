@@ -103,20 +103,16 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
 const bastidaSystemsEmail = String(process.env.BASTIDA_SYSTEMS_EMAIL || "bastidasystems@gmail.com").trim().toLowerCase();
 const westgateAccountEmail = String(process.env.WESTGATE_ACCOUNT_EMAIL || "westgate@bastidasystems.io").trim().toLowerCase();
-const stratAccountEmail = String(process.env.STRAT_ACCOUNT_EMAIL || "strat01@bastidasystems.io").trim().toLowerCase();
 const unifiedDemoEmail = String(process.env.BASTIDA_DEMO_EMAIL || "demo@bastidasystems.io").trim().toLowerCase();
 const unifiedDemoPassword = process.env.BASTIDA_DEMO_PASSWORD || "LineOpsDemo1!";
 const bastidaSyncSecret = String(process.env.BASTIDA_SYNC_SECRET || "").trim();
 const filtraCoreApiBaseURL = String(process.env.FILTRACORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
 const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
-const STRAT_PTS_LINEOPS_MODULES = ["dashboard", "restaurants", "orders", "kitchen", "menus", "recipes", "staff"];
+const DISABLED_CLIENT_CODES = new Set(["strat01", "strat01@bastidasystems.io", "ptslineops", "ptskitchen@lineops.io"]);
 const UNIFIED_ACCOUNT_ALIASES = new Map([
   ["bastida01", bastidaSystemsEmail],
   ["westgate", westgateAccountEmail],
   ["west@gmail.com", westgateAccountEmail],
-  ["strat01", stratAccountEmail],
-  ["ptslineops", stratAccountEmail],
-  ["ptskitchen@lineops.io", stratAccountEmail],
   ["demo@lineops.io", unifiedDemoEmail],
   ["demo@filtracore.io", unifiedDemoEmail]
 ]);
@@ -132,15 +128,6 @@ const DEFAULT_CLIENTS = [
     displayName: "Westgate Casino"
   },
   {
-    code: stratAccountEmail,
-    password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
-    displayName: "Strat - PTS Sport and Wings",
-    modules: STRAT_PTS_LINEOPS_MODULES,
-    defaultModule: "staff",
-    brandTitle: "RotaFlow",
-    brandSubtitle: "PTS Sport and Wings"
-  },
-  {
     code: unifiedDemoEmail,
     password: unifiedDemoPassword,
     displayName: "Demo Workspace"
@@ -148,12 +135,6 @@ const DEFAULT_CLIENTS = [
 ];
 
 const LEGACY_CLIENT_RENAMES = [
-  {
-    fromCode: "Strat01",
-    toCode: stratAccountEmail,
-    defaultPassword: "Strat01",
-    displayName: "Strat - PTS Sport and Wings"
-  },
   {
     fromCode: "Bastida01",
     toCode: bastidaSystemsEmail,
@@ -165,12 +146,6 @@ const LEGACY_CLIENT_RENAMES = [
     toCode: westgateAccountEmail,
     defaultPassword: "Westgate",
     displayName: "Westgate Casino"
-  },
-  {
-    fromCode: "PTSLineOps",
-    toCode: stratAccountEmail,
-    defaultPassword: "Strat01",
-    displayName: "Strat - PTS Sport and Wings"
   }
 ];
 
@@ -203,17 +178,6 @@ function normalizeClientConfig(clientConfig = {}) {
     lockedModulesVisible: Boolean(clientConfig.lockedModulesVisible)
   };
 
-  if (normalizedConfig.code.toLowerCase() === stratAccountEmail) {
-    return {
-      ...normalizedConfig,
-      displayName: normalizedConfig.displayName || "Strat - PTS Sport and Wings",
-      modules: STRAT_PTS_LINEOPS_MODULES,
-      defaultModule: "staff",
-      brandTitle: "RotaFlow",
-      brandSubtitle: "PTS Sport and Wings",
-      lockedModulesVisible: false
-    };
-  }
 
   return normalizedConfig;
 }
@@ -228,12 +192,16 @@ function mergeClientConfigs(clientConfigs) {
       clientsByCode.set(clientConfig.code.toLowerCase(), clientConfig);
     });
 
-  return [...clientsByCode.values()];
+  return [...clientsByCode.values()].filter((clientConfig) => !isDisabledClientCode(clientConfig.code));
 }
 
 function isBastidaClientCode(value = "") {
   const normalized = resolveUnifiedAccountIdentifier(value);
   return normalized === bastidaSystemsEmail;
+}
+
+function isDisabledClientCode(value = "") {
+  return DISABLED_CLIENT_CODES.has(normalizeEmail(value));
 }
 
 function getConfiguredClients() {
@@ -381,6 +349,20 @@ async function migrateLegacyClients() {
     );
     await pool.query("DELETE FROM clients WHERE id = $1", [legacyId]);
   }
+}
+
+async function deleteDisabledAccounts() {
+  const disabledCodes = [...DISABLED_CLIENT_CODES];
+  if (!disabledCodes.length) return;
+
+  await pool.query(
+    "DELETE FROM clients WHERE LOWER(client_code) = ANY($1::text[])",
+    [disabledCodes]
+  );
+  await pool.query(
+    "DELETE FROM lineops_users WHERE LOWER(email) = ANY($1::text[])",
+    [disabledCodes]
+  );
 }
 
 function base64UrlEncode(value) {
@@ -809,20 +791,6 @@ function unifiedLineOpsSeedAccounts() {
         isComplete: true
       },
       candidates: ["westgate", "west@gmail.com"]
-    },
-    {
-      email: stratAccountEmail,
-      password: process.env.STRAT_ACCOUNT_PASSWORD || "Strat01",
-      businessName: "Strat - PTS Sport and Wings",
-      fullName: "Strat Admin",
-      businessType: "Restaurant / Kitchen",
-      onboarding: {
-        teamSize: "11-50",
-        department: "Front of House",
-        goals: ["Coordinate teams", "Reduce delays", "Standardize workflows"],
-        isComplete: true
-      },
-      candidates: ["strat01", "ptslineops", "ptskitchen@lineops.io"]
     },
     {
       email: unifiedDemoEmail,
@@ -1309,6 +1277,7 @@ async function initDB() {
   `);
 
   await migrateLegacyClients();
+  await deleteDisabledAccounts();
 
   let defaultClientId = null;
   for (const clientConfig of getConfiguredClients()) {
