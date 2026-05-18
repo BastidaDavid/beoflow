@@ -89,18 +89,22 @@ const feedbackRecipients = (process.env.FEEDBACK_EMAIL_RECIPIENTS || "")
 const authSecret = process.env.BEOFLOW_SESSION_SECRET || process.env.SESSION_SECRET || "beoflow-local-session-secret";
 const bastidaSystemsEmail = String(process.env.BASTIDA_SYSTEMS_EMAIL || "bastidasystems@gmail.com").trim().toLowerCase();
 const westgateAccountEmail = String(process.env.WESTGATE_ACCOUNT_EMAIL || "westgate@bastidasystems.io").trim().toLowerCase();
-const unifiedDemoEmail = String(process.env.BASTIDA_DEMO_EMAIL || "demo@bastidasystems.io").trim().toLowerCase();
-const unifiedDemoPassword = process.env.BASTIDA_DEMO_PASSWORD || "LineOpsDemo1!";
 const bastidaSyncSecret = String(process.env.BASTIDA_SYNC_SECRET || "").trim();
 const filtraCoreApiBaseURL = String(process.env.FILTRACORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
 const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
-const DISABLED_CLIENT_CODES = new Set(["strat01", "strat01@bastidasystems.io", "ptslineops", "ptskitchen@lineops.io"]);
+const DISABLED_CLIENT_CODES = new Set([
+  "strat01",
+  "strat01@bastidasystems.io",
+  "ptslineops",
+  "ptskitchen@lineops.io",
+  "demo@bastidasystems.io",
+  "demo@lineops.io",
+  "demo@filtracore.io"
+]);
 const UNIFIED_ACCOUNT_ALIASES = new Map([
   ["bastida01", bastidaSystemsEmail],
   ["westgate", westgateAccountEmail],
-  ["west@gmail.com", westgateAccountEmail],
-  ["demo@lineops.io", unifiedDemoEmail],
-  ["demo@filtracore.io", unifiedDemoEmail]
+  ["west@gmail.com", westgateAccountEmail]
 ]);
 const DEFAULT_CLIENTS = [
   {
@@ -112,11 +116,6 @@ const DEFAULT_CLIENTS = [
     code: westgateAccountEmail,
     password: process.env.WESTGATE_ACCOUNT_PASSWORD || "Westgate",
     displayName: "Westgate Casino"
-  },
-  {
-    code: unifiedDemoEmail,
-    password: unifiedDemoPassword,
-    displayName: "Demo Workspace"
   }
 ];
 
@@ -777,21 +776,6 @@ function unifiedLineOpsSeedAccounts() {
         isComplete: true
       },
       candidates: ["westgate", "west@gmail.com"]
-    },
-    {
-      email: unifiedDemoEmail,
-      password: unifiedDemoPassword,
-      businessName: "Demo Workspace",
-      fullName: "App Review Demo",
-      businessType: "Hospitality",
-      onboarding: {
-        teamSize: "11-50",
-        department: "Operations",
-        goals: ["Coordinate teams", "Improve visibility", "Manage incidents"],
-        isComplete: true
-      },
-      resetPassword: true,
-      candidates: ["demo@lineops.io", "demo@filtracore.io"]
     }
   ];
 }
