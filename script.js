@@ -6069,6 +6069,18 @@ ${staffSuggestion}
     shiftWeekSchedule.innerHTML = buildWeeklyScheduleMarkup(getWeeklyScheduleStaff(), { editable: isEditable });
   };
 
+  const hasWeeklyScheduleEditMode = () =>
+    Boolean(activeWeekEditCell || activeWeekEditEmployeeId);
+
+  const closeWeeklyScheduleEditMode = () => {
+    if (!hasWeeklyScheduleEditMode()) return false;
+
+    activeWeekEditCell = null;
+    activeWeekEditEmployeeId = "";
+    renderWeeklySchedule();
+    return true;
+  };
+
   const setWeeklyScheduleSize = (size = "small") => {
     if (!["small", "normal", "large"].includes(size)) return;
 
@@ -8000,6 +8012,7 @@ ${staffSuggestion}
     }
 
     if (e.key === "Escape" && shiftWeekModal && !shiftWeekModal.hidden) {
+      if (closeWeeklyScheduleEditMode()) return;
       closeWeeklyScheduleView();
     }
   });
@@ -8078,6 +8091,7 @@ ${staffSuggestion}
 
       const dayButton = e.target.closest(".shift-week-day[data-week-day]");
       if (dayButton) {
+        closeWeeklyScheduleEditMode();
         setActiveShiftDay(dayButton.dataset.weekDay);
         return;
       }
@@ -8087,6 +8101,11 @@ ${staffSuggestion}
 
       const employeeCell = e.target.closest("[data-week-employee-id]");
       if (employeeCell && !weeklySchedulePreviewPreset) {
+        if (String(activeWeekEditEmployeeId) === String(employeeCell.dataset.weekEmployeeId)) {
+          closeWeeklyScheduleEditMode();
+          return;
+        }
+
         activeWeekEditCell = null;
         activeWeekEditEmployeeId = employeeCell.dataset.weekEmployeeId;
         renderWeeklySchedule();
@@ -8097,9 +8116,21 @@ ${staffSuggestion}
       }
 
       const weekCell = e.target.closest("[data-week-cell-day]");
-      if (!weekCell) return;
+      if (!weekCell) {
+        closeWeeklyScheduleEditMode();
+        return;
+      }
 
       if (!weeklySchedulePreviewPreset && weekCell.dataset.weekStaffId) {
+        const isSameEditCell =
+          String(activeWeekEditCell?.staffId || "") === String(weekCell.dataset.weekStaffId)
+          && activeWeekEditCell?.dayKey === weekCell.dataset.weekCellDay;
+
+        if (isSameEditCell) {
+          closeWeeklyScheduleEditMode();
+          return;
+        }
+
         activeWeekEditEmployeeId = "";
         activeWeekEditCell = {
           staffId: weekCell.dataset.weekStaffId,
