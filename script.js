@@ -64,6 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const backToLoginBtn = document.getElementById("back-to-login-btn");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
+  const toggleLoginPasswordBtn = document.getElementById("toggle-login-password");
   const loginStatus = document.getElementById("login-status");
   const signupAccountTypeInput = document.getElementById("signupAccountType");
   const signupBusinessNameInput = document.getElementById("signupBusinessName");
@@ -377,6 +378,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
+  const setLoginPasswordVisible = (isVisible) => {
+    if (!loginPasswordInput || !toggleLoginPasswordBtn) return;
+    const eyeIcon = toggleLoginPasswordBtn.querySelector(".password-toggle-eye");
+    const eyeOffIcon = toggleLoginPasswordBtn.querySelector(".password-toggle-eye-off");
+    loginPasswordInput.type = isVisible ? "text" : "password";
+    toggleLoginPasswordBtn.setAttribute("aria-label", isVisible ? "Hide password" : "Show password");
+    toggleLoginPasswordBtn.setAttribute("aria-pressed", String(isVisible));
+    if (eyeIcon) eyeIcon.hidden = isVisible;
+    if (eyeOffIcon) eyeOffIcon.hidden = !isVisible;
+  };
+
   const handleSignup = async (event) => {
     event.preventDefault();
     if (signupStatus) signupStatus.textContent = "Creating account...";
@@ -432,6 +444,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   authModeSignupBtn?.addEventListener("click", () => setAuthMode("signup"));
   backToLoginBtn?.addEventListener("click", () => setAuthMode("signin"));
   loginForm?.addEventListener("submit", handleLogin);
+  toggleLoginPasswordBtn?.addEventListener("click", () => {
+    setLoginPasswordVisible(loginPasswordInput?.type === "password");
+    loginPasswordInput?.focus();
+  });
   signupForm?.addEventListener("submit", handleSignup);
   logoutBtn?.addEventListener("click", logout);
   mobileLogoutBtn?.addEventListener("click", logout);
