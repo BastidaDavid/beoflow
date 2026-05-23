@@ -163,7 +163,6 @@ function normalizeClientConfig(clientConfig = {}) {
     lockedModulesVisible: Boolean(clientConfig.lockedModulesVisible)
   };
 
-
   return normalizedConfig;
 }
 
@@ -1674,7 +1673,7 @@ function apiStatus() {
       pos: "PATCH /api/pos/orders/:orderId/payment",
       analytics: "GET /api/analytics/orders/summary",
       staff: "GET/POST /api/staff/roles",
-      lineOpsAuth: "POST /api/lineops/auth/signup, POST /api/lineops/auth/login",
+      lineOpsAuth: "POST /api/lineops/auth/login",
       lineOpsAdminUsers: "GET /api/lineops/admin/users",
       realtime: "Socket.io orders engine gateway",
       adminApp: "GET /admin",
@@ -1791,167 +1790,6 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.get("/api/auth/me", requireClient, (req, res) => {
   res.json({ ok: true, client: serializeClient(req.client) });
-});
-
-app.post("/api/auth/signup", async (req, res) => {
-  try {
-    requireDatabase();
-
-    const businessName = String(req.body.businessName || req.body.business_name || "").trim();
-    const fullName = String(req.body.fullName || req.body.full_name || "").trim();
-    const rawEmail = normalizeEmail(req.body.email || req.body.clientCode);
-    const email = resolveUnifiedAccountIdentifier(rawEmail);
-    const password = String(req.body.password || "");
-    const businessType = normalizeLineOpsBusinessType(req.body.accountType || req.body.businessType);
-
-    if (!businessName || !fullName || !isValidEmail(email)) {
-      return res.status(400).json({ error: "Business name, full name, and a valid business email are required." });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters." });
-    }
-
-    const candidates = unifiedAccountCandidates(rawEmail);
-    const existingClient = await pool.query(
-      "SELECT id FROM clients WHERE LOWER(client_code) = ANY($1::text[]) LIMIT 1",
-      [candidates]
-    );
-    const existingLineOpsUser = await pool.query(
-      "SELECT id FROM lineops_users WHERE LOWER(email) = ANY($1::text[]) AND deleted_at IS NULL LIMIT 1",
-      [candidates]
-    );
-
-    if (existingClient.rows.length || existingLineOpsUser.rows.length) {
-      return res.status(409).json({ error: "An account already exists for this email." });
-    }
-
-    const onboarding = normalizeLineOpsOnboarding({
-      teamSize: "1-10",
-      department: businessType === "Restaurant" ? "Front of House" : "Operations",
-      goals: ["Coordinate teams", "Improve visibility", "Standardize workflows"],
-      isComplete: true
-    });
-
-    await ensureUnifiedBeoflowAccount({
-      email,
-      password,
-      businessName,
-      fullName,
-      businessType,
-      onboarding
-    }, {
-      resetPassword: true,
-      candidates: [rawEmail]
-    });
-
-    await syncAccountToFiltraCore({
-      email,
-      password,
-      businessName,
-      fullName,
-      businessType,
-      onboarding
-    });
-
-    const clientResult = await pool.query(
-      "SELECT id, client_code, display_name FROM clients WHERE LOWER(client_code) = LOWER($1) LIMIT 1",
-      [email]
-    );
-
-    const clientRecord = clientResult.rows[0];
-    res.status(201).json({
-      ok: true,
-      token: createClientToken(clientRecord),
-      client: serializeClient(clientRecord)
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(error.statusCode || 500).json({ error: error.message || "Account creation failed." });
-  }
-});
-
-app.post("/api/lineops/auth/signup", async (req, res) => {
-  try {
-    requireDatabase();
-
-    const businessName = String(req.body.businessName || "").trim();
-    const fullName = String(req.body.fullName || "").trim();
-    const rawEmail = normalizeEmail(req.body.email);
-    const email = resolveUnifiedAccountIdentifier(rawEmail);
-    const password = String(req.body.password || "");
-    const businessType = normalizeLineOpsBusinessType(req.body.businessType);
-
-    if (!businessName || !fullName || !isValidEmail(email)) {
-      return res.status(400).json({ error: "Business name, full name, and a valid email are required." });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({ error: "Password must be at least 8 characters." });
-    }
-
-    const existingResult = await pool.query(
-      "SELECT id FROM lineops_users WHERE LOWER(email) = ANY($1::text[]) AND deleted_at IS NULL LIMIT 1",
-      [unifiedAccountCandidates(rawEmail)]
-    );
-    if (existingResult.rows.length) {
-      return res.status(409).json({ error: "An account already exists for this email." });
-    }
-
-    const onboarding = normalizeLineOpsOnboarding(req.body.onboarding || {});
-    const insertResult = await pool.query(
-      `INSERT INTO lineops_users (id, business_name, full_name, email, password_hash, business_type, onboarding_profile, workspace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, '{}'::jsonb)
-       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at`,
-      [
-        crypto.randomUUID(),
-        businessName,
-        fullName,
-        email,
-        hashLineOpsPassword(password),
-        businessType,
-        JSON.stringify(onboarding)
-      ]
-    );
-
-    const user = insertResult.rows[0];
-    const workspace = createLineOpsWorkspace(user, onboarding);
-    const updateResult = await pool.query(
-      `UPDATE lineops_users
-       SET workspace = $1::jsonb,
-           onboarding_profile = $2::jsonb,
-           updated_at = NOW()
-       WHERE id = $3
-       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at`,
-      [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), user.id]
-    );
-    const savedUser = updateResult.rows[0];
-    await upsertBeoflowClientAccount({
-      email: savedUser.email,
-      password,
-      businessName: savedUser.business_name,
-      fullName: savedUser.full_name,
-      businessType: savedUser.business_type
-    });
-    await syncAccountToFiltraCore({
-      email: savedUser.email,
-      password,
-      businessName: savedUser.business_name,
-      fullName: savedUser.full_name,
-      businessType: savedUser.business_type,
-      onboarding: workspace.onboarding
-    });
-
-    res.status(201).json({
-      ok: true,
-      token: createLineOpsUserToken(savedUser),
-      user: serializeLineOpsUser(savedUser),
-      workspace
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(error.statusCode || 500).json({ error: error.message || "LineOps signup failed." });
-  }
 });
 
 app.post("/api/lineops/auth/login", async (req, res) => {
@@ -2133,7 +1971,7 @@ app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
       : normalizeLineOpsBusinessType(req.body.businessType);
 
     if (!businessName || !fullName || !isValidEmail(email)) {
-      return res.status(400).json({ error: "Business name, full name, and a valid email are required." });
+      return res.status(400).json({ error: "Customer name, full name, and a valid email are required." });
     }
 
     const duplicateResult = await pool.query(
