@@ -15,12 +15,7 @@
       <img src="./img/logobeoflow.png" alt="BEOFlow Logo" class="login-logo" />
       <div class="login-heading">
         <h1>BEOFlow</h1>
-        <p>Public operations portal for growing teams</p>
-      </div>
-
-      <div class="auth-mode-toggle" aria-label="Authentication mode">
-        <button type="button" id="auth-mode-signin" class="auth-mode-btn active">Sign In</button>
-        <button type="button" id="auth-mode-signup" class="auth-mode-btn">Create Account</button>
+        <p>Operations access for authorized teams</p>
       </div>
 
       <form id="client-login-form" class="client-login-form auth-form">
@@ -48,43 +43,6 @@
         </div>
         <button type="submit" class="primary-btn">Sign In</button>
         <p id="login-status" class="login-status" role="status"></p>
-      </form>
-
-      <form id="client-signup-form" class="client-login-form auth-form signup-form" hidden>
-        <div class="form-group">
-          <label for="signupAccountType">Account type</label>
-          <select id="signupAccountType" autocomplete="organization">
-            <option value="Restaurant">Restaurant</option>
-            <option value="Hospitality">Hospitality</option>
-            <option value="Casino">Casino</option>
-            <option value="Retail">Retail</option>
-            <option value="Warehouse">Warehouse</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="signupBusinessName">Business name</label>
-          <input type="text" id="signupBusinessName" autocomplete="organization" placeholder="Example: Northstar Kitchen" />
-        </div>
-        <div class="form-group">
-          <label for="signupFullName">Full name</label>
-          <input type="text" id="signupFullName" autocomplete="name" placeholder="Operations lead" />
-        </div>
-        <div class="form-group">
-          <label for="signupEmail">Business email</label>
-          <input type="email" id="signupEmail" autocomplete="email" placeholder="name@business.com" />
-        </div>
-        <div class="form-group">
-          <label for="signupPassword">Password</label>
-          <input type="password" id="signupPassword" autocomplete="new-password" placeholder="8+ characters" />
-        </div>
-        <div class="form-group">
-          <label for="signupConfirmPassword">Confirm password</label>
-          <input type="password" id="signupConfirmPassword" autocomplete="new-password" placeholder="Repeat password" />
-        </div>
-        <button type="submit" class="primary-btn">Create Account</button>
-        <button type="button" id="back-to-login-btn" class="auth-link-btn">Back to Login</button>
-        <p id="signup-status" class="login-status" role="status"></p>
       </form>
 
       <div class="login-footer">
@@ -347,13 +305,13 @@
       <section id="lineops-users-section" class="table-section ops-section lineops-users-section" hidden>
         <div class="section-header">
           <h2>LineOps Users</h2>
-          <p>Businesses registering through the public LineOps iOS app.</p>
+          <p>Authorized users provisioned for BeoFlow operations.</p>
         </div>
 
         <div class="reports-kpi-grid" aria-label="LineOps users overview">
           <div class="reports-kpi-card">
             <span id="lineops-users-total">0</span>
-            <small>Total signups</small>
+            <small>Total users</small>
           </div>
           <div class="reports-kpi-card">
             <span id="lineops-users-active">0</span>
@@ -685,10 +643,18 @@
 
           <div class="form-group full-width recipes-picker-card">
             <label for="menuRecipes">Recipes Included</label>
-            <select id="menuRecipes" multiple>
+            <select id="menuRecipes" class="native-menu-recipes-select" multiple aria-describedby="menuRecipesHint">
               <option value="">Create recipes first</option>
             </select>
-            <small class="field-hint">Select one or more recipes for this menu. Hold Command (Mac) or Ctrl (Windows) to select multiple recipes.</small>
+            <div class="menu-recipes-toolbar">
+              <span id="menu-recipes-summary">No recipes selected</span>
+              <div>
+                <button type="button" id="select-all-menu-recipes" class="secondary-btn">Select All</button>
+                <button type="button" id="clear-menu-recipes" class="secondary-btn">Clear</button>
+              </div>
+            </div>
+            <div id="menu-recipes-picker" class="menu-recipes-picker" aria-live="polite"></div>
+            <small id="menuRecipesHint" class="field-hint">Click each recipe card to include it in this menu. Select as many as needed.</small>
           </div>
 
           <div class="form-group">
@@ -748,14 +714,16 @@
 
               <div class="form-group">
                 <label for="recipeCategory">Category</label>
-                <select id="recipeCategory">
-                  <option>Entree</option>
-                  <option>Side</option>
-                  <option>Salad</option>
-                  <option>Dessert</option>
-                  <option>Beverage</option>
-                  <option>Sauce</option>
-                </select>
+                <input type="text" id="recipeCategory" list="recipe-category-options" placeholder="Entree, Brunch, Action Station..." />
+                <datalist id="recipe-category-options">
+                  <option value="Entree"></option>
+                  <option value="Side"></option>
+                  <option value="Salad"></option>
+                  <option value="Dessert"></option>
+                  <option value="Beverage"></option>
+                  <option value="Sauce"></option>
+                </datalist>
+                <small class="field-hint">Type a new category to add it to your recipe book.</small>
               </div>
 
               <div class="form-group">
@@ -775,6 +743,21 @@
                   <span class="waste-guide-icon">📖</span>
                   <span>Open Waste % Guide / Merma Manual</span>
                 </button>
+              </div>
+
+              <div class="form-group full-width recipe-photo-field">
+                <label for="recipePhoto">Recipe Photo</label>
+                <input type="file" id="recipePhoto" accept="image/*" />
+                <div id="recipePhotoPreview" class="recipe-photo-preview is-empty">
+                  <span>Photo preview</span>
+                  <small>Add a plate or buffet photo for the recipe book.</small>
+                </div>
+                <button type="button" id="removeRecipePhoto" class="secondary-btn recipe-photo-remove" hidden>Remove Photo</button>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="recipePreparation">Preparation</label>
+                <textarea id="recipePreparation" rows="5" placeholder="Step 1: Prep ingredients&#10;Step 2: Cook and hold&#10;Step 3: Plate or serve"></textarea>
               </div>
 
               <div class="form-group full-width">
@@ -850,14 +833,7 @@
 
                   <div class="form-group">
                     <label for="recipeNewInventoryStorageArea">Storage Area</label>
-                    <select id="recipeNewInventoryStorageArea">
-                      <option value="Refrigerated">Refrigerated</option>
-                      <option value="Frozen">Frozen</option>
-                      <option value="Dry Storage">Dry Storage</option>
-                      <option value="Prep Area">Prep Area</option>
-                      <option value="Banquet Kitchen">Banquet Kitchen</option>
-                      <option value="Bar Storage">Bar Storage</option>
-                    </select>
+                    <input type="text" id="recipeNewInventoryStorageArea" list="storage-area-options" value="Prep Area" placeholder="Walk-in cooler, dry storage..." />
                   </div>
                 </div>
 
@@ -897,6 +873,8 @@
               <p>Review recipe ingredients, cost per portion, total batch cost, and notes.</p>
             </div>
           </div>
+
+          <div id="recipe-card-grid" class="recipe-card-grid"></div>
 
           <table class="recipes-table">
             <thead>
@@ -942,14 +920,16 @@
 
               <div class="form-group">
                 <label for="subRecipeCategory">Category</label>
-                <select id="subRecipeCategory">
-                  <option>Sauce</option>
-                  <option>Dressing</option>
-                  <option>Salsa</option>
-                  <option>Garnish</option>
-                  <option>Prep Base</option>
-                  <option>Side Prep</option>
-                </select>
+                <input type="text" id="subRecipeCategory" list="sub-recipe-category-options" placeholder="Sauce, Dressing, Prep Base..." />
+                <datalist id="sub-recipe-category-options">
+                  <option value="Sauce"></option>
+                  <option value="Dressing"></option>
+                  <option value="Salsa"></option>
+                  <option value="Garnish"></option>
+                  <option value="Prep Base"></option>
+                  <option value="Side Prep"></option>
+                </datalist>
+                <small class="field-hint">Type a new prep category to keep it available.</small>
               </div>
 
               <div class="form-group">
@@ -972,6 +952,21 @@
                 <label for="subRecipeWaste">Waste %</label>
                 <input type="number" id="subRecipeWaste" value="0" min="0" max="99" step="1" />
                 <small class="field-hint">Use this for cleaning, trimming, transfer loss, or storage loss.</small>
+              </div>
+
+              <div class="form-group full-width recipe-photo-field">
+                <label for="subRecipePhoto">Prep Recipe Photo</label>
+                <input type="file" id="subRecipePhoto" accept="image/*" />
+                <div id="subRecipePhotoPreview" class="recipe-photo-preview is-empty">
+                  <span>Photo preview</span>
+                  <small>Add a prep batch, sauce, or mise en place photo.</small>
+                </div>
+                <button type="button" id="removeSubRecipePhoto" class="secondary-btn recipe-photo-remove" hidden>Remove Photo</button>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="subRecipePreparation">Preparation</label>
+                <textarea id="subRecipePreparation" rows="5" placeholder="Step 1: Prep ingredients&#10;Step 2: Mix, cook, or blend&#10;Step 3: Label, chill, and store"></textarea>
               </div>
 
               <div class="form-group full-width">
@@ -1047,14 +1042,7 @@
 
                   <div class="form-group">
                     <label for="subRecipeNewInventoryStorageArea">Storage Area</label>
-                    <select id="subRecipeNewInventoryStorageArea">
-                      <option value="Refrigerated">Refrigerated</option>
-                      <option value="Frozen">Frozen</option>
-                      <option value="Dry Storage">Dry Storage</option>
-                      <option value="Prep Area">Prep Area</option>
-                      <option value="Banquet Kitchen">Banquet Kitchen</option>
-                      <option value="Bar Storage">Bar Storage</option>
-                    </select>
+                    <input type="text" id="subRecipeNewInventoryStorageArea" list="storage-area-options" value="Prep Area" placeholder="Walk-in cooler, prep shelf..." />
                   </div>
                 </div>
 
@@ -1095,6 +1083,8 @@
             </div>
           </div>
 
+          <div id="sub-recipe-card-grid" class="recipe-card-grid"></div>
+
           <table class="recipes-table sub-recipes-table">
             <thead>
               <tr>
@@ -1126,18 +1116,20 @@
 
           <div class="form-group">
             <label for="inventoryCategory">Category</label>
-            <select id="inventoryCategory">
-              <option value="produce">Vegetables & Fruit</option>
-              <option value="meat">Meat & Poultry</option>
-              <option value="fish">Fish & Seafood</option>
-              <option value="dairy">Dairy</option>
-              <option value="dry">Dry Goods</option>
-              <option value="bakery">Bakery</option>
-              <option value="beverage">Beverages</option>
-              <option value="pickled">Pickles & Ferments</option>
-              <option value="prep">Prep Recipes</option>
-              <option value="other">Other</option>
-            </select>
+            <input type="text" id="inventoryCategory" list="inventory-category-options" placeholder="Vegetables & Fruit, Spices, Paper Goods..." />
+            <datalist id="inventory-category-options">
+              <option value="Vegetables & Fruit"></option>
+              <option value="Meat & Poultry"></option>
+              <option value="Fish & Seafood"></option>
+              <option value="Dairy"></option>
+              <option value="Dry Goods"></option>
+              <option value="Bakery"></option>
+              <option value="Beverages"></option>
+              <option value="Pickles & Ferments"></option>
+              <option value="Prep Recipes"></option>
+              <option value="Other"></option>
+            </datalist>
+            <small class="field-hint">Type a new inventory category if it is not listed.</small>
           </div>
 
           <div class="form-group">
@@ -1163,14 +1155,22 @@
 
           <div class="form-group">
             <label for="inventoryStorageArea">Storage Area</label>
-            <select id="inventoryStorageArea">
-              <option value="Refrigerated">Refrigerated</option>
-              <option value="Frozen">Frozen</option>
-              <option value="Dry Storage">Dry Storage</option>
-              <option value="Prep Area">Prep Area</option>
-              <option value="Banquet Kitchen">Banquet Kitchen</option>
-              <option value="Bar Storage">Bar Storage</option>
-            </select>
+            <input type="text" id="inventoryStorageArea" list="storage-area-options" placeholder="Walk-in cooler, dry storage, banquet kitchen..." />
+            <datalist id="storage-area-options">
+              <option value="Refrigerated"></option>
+              <option value="Frozen"></option>
+              <option value="Dry Storage"></option>
+              <option value="Walk-in Cooler"></option>
+              <option value="Walk-in Freezer"></option>
+              <option value="Prep Area"></option>
+              <option value="Banquet Kitchen"></option>
+              <option value="Hot Line"></option>
+              <option value="Cold Line"></option>
+              <option value="Pastry"></option>
+              <option value="Bar Storage"></option>
+              <option value="Receiving"></option>
+            </datalist>
+            <small class="field-hint">Type a new storage area to save it with the item.</small>
           </div>
         </div>
 
@@ -1592,7 +1592,7 @@
       <div class="modal-header">
         <div>
           <h3>Edit LineOps User</h3>
-          <p>Update the public SaaS account profile and onboarding data.</p>
+          <p>Update the authorized user profile and onboarding data.</p>
         </div>
         <button type="button" id="close-lineops-user-editor" class="icon-btn delete" title="Close">×</button>
       </div>
@@ -1602,7 +1602,7 @@
 
         <div class="form-grid">
           <div class="form-group">
-            <label for="lineops-edit-business-name">Business Name</label>
+            <label for="lineops-edit-business-name">Customer Name</label>
             <input type="text" id="lineops-edit-business-name" required />
           </div>
 
