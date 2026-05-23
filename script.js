@@ -143,7 +143,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         appBrandLogo.alt = "Bastida Systems Logo";
       }
       if (appBrandTitle) appBrandTitle.textContent = "Bastida Systems";
-      if (appBrandSubtitle) appBrandSubtitle.textContent = "Cerebro CEO";
+      if (appBrandSubtitle) appBrandSubtitle.textContent = "CEO Command Center";
       return;
     }
 
@@ -714,7 +714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         navReports
       ].forEach((navItem) => setClientOnlyElementVisibility(navItem, bastidaMode === BASTIDA_CEO_MODE));
       setClientOnlyElementVisibility(westgateModeSwitchBtn, bastidaMode === BASTIDA_CEO_MODE);
-      if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Cambiar vista";
+      if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Change view";
       hideClientOnlyElement(smartSetupSection);
       hideClientOnlyElement(smartSetupLauncher);
       return;
@@ -726,7 +726,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
       setClientOnlyElementVisibility(westgateModeSwitchBtn, isRestaurantSelectionClient && Boolean(selectedRestaurantId));
       if (westgateModeSwitchBtn && isRestaurantSelectionClient) {
-        westgateModeSwitchBtn.textContent = "Cambiar operacion";
+        westgateModeSwitchBtn.textContent = "Change operation";
       }
       hideClientOnlyElement(smartSetupSection);
       hideClientOnlyElement(smartSetupLauncher);
@@ -758,7 +758,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(modules));
-    if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Cambiar area";
+    if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Change area";
     setClientOnlyElementVisibility(smartSetupLauncher, canUseSmartSetup() && Boolean(modules));
     if (!canUseSmartSetup()) hideClientOnlyElement(smartSetupSection);
   };
