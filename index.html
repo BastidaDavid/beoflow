@@ -628,13 +628,22 @@
 
           <div class="form-group">
             <label for="menuType">Menu Type</label>
-            <select id="menuType">
-              <option>Buffet</option>
-              <option>Plated Dinner</option>
-              <option>Cocktail Reception</option>
-              <option>Breakfast</option>
-              <option>Lunch</option>
-            </select>
+            <input type="text" id="menuType" list="menu-type-options" value="Buffet" placeholder="Buffet, Plated Dinner, Brunch..." />
+            <datalist id="menu-type-options">
+              <option value="Buffet"></option>
+              <option value="Plated Dinner"></option>
+              <option value="Cocktail Reception"></option>
+              <option value="Breakfast"></option>
+              <option value="Lunch"></option>
+              <option value="Brunch"></option>
+              <option value="Family Style"></option>
+              <option value="Stationed Reception"></option>
+              <option value="Action Stations"></option>
+              <option value="Chef's Tasting"></option>
+              <option value="Boxed Meals"></option>
+              <option value="Coffee Break"></option>
+            </datalist>
+            <small class="field-hint">Type a new menu type or choose one from the suggestions.</small>
           </div>
 
           <div class="form-group full-width recipes-picker-card">

@@ -479,6 +479,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const menusTableBody = document.getElementById("menus-table-body");
   const menuNameInput = document.getElementById("menuName");
   const menuTypeInput = document.getElementById("menuType");
+  const menuTypeOptions = document.getElementById("menu-type-options");
   const menuCostInput = document.getElementById("menuCost");
   if (menuCostInput) {
     const menuCostField = menuCostInput.closest(".form-group") || menuCostInput.parentElement;
@@ -917,6 +918,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const defaultRecipeCategories = ["Entree", "Side", "Salad", "Dessert", "Beverage", "Sauce", "Breakfast", "Brunch", "Buffet", "Action Station", "Passed Appetizer"];
   const defaultSubRecipeCategories = ["Sauce", "Dressing", "Salsa", "Garnish", "Prep Base", "Side Prep", "Marinade", "Stock", "Filling", "Batch Mix"];
+  const defaultMenuTypes = [
+    "Buffet",
+    "Plated Dinner",
+    "Cocktail Reception",
+    "Breakfast",
+    "Lunch",
+    "Brunch",
+    "Family Style",
+    "Stationed Reception",
+    "Action Stations",
+    "Chef's Tasting",
+    "Boxed Meals",
+    "Coffee Break"
+  ];
   const defaultStorageAreas = [
     "Refrigerated",
     "Frozen",
@@ -3557,6 +3572,13 @@ ${staffSuggestion}
     ]);
   };
 
+  const refreshMenuTypeOptions = () => {
+    renderDatalistOptions(menuTypeOptions, [
+      ...defaultMenuTypes,
+      ...getMenus().map((menu) => menu.type)
+    ]);
+  };
+
   const refreshInventoryOptionLists = (items = getInventory()) => {
     renderDatalistOptions(inventoryCategoryOptions, [
       ...inventoryCategories.map((category) => category.label),
@@ -4559,6 +4581,8 @@ ${staffSuggestion}
   };
 
   const renderMenus = () => {
+    refreshMenuTypeOptions();
+
     const menus = getMenus();
     const recipes = getRecipes();
     if (!menusTableBody) return;
@@ -9035,6 +9059,7 @@ ${staffSuggestion}
   populateRecipeIngredientOptions();
   populateSubRecipeIngredientOptions();
   refreshRecipeOptionLists();
+  refreshMenuTypeOptions();
   refreshInventoryOptionLists();
   renderPhotoPreview(recipePhotoPreview, removeRecipePhotoBtn, currentRecipePhotoDataUrl);
   renderPhotoPreview(subRecipePhotoPreview, removeSubRecipePhotoBtn, currentSubRecipePhotoDataUrl);
