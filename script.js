@@ -3902,40 +3902,82 @@ ${staffSuggestion}
   const renderSelectedIngredients = () => {
     if (!selectedIngredientsList) return;
 
-    if (currentRecipeIngredients.length === 0) {
-      selectedIngredientsList.innerHTML = `
-        <div class="recipe-ingredients-cell">
-          <strong>0 ingredients</strong>
-          <span>No ingredients added yet.</span>
-        </div>
-      `;
-      return;
-    }
-
     const baseCost = calculateRecipeIngredientCost(currentRecipeIngredients);
     const wastePercent = recipeYieldInput ? Number(recipeYieldInput.value || 0) : 0;
     const finalCost = applyWasteToCost(baseCost, wastePercent);
+    const wasteCost = finalCost - baseCost;
+    const portions = recipePortionsInput ? Number(recipePortionsInput.value || 0) : 0;
+    const unitCost = portions > 0 ? finalCost / portions : 0;
+    const minimumSheetRows = 7;
+    const emptyRowsNeeded = Math.max(minimumSheetRows - currentRecipeIngredients.length, currentRecipeIngredients.length ? 1 : minimumSheetRows);
+    const emptyRows = Array.from({ length: emptyRowsNeeded }, () => `
+      <div class="recipe-sheet-line is-empty" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span>gr/ml</span>
+        <span>0</span>
+        <span>0</span>
+        <span>$ -</span>
+        <span>0</span>
+        <span></span>
+      </div>
+    `).join("");
+    const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
+      const line = getIngredientLine(ingredient);
+      return `
+        <div class="recipe-sheet-line">
+          <span>${index + 1}</span>
+          <span>${line.usedQty.toFixed(2)}</span>
+          <span>${escapeHtml(line.usedUnit)}</span>
+          <span>0</span>
+          <span>${escapeHtml(line.itemName)}</span>
+          <span>$ -</span>
+          <span>${escapeHtml(line.inventoryUnit)}</span>
+          <span>$${line.ingredientCost.toFixed(2)}</span>
+        </div>
+      `;
+    }).join("");
 
     selectedIngredientsList.innerHTML = `
-      <div class="recipe-ingredients-cell">
-        <strong>${currentRecipeIngredients.length} ingredients ready to save</strong>
-        <span>$${finalCost.toFixed(2)} batch cost before portions.</span>
+      <div class="recipe-sheet-lines">
+        ${ingredientRows}
+        ${emptyRows}
       </div>
-      <div class="selected-recipe-lines">
-        ${currentRecipeIngredients.map((ingredient) => {
-          const line = getIngredientLine(ingredient);
-          return `
-            <div class="selected-recipe-line">
-              <strong>${escapeHtml(line.itemName)}</strong>
-              <span>${line.usedQty.toFixed(2)} ${escapeHtml(line.usedUnit)} · $${line.ingredientCost.toFixed(2)}</span>
-            </div>
-          `;
-        }).join("")}
+      <div class="recipe-sheet-total-row total">
+        <span>TOTAL</span>
+        <strong>$${baseCost.toFixed(2)}</strong>
       </div>
-      <div class="selected-ingredients-actions">
-        <button type="button" class="secondary-btn view-current-ingredients-btn">
-          Open Prep Sheet
-        </button>
+      <div class="recipe-sheet-total-row waste">
+        <span>${wastePercent.toFixed(0)}% WASTED</span>
+        <strong>$${wasteCost.toFixed(2)}</strong>
+      </div>
+      <div class="recipe-sheet-total-row unit-cost">
+        <span>TOTAL UNIT COST</span>
+        <strong>$${unitCost.toFixed(2)}</strong>
+      </div>
+      <div class="recipe-sheet-total-row cost-percent">
+        <span>% COST</span>
+        <strong>-</strong>
+      </div>
+      <div class="recipe-sheet-total-row food-factor">
+        <span>FOOD FACTOR</span>
+        <strong>-</strong>
+      </div>
+      <div class="recipe-sheet-total-row vat">
+        <span>16% VAT</span>
+        <strong>-</strong>
+      </div>
+      <div class="recipe-sheet-total-row suggested">
+        <span>SUGGESTED SALE PRICE</span>
+        <strong>-</strong>
+      </div>
+      <div class="recipe-sheet-total-row sale-vat">
+        <span>SALE PRICE WITHOUT VAT</span>
+        <strong>-</strong>
+      </div>
+      <div class="recipe-sheet-total-row sale-price">
+        <span>SALE PRICE</span>
+        <button type="button" class="view-current-ingredients-btn">PREP SHEET</button>
       </div>
     `;
 
@@ -8411,6 +8453,11 @@ ${staffSuggestion}
   if (addRecipeIngredientBtn) {
     addRecipeIngredientBtn.addEventListener("click", addRecipeIngredient);
   }
+
+  [recipeYieldInput, recipePortionsInput].forEach((input) => {
+    input?.addEventListener("input", renderSelectedIngredients);
+    input?.addEventListener("change", renderSelectedIngredients);
+  });
 
   recipePhotoInput?.addEventListener("change", () => {
     handleRecipePhotoFile(recipePhotoInput.files?.[0], "recipe");
