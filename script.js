@@ -3855,14 +3855,21 @@ ${staffSuggestion}
     const itemName = item?.name || "Unknown item";
     const usedQty = Number(ingredient.originalQty ?? ingredient.qty ?? 0);
     const usedUnit = ingredient.originalUnit || item?.unit || "unit";
+    const inventoryQty = Number(item?.quantity || 0);
     const inventoryUnit = item?.unit || usedUnit;
-    const ingredientCost = Number(ingredient.qty || 0) * getInventoryUnitCost(item);
+    const itemPrice = getInventoryUnitCost(item);
+    const ingredientCost = Number(ingredient.qty || 0) * itemPrice;
+    const presentation = item
+      ? `${inventoryQty.toFixed(2)} ${inventoryUnit}`
+      : "No presentation";
 
     return {
       itemName,
       usedQty,
       usedUnit,
       inventoryUnit,
+      itemPrice,
+      presentation,
       ingredientCost
     };
   };
@@ -3908,76 +3915,84 @@ ${staffSuggestion}
     const wasteCost = finalCost - baseCost;
     const portions = recipePortionsInput ? Number(recipePortionsInput.value || 0) : 0;
     const unitCost = portions > 0 ? finalCost / portions : 0;
-    const minimumSheetRows = 7;
-    const emptyRowsNeeded = Math.max(minimumSheetRows - currentRecipeIngredients.length, currentRecipeIngredients.length ? 1 : minimumSheetRows);
-    const emptyRows = Array.from({ length: emptyRowsNeeded }, () => `
-      <div class="recipe-sheet-line is-empty" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span>gr/ml</span>
-        <span>0</span>
-        <span>0</span>
-        <span>$ -</span>
-        <span>0</span>
-        <span></span>
-      </div>
-    `).join("");
+    const ingredientCount = currentRecipeIngredients.length;
     const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
       const line = getIngredientLine(ingredient);
       return `
         <div class="recipe-sheet-line">
-          <span>${index + 1}</span>
-          <span>${line.usedQty.toFixed(2)}</span>
-          <span>${escapeHtml(line.usedUnit)}</span>
-          <span>0</span>
-          <span>${escapeHtml(line.itemName)}</span>
-          <span>$ -</span>
-          <span>${escapeHtml(line.inventoryUnit)}</span>
-          <span>$${line.ingredientCost.toFixed(2)}</span>
+          <span class="recipe-line-code" data-label="Code">#${String(index + 1).padStart(2, "0")}</span>
+          <span data-label="Quantity">${line.usedQty.toFixed(2)} ${escapeHtml(line.usedUnit)}</span>
+          <strong data-label="Ingredient">${escapeHtml(line.itemName)}</strong>
+          <span data-label="Price">$${line.itemPrice.toFixed(2)} / ${escapeHtml(line.inventoryUnit)}</span>
+          <span data-label="Presentation">${escapeHtml(line.presentation)}</span>
+          <span class="recipe-line-cost" data-label="Cost">$${line.ingredientCost.toFixed(2)}</span>
+          <span class="recipe-line-actions" data-label="Actions">
+            <button type="button" class="icon-btn edit recipe-line-edit-btn" data-index="${index}" title="Edit ingredient" aria-label="Edit ${escapeHtml(line.itemName)}">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L17.5 5.5a2.1 2.1 0 0 0-3 0L4 16z" />
+                <path d="M13.5 6.5l4 4" />
+              </svg>
+            </button>
+            <button type="button" class="icon-btn delete recipe-line-delete-btn" data-index="${index}" title="Remove ingredient" aria-label="Remove ${escapeHtml(line.itemName)}">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 7h12" />
+                <path d="M9 7V5h6v2" />
+                <path d="M9 10v8" />
+                <path d="M15 10v8" />
+                <path d="M8 7l1 13h6l1-13" />
+              </svg>
+            </button>
+          </span>
         </div>
       `;
     }).join("");
 
     selectedIngredientsList.innerHTML = `
-      <div class="recipe-sheet-lines">
-        ${ingredientRows}
-        ${emptyRows}
+      <div class="recipe-sheet-table-card">
+        <div class="recipe-sheet-table-head" aria-hidden="true">
+          <span>Code</span>
+          <span>Quantity</span>
+          <span>Ingredient</span>
+          <span>Price</span>
+          <span>Presentation</span>
+          <span>Cost</span>
+          <span></span>
+        </div>
+        <div class="recipe-sheet-lines">
+          ${ingredientRows || `
+            <div class="recipe-sheet-empty-state">
+              <strong>No ingredients added yet.</strong>
+              <span>Search an inventory item above, enter quantity and unit, then add it to the recipe card.</span>
+            </div>
+          `}
+        </div>
       </div>
-      <div class="recipe-sheet-total-row total">
-        <span>TOTAL</span>
-        <strong>$${baseCost.toFixed(2)}</strong>
-      </div>
-      <div class="recipe-sheet-total-row waste">
-        <span>${wastePercent.toFixed(0)}% WASTED</span>
-        <strong>$${wasteCost.toFixed(2)}</strong>
-      </div>
-      <div class="recipe-sheet-total-row unit-cost">
-        <span>TOTAL UNIT COST</span>
-        <strong>$${unitCost.toFixed(2)}</strong>
-      </div>
-      <div class="recipe-sheet-total-row cost-percent">
-        <span>% COST</span>
-        <strong>-</strong>
-      </div>
-      <div class="recipe-sheet-total-row food-factor">
-        <span>FOOD FACTOR</span>
-        <strong>-</strong>
-      </div>
-      <div class="recipe-sheet-total-row vat">
-        <span>16% VAT</span>
-        <strong>-</strong>
-      </div>
-      <div class="recipe-sheet-total-row suggested">
-        <span>SUGGESTED SALE PRICE</span>
-        <strong>-</strong>
-      </div>
-      <div class="recipe-sheet-total-row sale-vat">
-        <span>SALE PRICE WITHOUT VAT</span>
-        <strong>-</strong>
-      </div>
-      <div class="recipe-sheet-total-row sale-price">
-        <span>SALE PRICE</span>
-        <button type="button" class="view-current-ingredients-btn">PREP SHEET</button>
+      <div class="recipe-cost-summary-grid">
+        <div class="recipe-cost-metric primary">
+          <span>Total</span>
+          <strong>$${baseCost.toFixed(2)}</strong>
+        </div>
+        <div class="recipe-cost-metric">
+          <span>Merma ${wastePercent.toFixed(0)}%</span>
+          <strong>$${wasteCost.toFixed(2)}</strong>
+        </div>
+        <div class="recipe-cost-metric">
+          <span>Unit Cost</span>
+          <strong>$${unitCost.toFixed(2)}</strong>
+        </div>
+        <div class="recipe-cost-metric">
+          <span>Ingredients</span>
+          <strong>${ingredientCount}</strong>
+        </div>
+        <button type="button" class="recipe-prep-sheet-btn view-current-ingredients-btn">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 3h9l3 3v15H6z" />
+            <path d="M14 3v4h4" />
+            <path d="M9 12h6" />
+            <path d="M9 16h6" />
+          </svg>
+          Prep Sheet
+        </button>
       </div>
     `;
 
@@ -3988,6 +4003,31 @@ ${staffSuggestion}
         openCurrentIngredientsModal();
       });
     }
+
+    selectedIngredientsList.querySelectorAll(".recipe-line-delete-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = Number(btn.dataset.index);
+        if (!Number.isInteger(index) || index < 0) return;
+        currentRecipeIngredients.splice(index, 1);
+        renderSelectedIngredients();
+      });
+    });
+
+    selectedIngredientsList.querySelectorAll(".recipe-line-edit-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = Number(btn.dataset.index);
+        const ingredient = currentRecipeIngredients[index];
+        if (!ingredient) return;
+
+        const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
+        if (inventoryItem) selectIngredientPickerItem(recipeIngredientPicker, inventoryItem);
+        if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
+        if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
+
+        currentRecipeIngredients.splice(index, 1);
+        renderSelectedIngredients();
+      });
+    });
   };
 
   const openCurrentIngredientsModal = () => {

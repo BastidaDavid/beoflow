@@ -704,151 +704,281 @@
         <div class="recipes-layout recipe-composer-layout recipe-sheet-layout">
           <div class="recipe-panel recipe-composer-panel recipe-cost-sheet-panel">
             <div class="recipe-cost-sheet-scroll">
-              <div class="recipe-cost-sheet" aria-label="Recipe costing worksheet">
-                <div class="sheet-cell sheet-menu-marker">MENU:A1</div>
-
-                <label class="sheet-cell sheet-label sheet-name-label" for="recipeSheetName">NAME:</label>
-                <div class="sheet-cell sheet-entry sheet-name-entry">
-                  <input type="text" id="recipeSheetName" class="sheet-input" placeholder="" />
-                </div>
-
-                <div class="sheet-cell sheet-label sheet-observations-label">OBSERVATIONS:</div>
-                <div class="sheet-cell sheet-observations-entry">
-                  <label class="sr-only" for="recipeNotes">Observations</label>
-                  <textarea id="recipeNotes" class="sheet-input sheet-textarea" rows="8" placeholder=""></textarea>
-                </div>
-
-                <label class="sheet-cell sheet-label sheet-recipe-name-label" for="recipeName">NAME OF RECIPE:</label>
-                <div class="sheet-cell sheet-entry sheet-recipe-name-entry">
-                  <input type="text" id="recipeName" class="sheet-input" placeholder="Caesar Salad" />
-                </div>
-
-                <div class="sheet-cell sheet-label sheet-recipe-number-label">N° Recipe:</div>
-                <div class="sheet-cell sheet-number-cell">1</div>
-
-                <label class="sheet-cell sheet-label sheet-sub-recipe-label" for="recipeCategory">SUB RECIPE</label>
-                <div class="sheet-cell sheet-entry sheet-sub-recipe-entry">
-                  <input type="text" id="recipeCategory" class="sheet-input" list="recipe-category-options" placeholder="Entree" />
-                  <datalist id="recipe-category-options">
-                    <option value="Entree"></option>
-                    <option value="Side"></option>
-                    <option value="Salad"></option>
-                    <option value="Dessert"></option>
-                    <option value="Beverage"></option>
-                    <option value="Sauce"></option>
-                  </datalist>
-                </div>
-
-                <label class="sheet-cell sheet-label sheet-pax-label" for="recipePortions">N° PAX:</label>
-                <div class="sheet-cell sheet-entry sheet-pax-entry">
-                  <input type="number" id="recipePortions" class="sheet-input sheet-number-input" placeholder="1" />
-                </div>
-
-                <label class="sheet-cell sheet-label sheet-yield-label" for="recipeYield">Rendimiento:</label>
-                <div class="sheet-cell sheet-entry sheet-yield-entry">
-                  <input type="number" id="recipeYield" class="sheet-input sheet-number-input" value="0" min="0" max="99" step="1" />
-                </div>
-
-                <div class="sheet-cell sheet-table-head sheet-code-head">CODE</div>
-                <div class="sheet-cell sheet-table-head sheet-qty-head">QUANTITY</div>
-                <div class="sheet-cell sheet-table-head sheet-unit-head">UNIT<br /><small>gr/ml</small></div>
-                <div class="sheet-cell sheet-table-head sheet-oz-head">OZ<br /><small>oz</small></div>
-                <div class="sheet-cell sheet-table-head sheet-ingredient-head">INGREDIENTS</div>
-                <div class="sheet-cell sheet-table-head sheet-price-head">PRICE<br /><small>INSUMOS</small></div>
-                <div class="sheet-cell sheet-table-head sheet-presentation-head">PRESENTATION<br /><small>INSUMO</small></div>
-                <div class="sheet-cell sheet-table-head sheet-cost-head">COST<br /><small>MONETARIO</small></div>
-
-                <div class="sheet-cell sheet-entry sheet-code-entry">AUTO</div>
-                <div class="sheet-cell sheet-entry sheet-qty-entry">
-                  <label class="sr-only" for="recipeIngredientQty">Quantity used</label>
-                  <input type="number" id="recipeIngredientQty" class="sheet-input sheet-number-input" placeholder="0" step="0.01" />
-                </div>
-                <div class="sheet-cell sheet-entry sheet-unit-entry">
-                  <label class="sr-only" for="recipeIngredientUnit">Recipe unit</label>
-                  <select id="recipeIngredientUnit" class="sheet-input">
-                    <option value="lb">lb</option>
-                    <option value="oz">oz</option>
-                    <option value="units">units</option>
-                    <option value="gallons">gallons</option>
-                    <option value="quarts">quarts</option>
-                  </select>
-                </div>
-                <div class="sheet-cell sheet-entry sheet-oz-entry">0</div>
-                <div class="sheet-cell sheet-entry sheet-ingredient-entry ingredient-search-field">
-                  <label class="sr-only" for="recipeIngredientSearch">Inventory item</label>
-                  <div class="ingredient-search-shell sheet-search-shell">
-                    <input type="text" id="recipeIngredientSearch" class="sheet-input" placeholder="Type ingredient name..." autocomplete="off" />
-                    <input type="hidden" id="recipeIngredientItem" value="" />
-                    <div id="recipeIngredientMatches" class="ingredient-match-list" hidden></div>
+              <div class="recipe-cost-sheet" aria-label="Recipe costing workspace">
+                <div class="recipe-sheet-hero">
+                  <div class="recipe-sheet-hero-copy">
+                    <span class="recipe-sheet-hero-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M6 3h9l3 3v15H6z" />
+                        <path d="M14 3v4h4" />
+                        <path d="M9 11h6" />
+                        <path d="M9 15h6" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h3>Recipe Cost Card</h3>
+                      <p>Organize the recipe, ingredients, cost and preparation in one production-ready box.</p>
+                    </div>
                   </div>
-                </div>
-                <div class="sheet-cell sheet-entry sheet-price-entry">$ -</div>
-                <div class="sheet-cell sheet-entry sheet-presentation-entry">0</div>
-                <div class="sheet-cell sheet-entry sheet-cost-entry">
-                  <button type="button" id="add-recipe-ingredient-btn" class="sheet-add-ingredient-btn">ADD</button>
-                </div>
-
-                <small id="recipeIngredientStatus" class="sheet-status-line">Type to search inventory or create a new ingredient.</small>
-
-                <div id="recipeQuickInventoryFields" class="quick-inventory-fields sheet-quick-inventory" hidden>
-                  <div class="quick-inventory-header">
-                    <strong>Add to inventory</strong>
-                    <span>Fill this once so Beoflow can price the ingredient.</span>
-                  </div>
-
-                  <div class="form-group">
-                    <label for="recipeNewInventoryQuantity">Inventory Quantity</label>
-                    <input type="number" id="recipeNewInventoryQuantity" placeholder="Example: 10" step="0.01" />
-                  </div>
-
-                  <div class="form-group">
-                    <label for="recipeNewInventoryUnit">Inventory Unit</label>
-                    <select id="recipeNewInventoryUnit">
-                      <option value="lb">lb</option>
-                      <option value="oz">oz</option>
-                      <option value="units">units</option>
-                      <option value="gallons">gallons</option>
-                      <option value="quarts">quarts</option>
-                    </select>
-                  </div>
-
-                  <div class="form-group">
-                    <label for="recipeNewInventoryTotalCost">Total Cost</label>
-                    <input type="number" id="recipeNewInventoryTotalCost" placeholder="Example: 24.00" step="0.01" />
-                  </div>
-
-                  <div class="form-group">
-                    <label for="recipeNewInventoryStorageArea">Storage Area</label>
-                    <input type="text" id="recipeNewInventoryStorageArea" list="storage-area-options" value="Prep Area" placeholder="Walk-in cooler, dry storage..." />
+                  <div class="recipe-sheet-hero-tools" aria-label="Recipe card sections">
+                    <span><span class="recipe-tool-icon" aria-hidden="true">#</span>Costing</span>
+                    <span><span class="recipe-tool-icon" aria-hidden="true">+</span>Ingredients</span>
+                    <span><span class="recipe-tool-icon" aria-hidden="true">%</span>Merma</span>
                   </div>
                 </div>
 
-                <div id="selected-ingredients-list" class="selected-ingredients-list recipe-sheet-rows">
-                  No ingredients added yet.
+                <div class="recipe-sheet-main-grid">
+                  <div class="recipe-sheet-info-card">
+                    <div class="recipe-section-heading">
+                      <span class="recipe-section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M4 19V5a2 2 0 0 1 2-2h8l6 6v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                          <path d="M14 3v6h6" />
+                          <path d="M8 13h8" />
+                          <path d="M8 17h5" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h4>Recipe Information</h4>
+                        <p>Name, category, portions and yield.</p>
+                      </div>
+                    </div>
+
+                    <div class="recipe-field-grid">
+                      <div class="recipe-field-card">
+                        <label for="recipeSheetName">
+                          <span class="field-label-icon" aria-hidden="true">M</span>
+                          Menu / Sheet
+                        </label>
+                        <input type="text" id="recipeSheetName" class="sheet-input" placeholder="Menu A1" />
+                      </div>
+
+                      <div class="recipe-field-card">
+                        <label for="recipeName">
+                          <span class="field-label-icon" aria-hidden="true">R</span>
+                          Recipe Name
+                        </label>
+                        <input type="text" id="recipeName" class="sheet-input" placeholder="Caesar Salad" />
+                      </div>
+
+                      <div class="recipe-field-card">
+                        <label for="recipeCategory">
+                          <span class="field-label-icon" aria-hidden="true">S</span>
+                          Sub Recipe / Category
+                        </label>
+                        <input type="text" id="recipeCategory" class="sheet-input" list="recipe-category-options" placeholder="Entree" />
+                        <datalist id="recipe-category-options">
+                          <option value="Entree"></option>
+                          <option value="Side"></option>
+                          <option value="Salad"></option>
+                          <option value="Dessert"></option>
+                          <option value="Beverage"></option>
+                          <option value="Sauce"></option>
+                        </datalist>
+                      </div>
+
+                      <div class="recipe-field-card recipe-number-card">
+                        <span class="recipe-field-label">
+                          <span class="field-label-icon" aria-hidden="true">#</span>
+                          Recipe No.
+                        </span>
+                        <strong>1</strong>
+                      </div>
+
+                      <div class="recipe-field-card">
+                        <label for="recipePortions">
+                          <span class="field-label-icon" aria-hidden="true">P</span>
+                          PAX / Portions
+                        </label>
+                        <input type="number" id="recipePortions" class="sheet-input sheet-number-input" placeholder="1" />
+                      </div>
+
+                      <div class="recipe-field-card">
+                        <label for="recipeYield">
+                          <span class="field-label-icon" aria-hidden="true">%</span>
+                          Waste / Merma
+                        </label>
+                        <input type="number" id="recipeYield" class="sheet-input sheet-number-input" value="0" min="0" max="99" step="1" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="recipe-sheet-notes-card">
+                    <div class="recipe-section-heading compact">
+                      <span class="recipe-section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M5 4h14v16H5z" />
+                          <path d="M8 8h8" />
+                          <path d="M8 12h8" />
+                          <path d="M8 16h5" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h4>Observations</h4>
+                        <p>Service notes, allergens or plating comments.</p>
+                      </div>
+                    </div>
+                    <label class="sr-only" for="recipeNotes">Observations</label>
+                    <textarea id="recipeNotes" class="sheet-input sheet-textarea" rows="8" placeholder="Add observations for service, purchasing or production..."></textarea>
+                  </div>
                 </div>
 
-                <div class="sheet-cell sheet-black-label sheet-prep-title">PREPARATION STEPS</div>
-                <div class="sheet-cell sheet-preparation-entry">
-                  <label class="sr-only" for="recipePreparation">Preparation steps</label>
-                  <textarea id="recipePreparation" class="sheet-preparation-textarea" rows="6" placeholder=""></textarea>
-                </div>
-              </div>
-            </div>
+                <div class="recipe-section-card recipe-ingredients-card">
+                  <div class="recipe-section-heading">
+                    <span class="recipe-section-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M4 7h16" />
+                        <path d="M4 12h16" />
+                        <path d="M4 17h10" />
+                        <path d="M17 15v6" />
+                        <path d="M14 18h6" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h4>Ingredients</h4>
+                      <p>Add inventory items and Beoflow will calculate ingredient cost automatically.</p>
+                    </div>
+                  </div>
 
-            <div class="recipe-sheet-actions">
-              <button type="button" class="waste-guide-btn" id="openWasteGuideBtn">
-                <span class="waste-guide-icon">%</span>
-                <span>Waste % Guide / Merma Manual</span>
-              </button>
+                  <div class="recipe-ingredient-builder">
+                    <div class="recipe-ingredient-field recipe-code-field">
+                      <span class="recipe-field-label">
+                        <span class="field-label-icon" aria-hidden="true">C</span>
+                        Code
+                      </span>
+                      <strong>AUTO</strong>
+                    </div>
 
-              <div class="recipe-sheet-photo-tools">
-                <label for="recipePhoto">Recipe Photo</label>
-                <input type="file" id="recipePhoto" accept="image/*" />
-                <div id="recipePhotoPreview" class="recipe-photo-preview is-empty recipe-sheet-photo-preview">
-                  <span>Photo preview</span>
-                  <small>Add a plate or buffet photo.</small>
+                    <div class="recipe-ingredient-field">
+                      <label for="recipeIngredientQty">
+                        <span class="field-label-icon" aria-hidden="true">Q</span>
+                        Quantity
+                      </label>
+                      <input type="number" id="recipeIngredientQty" class="sheet-input sheet-number-input" placeholder="0" step="0.01" />
+                    </div>
+
+                    <div class="recipe-ingredient-field">
+                      <label for="recipeIngredientUnit">
+                        <span class="field-label-icon" aria-hidden="true">U</span>
+                        Unit
+                      </label>
+                      <select id="recipeIngredientUnit" class="sheet-input">
+                        <option value="lb">lb</option>
+                        <option value="oz">oz</option>
+                        <option value="units">units</option>
+                        <option value="gallons">gallons</option>
+                        <option value="quarts">quarts</option>
+                      </select>
+                    </div>
+
+                    <div class="recipe-ingredient-field ingredient-search-field recipe-ingredient-search-field">
+                      <label for="recipeIngredientSearch">
+                        <span class="field-label-icon" aria-hidden="true">I</span>
+                        Ingredient
+                      </label>
+                      <div class="ingredient-search-shell sheet-search-shell">
+                        <input type="text" id="recipeIngredientSearch" class="sheet-input" placeholder="Type ingredient name..." autocomplete="off" />
+                        <input type="hidden" id="recipeIngredientItem" value="" />
+                        <div id="recipeIngredientMatches" class="ingredient-match-list" hidden></div>
+                      </div>
+                    </div>
+
+                    <button type="button" id="add-recipe-ingredient-btn" class="sheet-add-ingredient-btn">
+                      <span aria-hidden="true">+</span>
+                      Add Ingredient
+                    </button>
+
+                    <small id="recipeIngredientStatus" class="sheet-status-line">Type to search inventory or create a new ingredient.</small>
+
+                    <div id="recipeQuickInventoryFields" class="quick-inventory-fields sheet-quick-inventory" hidden>
+                      <div class="quick-inventory-header">
+                        <strong>Add to inventory</strong>
+                        <span>Fill this once so Beoflow can price the ingredient.</span>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="recipeNewInventoryQuantity">Inventory Quantity</label>
+                        <input type="number" id="recipeNewInventoryQuantity" placeholder="Example: 10" step="0.01" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="recipeNewInventoryUnit">Inventory Unit</label>
+                        <select id="recipeNewInventoryUnit">
+                          <option value="lb">lb</option>
+                          <option value="oz">oz</option>
+                          <option value="units">units</option>
+                          <option value="gallons">gallons</option>
+                          <option value="quarts">quarts</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <label for="recipeNewInventoryTotalCost">Total Cost</label>
+                        <input type="number" id="recipeNewInventoryTotalCost" placeholder="Example: 24.00" step="0.01" />
+                      </div>
+
+                      <div class="form-group">
+                        <label for="recipeNewInventoryStorageArea">Storage Area</label>
+                        <input type="text" id="recipeNewInventoryStorageArea" list="storage-area-options" value="Prep Area" placeholder="Walk-in cooler, dry storage..." />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div id="selected-ingredients-list" class="selected-ingredients-list recipe-sheet-rows">
+                    No ingredients added yet.
+                  </div>
                 </div>
-                <button type="button" id="removeRecipePhoto" class="secondary-btn recipe-photo-remove" data-icon="×" hidden>Remove Photo</button>
+
+                <div class="recipe-sheet-lower-grid">
+                  <div class="recipe-section-card recipe-prep-card">
+                    <div class="recipe-section-heading compact">
+                      <span class="recipe-section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M4 5h16" />
+                          <path d="M4 12h16" />
+                          <path d="M4 19h10" />
+                          <path d="m15 17 2 2 4-5" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h4>Preparation Steps</h4>
+                        <p>Production method and station notes.</p>
+                      </div>
+                    </div>
+                    <label class="sr-only" for="recipePreparation">Preparation steps</label>
+                    <textarea id="recipePreparation" class="sheet-preparation-textarea" rows="6" placeholder="Write each production step in order..."></textarea>
+                  </div>
+
+                  <div class="recipe-section-card recipe-media-card">
+                    <div class="recipe-section-heading compact">
+                      <span class="recipe-section-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                          <path d="M5 7h3l2-3h4l2 3h3v13H5z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      </span>
+                      <div>
+                        <h4>Photo & Merma</h4>
+                        <p>Attach plate reference or open the waste guide.</p>
+                      </div>
+                    </div>
+
+                    <button type="button" class="waste-guide-btn" id="openWasteGuideBtn">
+                      <span class="waste-guide-icon">%</span>
+                      <span>Waste % Guide / Merma Manual</span>
+                    </button>
+
+                    <div class="recipe-sheet-photo-tools">
+                      <label for="recipePhoto">Recipe Photo</label>
+                      <input type="file" id="recipePhoto" accept="image/*" />
+                      <div id="recipePhotoPreview" class="recipe-photo-preview is-empty recipe-sheet-photo-preview">
+                        <span>Photo preview</span>
+                        <small>Add a plate or buffet photo.</small>
+                      </div>
+                      <button type="button" id="removeRecipePhoto" class="secondary-btn recipe-photo-remove" data-icon="×" hidden>Remove Photo</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
