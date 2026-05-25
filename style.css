@@ -9020,17 +9020,20 @@ tbody tr:hover {
 /* Elegant recipe cost card layout */
 .recipe-cost-sheet-panel {
   overflow: hidden;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: #ffffff;
-  box-shadow: var(--shadow-tight);
+  padding: 18px;
+  border: 1px solid #d5cdbd;
+  border-radius: 20px;
+  background:
+    linear-gradient(90deg, #efe5d4 0 54px, transparent 54px),
+    linear-gradient(180deg, #f8f1e5 0%, #fcfaf6 100%);
+  box-shadow: 0 18px 35px rgba(72, 43, 17, 0.15);
 }
 
 .recipe-cost-sheet-scroll {
   overflow: visible;
-  border: 0;
-  background: transparent;
+  border: 1px solid #fff4de;
+  border-radius: 16px;
+  background: #ffffff;
 }
 
 .recipe-cost-sheet {
@@ -9039,13 +9042,45 @@ tbody tr:hover {
   grid-template-columns: 1fr;
   gap: 16px;
   padding: 18px;
+  border: 1px solid #efe1cc;
+  border-radius: 12px;
   background:
-    linear-gradient(180deg, #fbfdff 0%, #ffffff 170px),
-    #ffffff;
+    repeating-linear-gradient(
+      to bottom,
+      rgba(76, 53, 24, 0.04) 0,
+      rgba(76, 53, 24, 0.04) 1px,
+      transparent 1px,
+      transparent 30px
+    ),
+    linear-gradient(180deg, #fffefb 0%, #f9f6ef 180px),
+    #fffefb;
   color: var(--text);
   font-family: var(--font-ui);
   font-size: 0.9rem;
   line-height: 1.45;
+  position: relative;
+}
+
+.recipe-cost-sheet::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 53px;
+  bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(166, 136, 106, 0.26) 0,
+    rgba(166, 136, 106, 0.26) 4px,
+    transparent 4px,
+    transparent 16px
+  );
+  pointer-events: none;
+}
+
+.recipe-cost-sheet > * {
+  position: relative;
+  z-index: 1;
 }
 
 .recipe-sheet-hero {
@@ -9054,11 +9089,9 @@ tbody tr:hover {
   justify-content: space-between;
   gap: 18px;
   padding: 18px;
-  border: 1px solid #d8e2ee;
+  border: 1px solid #e3d1b5;
   border-radius: 14px;
-  background:
-    linear-gradient(135deg, rgba(31, 94, 255, 0.08), rgba(23, 97, 59, 0.08)),
-    #ffffff;
+  background: linear-gradient(155deg, #f8f0dd 0%, #fefcf7 56%, #fff7ee 100%);
 }
 
 .recipe-flow-guide {
@@ -9074,14 +9107,32 @@ tbody tr:hover {
   gap: 12px;
   padding: 12px;
   border: 1px solid #d8e2ee;
+  border-left: 5px solid transparent;
   border-radius: 14px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.recipe-flow-step:nth-child(1) {
+  border-left-color: #2563eb;
+}
+
+.recipe-flow-step:nth-child(2) {
+  border-left-color: #16a34a;
+}
+
+.recipe-flow-step:nth-child(3) {
+  border-left-color: #f59e0b;
+}
+
+.recipe-flow-step:nth-child(4) {
+  border-left-color: #ea580c;
 }
 
 .recipe-flow-step.is-active {
   border-color: var(--accent);
-  background: #f1f7ff;
+  background: linear-gradient(135deg, #eff6ff, #f5fbff);
   box-shadow: 0 10px 24px rgba(31, 94, 255, 0.12);
 }
 
@@ -9094,8 +9145,31 @@ tbody tr:hover {
   justify-content: center;
   border: 1px solid #c8dcff;
   border-radius: 12px;
-  background: #eef4ff;
-  color: var(--accent-strong);
+  background: #fffef9;
+}
+
+.recipe-flow-step:nth-child(1) .recipe-flow-step-icon {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.recipe-flow-step:nth-child(2) .recipe-flow-step-icon {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.recipe-flow-step:nth-child(3) .recipe-flow-step-icon {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.recipe-flow-step:nth-child(4) .recipe-flow-step-icon {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
 }
 
 .recipe-flow-step-icon svg {
@@ -9119,6 +9193,22 @@ tbody tr:hover {
   font-family: var(--font-display);
   font-size: 0.9rem;
   line-height: 1.2;
+}
+
+.recipe-flow-step:nth-child(1) .recipe-flow-step-copy strong {
+  color: #1d4ed8;
+}
+
+.recipe-flow-step:nth-child(2) .recipe-flow-step-copy strong {
+  color: #15803d;
+}
+
+.recipe-flow-step:nth-child(3) .recipe-flow-step-copy strong {
+  color: #b45309;
+}
+
+.recipe-flow-step:nth-child(4) .recipe-flow-step-copy strong {
+  color: #c2410c;
 }
 
 .recipe-flow-step-copy p {
@@ -9147,7 +9237,12 @@ tbody tr:hover {
   border: 1px solid #c8dcff;
   border-radius: 12px;
   background: #eef4ff;
-  color: var(--accent-strong);
+  color: #0ea5e9;
+}
+
+.recipe-sheet-hero-icon {
+  border-color: #bfdbfe;
+  background: linear-gradient(145deg, #eff6ff, #e0f2fe);
 }
 
 .recipe-sheet-hero-icon svg,
@@ -9197,11 +9292,26 @@ tbody tr:hover {
   padding: 9px 12px;
   border: 1px solid #d8e2ee;
   border-radius: 999px;
-  background: #ffffff;
+  background: #f8fafc;
   color: #334155;
   font-size: 0.82rem;
   font-weight: 850;
   white-space: nowrap;
+}
+
+.recipe-sheet-hero-tools > span:nth-child(1) {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+}
+
+.recipe-sheet-hero-tools > span:nth-child(2) {
+  border-color: #86efac;
+  background: #ecfdf5;
+}
+
+.recipe-sheet-hero-tools > span:nth-child(3) {
+  border-color: #fdba74;
+  background: #fff7ed;
 }
 
 .recipe-tool-icon,
@@ -9214,10 +9324,14 @@ tbody tr:hover {
   flex: 0 0 auto;
   border-radius: 8px;
   background: #eef4ff;
-  color: var(--accent-strong);
+  color: #1d4ed8;
   font-size: 0.72rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.recipe-tool-icon {
+  border: 1px solid #c7ddff;
 }
 
 .recipe-sheet-main-grid,
@@ -9237,7 +9351,8 @@ tbody tr:hover {
   padding: 16px;
   border: 1px solid #d8e2ee;
   border-radius: 14px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #fffdfa 70%, #fff6eb 100%);
+  border-color: #e4d5bf;
 }
 
 .recipe-section-heading {
@@ -9641,25 +9756,25 @@ tbody tr:hover {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: var(--radius-panel);
   background:
-    linear-gradient(135deg, #101827 0%, #162033 58%, #17613b 100%);
-  color: #ffffff;
+    linear-gradient(135deg, #fdf4df 0%, #f8efe0 58%, #f3e5ce 100%);
+  color: #3f2f1b;
 }
 
 #recipes-section .recipe-save-panel p {
-  color: #cbd5e1;
+  color: #6b5b43;
 }
 
 #recipes-section .recipe-save-panel .primary-btn {
-  border-color: #ffffff;
-  background: #ffffff;
-  color: #0f172a;
+  border-color: #7a6547;
+  background: #7a6547;
+  color: #fffefb;
 }
 
 #recipes-section .recipe-save-panel .primary-btn:hover,
 #recipes-section .recipe-save-panel .primary-btn:focus-visible {
-  border-color: #dbeafe;
-  background: #dbeafe;
-  color: #1647c7;
+  border-color: #6f5a3e;
+  background: #6f5a3e;
+  color: #fffefb;
 }
 
 @media (max-width: 1180px) {
