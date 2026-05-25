@@ -9407,6 +9407,10 @@ tbody tr:hover {
   border-color: #e4d5bf;
 }
 
+.recipe-sheet-info-card {
+  align-content: start;
+}
+
 .recipe-section-heading {
   display: flex;
   align-items: flex-start;
