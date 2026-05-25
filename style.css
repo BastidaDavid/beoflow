@@ -9284,7 +9284,9 @@ tbody tr:hover {
   gap: 8px;
 }
 
-.recipe-sheet-hero-tools > span {
+.recipe-sheet-hero-tools > span,
+.recipe-sheet-hero-tools .recipe-sheet-btn,
+.recipe-sheet-hero-tools > button {
   min-height: 38px;
   display: inline-flex;
   align-items: center;
@@ -9299,19 +9301,61 @@ tbody tr:hover {
   white-space: nowrap;
 }
 
-.recipe-sheet-hero-tools > span:nth-child(1) {
+.recipe-sheet-btn {
+  border: 1px solid #d8e2ee;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.recipe-sheet-btn:hover,
+.recipe-sheet-btn:focus-visible {
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.recipe-sheet-btn[data-icon] {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.recipe-sheet-btn[data-icon]::before {
+  content: attr(data-icon);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: rgba(31, 94, 255, 0.1);
+  color: #1d4ed8;
+  font-size: 0.86rem;
+  font-weight: 900;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.recipe-sheet-hero-tools > span:nth-child(1),
+.recipe-sheet-hero-tools .recipe-sheet-btn:nth-child(1) {
   border-color: #bfdbfe;
   background: #eff6ff;
 }
 
-.recipe-sheet-hero-tools > span:nth-child(2) {
+.recipe-sheet-hero-tools > span:nth-child(2),
+.recipe-sheet-hero-tools .recipe-sheet-btn:nth-child(2) {
   border-color: #86efac;
   background: #ecfdf5;
 }
 
-.recipe-sheet-hero-tools > span:nth-child(3) {
+.recipe-sheet-hero-tools > span:nth-child(3),
+.recipe-sheet-hero-tools .recipe-sheet-btn:nth-child(3) {
   border-color: #fdba74;
   background: #fff7ed;
+}
+
+.recipe-sheet-btn:hover,
+.recipe-sheet-btn:focus-visible {
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
 }
 
 .recipe-tool-icon,
@@ -9344,7 +9388,8 @@ tbody tr:hover {
 
 .recipe-sheet-info-card,
 .recipe-sheet-notes-card,
-.recipe-section-card {
+.recipe-section-card,
+.recipe-summary-card {
   min-width: 0;
   display: grid;
   gap: 14px;
@@ -9359,6 +9404,12 @@ tbody tr:hover {
   display: flex;
   align-items: flex-start;
   gap: 11px;
+}
+
+.recipe-field-hint {
+  color: #64748b;
+  font-size: 0.72rem;
+  line-height: 1.15;
 }
 
 .recipe-section-heading.compact .recipe-section-icon {
@@ -9582,6 +9633,21 @@ tbody tr:hover {
   font-size: 0.84rem;
 }
 
+.recipe-sheet-line.is-incomplete {
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+}
+
+.recipe-sheet-line.is-incomplete .recipe-line-code {
+  background: #fde68a;
+}
+
+.recipe-sheet-line.is-incomplete .recipe-line-cost,
+.recipe-sheet-line.is-incomplete .recipe-sheet-number,
+.recipe-sheet-line.is-incomplete strong {
+  color: #92400e;
+}
+
 .recipe-cost-sheet .recipe-sheet-line > span,
 .recipe-cost-sheet .recipe-sheet-line > strong {
   min-width: 0;
@@ -9613,6 +9679,12 @@ tbody tr:hover {
   color: #17613b;
   font-family: var(--font-display);
   font-weight: 850;
+}
+
+.recipe-sheet-number {
+  justify-content: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .recipe-line-actions {
@@ -9658,7 +9730,7 @@ tbody tr:hover {
 
 .recipe-cost-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 
@@ -9674,21 +9746,49 @@ tbody tr:hover {
 
 .recipe-cost-metric {
   display: grid;
-  align-content: center;
-  gap: 3px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
 }
 
 .recipe-cost-metric span {
   color: #64748b;
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 800;
   text-transform: uppercase;
 }
 
 .recipe-cost-metric strong {
+  text-align: right;
   color: #0b1220;
   font-family: var(--font-display);
   font-size: 1.08rem;
+}
+
+.recipe-cost-metric.neutral {
+  border-color: #dbeafe;
+  background: linear-gradient(135deg, #f8fafc, #ffffff);
+}
+
+.recipe-cost-metric.waste {
+  border-color: #fda4af;
+  background: linear-gradient(135deg, #fff1f2, #fdf2f8);
+}
+
+.recipe-cost-metric.unitCost {
+  border-color: #fde047;
+  background: linear-gradient(135deg, #fefce8, #fffbeb);
+}
+
+.recipe-cost-metric.costPercent {
+  border-color: #86efac;
+  background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+}
+
+.recipe-cost-metric.foodFactor,
+.recipe-cost-metric.vat {
+  border-color: #93c5fd;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
 }
 
 .recipe-cost-metric.primary {
@@ -9698,6 +9798,31 @@ tbody tr:hover {
 
 .recipe-cost-metric.primary strong {
   color: #17613b;
+}
+
+.recipe-cost-metric.salePriceWithoutVat {
+  border-color: #c7d2fe;
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+}
+
+.recipe-cost-metric.suggested {
+  border-color: #4ade80;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+}
+
+.recipe-cost-metric.final {
+  border-color: #0f172a;
+  background: linear-gradient(135deg, #0f172a, #111827);
+  color: #f8fafc;
+}
+
+.recipe-cost-metric.final span,
+.recipe-cost-metric.final strong {
+  color: #f8fafc;
+}
+
+.recipe-cost-metric.final strong {
+  font-size: 1.14rem;
 }
 
 .recipe-prep-sheet-btn {
@@ -9812,7 +9937,7 @@ tbody tr:hover {
   }
 
   .recipe-cost-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .recipe-prep-sheet-btn {
@@ -9864,7 +9989,8 @@ tbody tr:hover {
 
   .recipe-sheet-info-card,
   .recipe-sheet-notes-card,
-  .recipe-section-card {
+  .recipe-section-card,
+  .recipe-summary-card {
     padding: 14px;
   }
 

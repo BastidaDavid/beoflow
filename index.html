@@ -717,80 +717,13 @@
                     </span>
                     <div>
                       <h3>Recipe Cost Card</h3>
-                      <p>Organize the recipe, ingredients, cost and preparation in one production-ready box.</p>
+                      <p>Production-ready recipe costing sheet</p>
                     </div>
                   </div>
-                  <div class="recipe-sheet-hero-tools" aria-label="Recipe card sections">
-                    <span><span class="recipe-tool-icon" aria-hidden="true">#</span>Costing</span>
-                    <span><span class="recipe-tool-icon" aria-hidden="true">+</span>Ingredients</span>
-                    <span><span class="recipe-tool-icon" aria-hidden="true">%</span>Merma</span>
-                  </div>
-                </div>
-
-                <div class="recipe-flow-guide" aria-label="Recipe workflow">
-                  <div class="recipe-flow-step is-active">
-                    <span class="recipe-flow-step-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M4 19V5a2 2 0 0 1 2-2h8l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
-                        <path d="M14 3v4h4" />
-                        <path d="M8 10h8" />
-                        <path d="M8 13h8" />
-                        <path d="M8 16h5" />
-                      </svg>
-                    </span>
-                    <div class="recipe-flow-step-copy">
-                      <strong>1. Recipe Info</strong>
-                      <p>Name, category and base data.</p>
-                    </div>
-                  </div>
-
-                  <div class="recipe-flow-step">
-                    <span class="recipe-flow-step-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M4 7h16" />
-                        <path d="M4 12h16" />
-                        <path d="M4 17h10" />
-                        <path d="M17 15v6" />
-                        <path d="M14 18h6" />
-                      </svg>
-                    </span>
-                    <div class="recipe-flow-step-copy">
-                      <strong>2. Ingredients</strong>
-                      <p>Pick items and quantities.</p>
-                    </div>
-                  </div>
-
-                  <div class="recipe-flow-step">
-                    <span class="recipe-flow-step-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M4 9h16" />
-                        <path d="M6 20h12" />
-                        <path d="M6 13h12" />
-                        <path d="M12 17h6" />
-                        <circle cx="12" cy="6.5" r="2.2" />
-                        <path d="M10 6.5h4" />
-                      </svg>
-                    </span>
-                    <div class="recipe-flow-step-copy">
-                      <strong>3. Costing</strong>
-                      <p>Total / portion updates automatically.</p>
-                    </div>
-                  </div>
-
-                  <div class="recipe-flow-step">
-                    <span class="recipe-flow-step-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M4 5h16" />
-                        <path d="M4 12h16" />
-                        <path d="M4 19h10" />
-                        <path d="m15 17 2 2 4-5" />
-                        <path d="M4 8h6l2-2h4" />
-                      </svg>
-                    </span>
-                    <div class="recipe-flow-step-copy">
-                      <strong>4. Prep & Photo</strong>
-                      <p>Steps, plate photo and merma.</p>
-                    </div>
+                  <div class="recipe-sheet-hero-tools" aria-label="Recipe card actions">
+                    <button type="button" id="add-recipe-btn" class="secondary-btn recipe-sheet-btn" data-icon="✓">Save Recipe</button>
+                    <button type="button" id="recipe-print-btn" class="secondary-btn recipe-sheet-btn" data-icon="🖨️">Print / Export</button>
+                    <button type="button" id="recipe-reset-btn" class="secondary-btn recipe-sheet-btn" data-icon="↺">Clear / Reset</button>
                   </div>
                 </div>
 
@@ -807,7 +740,7 @@
                       </span>
                       <div>
                         <h4>Recipe Information</h4>
-                        <p>Name, category, portions and yield.</p>
+                        <p>Recipe name, portions, yield and cost settings.</p>
                       </div>
                     </div>
 
@@ -849,7 +782,8 @@
                           <span class="field-label-icon" aria-hidden="true">#</span>
                           Recipe No.
                         </span>
-                        <strong>1</strong>
+                        <strong id="recipeNumberDisplay">AUTO</strong>
+                        <small class="recipe-field-hint">Auto code while editing.</small>
                       </div>
 
                       <div class="recipe-field-card">
@@ -867,6 +801,14 @@
                         </label>
                         <input type="number" id="recipeYield" class="sheet-input sheet-number-input" value="0" min="0" max="99" step="1" />
                       </div>
+
+                      <div class="recipe-field-card">
+                        <span class="recipe-field-label">
+                          <span class="field-label-icon" aria-hidden="true">Y</span>
+                          Yield / Rendimiento
+                        </span>
+                        <strong id="recipeYieldDisplay">—</strong>
+                      </div>
                     </div>
                   </div>
 
@@ -882,11 +824,11 @@
                       </span>
                       <div>
                         <h4>Observations</h4>
-                        <p>Service notes, allergens or plating comments.</p>
+                        <p>Service notes, allergens, purchasing or production comments.</p>
                       </div>
                     </div>
                     <label class="sr-only" for="recipeNotes">Observations</label>
-                    <textarea id="recipeNotes" class="sheet-input sheet-textarea" rows="8" placeholder="Add observations for service, purchasing or production..."></textarea>
+                    <textarea id="recipeNotes" class="sheet-textarea sheet-input" rows="8" placeholder="Service notes, allergens, purchasing or production comments..."></textarea>
                   </div>
                 </div>
 
@@ -913,7 +855,7 @@
                         <span class="field-label-icon" aria-hidden="true">C</span>
                         Code
                       </span>
-                      <strong>AUTO</strong>
+                      <strong id="recipeIngredientCodeDisplay">AUTO</strong>
                     </div>
 
                     <div class="recipe-ingredient-field">
@@ -954,7 +896,7 @@
                       <span aria-hidden="true">+</span>
                       Add Ingredient
                     </button>
-
+                    <small id="recipe-ingredient-help" class="recipe-ingredient-help">Press Enter in Quantity to add the row.</small>
                     <small id="recipeIngredientStatus" class="sheet-status-line">Type to search inventory or create a new ingredient.</small>
 
                     <div id="recipeQuickInventoryFields" class="quick-inventory-fields sheet-quick-inventory" hidden>
@@ -996,6 +938,25 @@
                   </div>
                 </div>
 
+                <section class="recipe-summary-card">
+                  <div class="recipe-section-heading">
+                    <span class="recipe-section-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M4 3h16v18H4z" />
+                        <path d="M7 8h10" />
+                        <path d="M7 12h10" />
+                        <path d="M7 16h7" />
+                      </svg>
+                    </span>
+                    <div>
+                      <h4>Recipe Cost Summary</h4>
+                      <p>Compact summary rows with Excel-like visual lines.</p>
+                    </div>
+                  </div>
+
+                  <div id="recipe-cost-summary-grid" class="recipe-cost-summary-grid"></div>
+                </section>
+
                 <div class="recipe-sheet-lower-grid">
                   <div class="recipe-section-card recipe-prep-card">
                     <div class="recipe-section-heading compact">
@@ -1013,7 +974,7 @@
                       </div>
                     </div>
                     <label class="sr-only" for="recipePreparation">Preparation steps</label>
-                    <textarea id="recipePreparation" class="sheet-preparation-textarea" rows="6" placeholder="Write each production step in order..."></textarea>
+                    <textarea id="recipePreparation" class="sheet-preparation-textarea sheet-input" rows="7" placeholder="Write preparation steps, mise en place, cooking method and plating instructions..."></textarea>
                   </div>
 
                   <div class="recipe-section-card recipe-media-card">
@@ -1025,15 +986,10 @@
                         </svg>
                       </span>
                       <div>
-                        <h4>Photo & Merma</h4>
-                        <p>Attach plate reference or open the waste guide.</p>
+                        <h4>Photo</h4>
+                        <p>Attach a reference photo for this recipe card.</p>
                       </div>
                     </div>
-
-                    <button type="button" class="waste-guide-btn" id="openWasteGuideBtn">
-                      <span class="waste-guide-icon">%</span>
-                      <span>Waste % Guide / Merma Manual</span>
-                    </button>
 
                     <div class="recipe-sheet-photo-tools">
                       <label for="recipePhoto">Recipe Photo</label>
@@ -1050,15 +1006,6 @@
             </div>
           </div>
         </div>
-
-        <div class="recipe-save-panel">
-          <div>
-            <h3>Save Recipe</h3>
-            <p>BEOFlow will calculate Cost / Portion and Total Batch Cost automatically from inventory ingredients.</p>
-          </div>
-          <button type="button" id="add-recipe-btn" class="primary-btn" data-icon="✓">Add Recipe</button>
-        </div>
-
         <div class="recipe-section-spacer" aria-hidden="true"></div>
 
         <div class="recipe-table-panel">

@@ -499,14 +499,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const recipesTableBody = document.getElementById("recipes-table-body");
   const recipeNameInput = document.getElementById("recipeName");
   const recipeCategoryInput = document.getElementById("recipeCategory");
+  const recipeSheetNameInput = document.getElementById("recipeSheetName");
   const recipeCostInput = document.getElementById("recipeCost");
   const recipePortionsInput = document.getElementById("recipePortions");
   const recipeYieldInput = document.getElementById("recipeYield");
+  const recipeYieldDisplay = document.getElementById("recipeYieldDisplay");
+  const recipeNumberDisplay = document.getElementById("recipeNumberDisplay");
   const recipePreparationInput = document.getElementById("recipePreparation");
   const recipeNotesInput = document.getElementById("recipeNotes");
   const recipePhotoInput = document.getElementById("recipePhoto");
   const recipePhotoPreview = document.getElementById("recipePhotoPreview");
   const removeRecipePhotoBtn = document.getElementById("removeRecipePhoto");
+  const recipePrintBtn = document.getElementById("recipe-print-btn");
+  const recipeResetBtn = document.getElementById("recipe-reset-btn");
   const recipeCategoryOptions = document.getElementById("recipe-category-options");
   const recipeIngredientSearchInput = document.getElementById("recipeIngredientSearch");
   const recipeIngredientItemInput = document.getElementById("recipeIngredientItem");
@@ -515,6 +520,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const recipeIngredientQtyInput = document.getElementById("recipeIngredientQty");
   const recipeIngredientUnitInput = document.getElementById("recipeIngredientUnit");
   const recipeQuickInventoryFields = document.getElementById("recipeQuickInventoryFields");
+  const recipeIngredientCodeDisplay = document.getElementById("recipeIngredientCodeDisplay");
+  const recipeCostSummaryGrid = document.getElementById("recipe-cost-summary-grid");
   const recipeNewInventoryQuantityInput = document.getElementById("recipeNewInventoryQuantity");
   const recipeNewInventoryUnitInput = document.getElementById("recipeNewInventoryUnit");
   const recipeNewInventoryTotalCostInput = document.getElementById("recipeNewInventoryTotalCost");
@@ -3874,6 +3881,322 @@ ${staffSuggestion}
     };
   };
 
+  const formatMoney = (amount = 0) => `$${Number(amount || 0).toFixed(2)}`;
+
+  const getRecipeInputs = () => ({
+    name: recipeNameInput ? recipeNameInput.value.trim() : "",
+    sheet: recipeSheetNameInput ? recipeSheetNameInput.value.trim() : "",
+    category: recipeCategoryInput ? recipeCategoryInput.value.trim() : "Entree",
+    portions: Number(recipePortionsInput ? recipePortionsInput.value || 0 : 0),
+    wastePercent: Number(recipeYieldInput ? recipeYieldInput.value || 0 : 0)
+  });
+
+  const getRecipeCostSummaryMetrics = () => {
+    const values = getRecipeInputs();
+    const baseCost = calculateRecipeIngredientCost(currentRecipeIngredients);
+    const totalCost = applyWasteToCost(baseCost, values.wastePercent);
+    const wasteCost = totalCost - baseCost;
+    const unitCost = values.portions > 0 ? totalCost / values.portions : totalCost;
+    const foodFactor = values.wastePercent > 0 ? ((100 + values.wastePercent) / 100) : 1;
+    const vatRate = 0.16;
+    const vatAmount = unitCost * vatRate;
+    const salePriceWithoutVat = unitCost;
+    const salePrice = salePriceWithoutVat + vatAmount;
+    const costPercent = totalCost > 0 ? (baseCost / totalCost) * 100 : 0;
+
+    return {
+      rows: [
+        { label: "Total", value: formatMoney(baseCost), tone: "neutral" },
+        { label: `Merma ${values.wastePercent.toFixed(0)}%`, value: formatMoney(wasteCost), tone: "waste" },
+        { label: "Total Unit Cost", value: formatMoney(unitCost), tone: "unitCost" },
+        { label: "% Cost", value: `${costPercent.toFixed(0)}%`, tone: "costPercent" },
+        { label: "Food Factor", value: foodFactor.toFixed(2), tone: "foodFactor" },
+        { label: "16% VAT", value: formatMoney(vatAmount), tone: "vat" },
+        { label: "Sale Price Without VAT", value: formatMoney(salePriceWithoutVat), tone: "salePriceWithoutVat" },
+        { label: "Suggested Sale Price", value: formatMoney(salePrice), tone: "suggested" },
+        { label: "Sale Price", value: formatMoney(salePrice), tone: "final" }
+      ],
+      baseCost,
+      wasteCost,
+      totalCost,
+      unitCost,
+      ingredientCount: currentRecipeIngredients.length
+    };
+  };
+
+  const renderRecipeInfoDisplays = () => {
+    const values = getRecipeInputs();
+    if (recipeNumberDisplay) {
+      recipeNumberDisplay.textContent = editingRecipeId ? `#${editingRecipeId.slice(0, 6).toUpperCase()}` : "AUTO";
+    }
+    if (recipeYieldDisplay) {
+      recipeYieldDisplay.textContent = `${values.portions || 0} portions`;
+    }
+    if (recipeIngredientCodeDisplay) {
+      recipeIngredientCodeDisplay.textContent = `#${String(currentRecipeIngredients.length + 1).padStart(2, "0")}`;
+    }
+  };
+
+  const renderRecipeCostSummary = () => {
+    if (!recipeCostSummaryGrid) return;
+    const { rows } = getRecipeCostSummaryMetrics();
+    recipeCostSummaryGrid.innerHTML = rows
+      .map((row) => `
+        <article class="recipe-cost-metric ${row.tone}">
+          <span>${escapeHtml(row.label)}</span>
+          <strong>${escapeHtml(row.value)}</strong>
+        </article>
+    `).join("");
+  };
+
+  const clearRecipeForm = ({ focusAfterReset = false } = {}) => {
+    if (recipeSheetNameInput) recipeSheetNameInput.value = "";
+    if (recipeNameInput) recipeNameInput.value = "";
+    if (recipeCategoryInput) recipeCategoryInput.value = "";
+    if (recipePortionsInput) recipePortionsInput.value = "";
+    if (recipeYieldInput) recipeYieldInput.value = "0";
+    if (recipeCostInput) recipeCostInput.value = "";
+    if (recipePreparationInput) recipePreparationInput.value = "";
+    if (recipeNotesInput) recipeNotesInput.value = "";
+    currentRecipeIngredients = [];
+    editingRecipeId = null;
+    currentRecipePhotoDataUrl = "";
+    resetRecipePhoto();
+    clearIngredientPicker(recipeIngredientPicker);
+    if (addRecipeBtn) addRecipeBtn.textContent = "Save Recipe";
+
+    renderSelectedIngredients();
+    if (focusAfterReset && recipeNameInput) {
+      recipeNameInput.focus();
+    }
+  };
+
+  const getRecipePrintPayload = () => {
+    const values = getRecipeInputs();
+    const summary = getRecipeCostSummaryMetrics();
+    const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
+      const item = getInventory().find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+      const line = getIngredientLine(ingredient);
+      return {
+        code: `#${String(index + 1).padStart(2, "0")}`,
+        qty: `${line.usedQty.toFixed(2)} ${line.usedUnit}`,
+        ingredient: item?.name || "Unknown item",
+        price: `${formatMoney(line.itemPrice)} / ${line.inventoryUnit}`,
+        presentation: line.presentation,
+        cost: formatMoney(line.ingredientCost)
+      };
+    });
+
+    return {
+      name: values.name || "Untitled Recipe",
+      sheet: values.sheet || "—",
+      category: values.category,
+      portions: values.portions,
+      wastePercent: values.wastePercent,
+      notes: recipeNotesInput ? recipeNotesInput.value.trim() : "",
+      preparation: recipePreparationInput ? recipePreparationInput.value.trim() : "",
+      summaryRows: summary.rows,
+      ingredients: ingredientRows
+    };
+  };
+
+  const printRecipeCard = () => {
+    const payload = getRecipePrintPayload();
+    const printWindow = window.open("", "_blank", "noopener,noreferrer");
+    if (!printWindow) {
+      alert("Popup was blocked by the browser. Please allow pop-ups to print the recipe card.");
+      return;
+    }
+
+    const summaryRowsHtml = payload.summaryRows
+      .map((row) => `<tr><td>${escapeHtml(row.label)}</td><td class="summary-value">${escapeHtml(row.value)}</td></tr>`)
+      .join("");
+
+    const ingredientsHtml = payload.ingredients.length
+      ? payload.ingredients.map((ingredient) => `
+          <tr>
+            <td>${escapeHtml(ingredient.code)}</td>
+            <td>${escapeHtml(ingredient.qty)}</td>
+            <td>${escapeHtml(ingredient.ingredient)}</td>
+            <td>${escapeHtml(ingredient.price)}</td>
+            <td>${escapeHtml(ingredient.presentation)}</td>
+            <td>${escapeHtml(ingredient.cost)}</td>
+          </tr>
+        `).join("")
+      : `<tr><td colspan="6" class="empty">No ingredients added.</td></tr>`;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <title>Recipe Cost Card - ${escapeHtml(payload.name)}</title>
+          <style>
+            :root {
+              font-family: ${window.getComputedStyle(document.documentElement).fontFamily};
+              color: #0f172a;
+            }
+
+            * { box-sizing: border-box; }
+            body {
+              margin: 18px;
+              color: #0f172a;
+              background: #fff;
+            }
+
+            h1 {
+              margin: 0;
+              font-size: 20px;
+            }
+
+            h2 {
+              margin: 16px 0 8px;
+              font-size: 14px;
+            }
+
+            .sheet-head {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 8px;
+            }
+
+            .meta {
+              margin: 10px 0 0;
+              color: #475569;
+              font-size: 12px;
+            }
+
+            .meta p {
+              margin: 2px 0;
+            }
+
+            .split {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 12px;
+              margin-top: 14px;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1px solid #cbd5e1;
+              font-size: 12px;
+              page-break-inside: auto;
+            }
+
+            th, td {
+              padding: 7px 8px;
+              border: 1px solid #e2e8f0;
+              text-align: left;
+              vertical-align: top;
+              color: #0f172a;
+            }
+
+            th {
+              background: #f8fafc;
+            }
+
+            .summary-value {
+              text-align: right;
+              font-weight: 700;
+              white-space: nowrap;
+            }
+
+            .notes {
+              margin: 8px 0 0;
+              padding: 10px;
+              border: 1px solid #e2e8f0;
+              background: #f8fafc;
+              min-height: 70px;
+              white-space: pre-wrap;
+              line-height: 1.35;
+            }
+
+            .muted {
+              color: #64748b;
+            }
+
+            .empty {
+              text-align: center;
+              color: #64748b;
+            }
+
+            @media print {
+              @page {
+                margin: 12mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="recipe-print">
+            <h1>Recipe Cost Card</h1>
+            <p class="muted">${escapeHtml(payload.name)} · ${escapeHtml(payload.category)} · ${escapeHtml(payload.sheet)}</p>
+            <div class="sheet-head">
+              <div>
+                <h2>General Information</h2>
+                <div class="meta">
+                  <p><strong>Menu / Sheet:</strong> ${escapeHtml(payload.sheet)}</p>
+                  <p><strong>Sub Recipe / Category:</strong> ${escapeHtml(payload.category || "Entree")}</p>
+                  <p><strong>PAX / Portions:</strong> ${escapeHtml(payload.portions || 0)}</p>
+                </div>
+              </div>
+              <div>
+                <h2>Waste / Merma</h2>
+                <div class="meta">
+                  <p><strong>Waste %:</strong> ${Number(payload.wastePercent || 0).toFixed(0)}%</p>
+                  <p><strong>Yield / Rendimiento:</strong> ${payload.portions || 0} portions</p>
+                </div>
+              </div>
+            </div>
+
+            <h2>Ingredients</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Quantity</th>
+                  <th>Ingredient</th>
+                  <th>Price</th>
+                  <th>Presentation</th>
+                  <th>Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${ingredientsHtml}
+              </tbody>
+            </table>
+
+            <div class="split">
+              <div>
+                <h2>Cost Summary</h2>
+                <table>
+                  <tbody>${summaryRowsHtml}</tbody>
+                </table>
+              </div>
+
+              <div>
+                <h2>Preparation Steps</h2>
+                <div class="notes">${escapeHtml(payload.preparation || "No preparation steps.")}</div>
+                <h2 style="margin-top:10px;">Observations</h2>
+                <div class="notes">${escapeHtml(payload.notes || "No additional notes.")}</div>
+              </div>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+              window.close();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const formatMultilineText = (value = "", fallback = "-") =>
     escapeHtml(normalizeOptionValue(value) ? value : fallback).replace(/\n/g, "<br />");
 
@@ -3909,23 +4232,17 @@ ${staffSuggestion}
   const renderSelectedIngredients = () => {
     if (!selectedIngredientsList) return;
 
-    const baseCost = calculateRecipeIngredientCost(currentRecipeIngredients);
-    const wastePercent = recipeYieldInput ? Number(recipeYieldInput.value || 0) : 0;
-    const finalCost = applyWasteToCost(baseCost, wastePercent);
-    const wasteCost = finalCost - baseCost;
-    const portions = recipePortionsInput ? Number(recipePortionsInput.value || 0) : 0;
-    const unitCost = portions > 0 ? finalCost / portions : 0;
-    const ingredientCount = currentRecipeIngredients.length;
     const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
       const line = getIngredientLine(ingredient);
+      const isIncomplete = !line.itemName || line.usedQty <= 0 || !line.inventoryUnit;
       return `
-        <div class="recipe-sheet-line">
+        <div class="recipe-sheet-line${isIncomplete ? " is-incomplete" : ""}">
           <span class="recipe-line-code" data-label="Code">#${String(index + 1).padStart(2, "0")}</span>
-          <span data-label="Quantity">${line.usedQty.toFixed(2)} ${escapeHtml(line.usedUnit)}</span>
+          <span class="recipe-sheet-number" data-label="Quantity">${line.usedQty.toFixed(2)} ${escapeHtml(line.usedUnit)}</span>
           <strong data-label="Ingredient">${escapeHtml(line.itemName)}</strong>
-          <span data-label="Price">$${line.itemPrice.toFixed(2)} / ${escapeHtml(line.inventoryUnit)}</span>
-          <span data-label="Presentation">${escapeHtml(line.presentation)}</span>
-          <span class="recipe-line-cost" data-label="Cost">$${line.ingredientCost.toFixed(2)}</span>
+          <span class="recipe-sheet-number" data-label="Price">${formatMoney(line.itemPrice)} / ${escapeHtml(line.inventoryUnit)}</span>
+          <span class="recipe-sheet-number" data-label="Presentation">${escapeHtml(line.presentation)}</span>
+          <span class="recipe-sheet-number recipe-line-cost" data-label="Cost">${formatMoney(line.ingredientCost)}</span>
           <span class="recipe-line-actions" data-label="Actions">
             <button type="button" class="icon-btn edit recipe-line-edit-btn" data-index="${index}" title="Edit ingredient" aria-label="Edit ${escapeHtml(line.itemName)}">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -3960,49 +4277,14 @@ ${staffSuggestion}
         </div>
         <div class="recipe-sheet-lines">
           ${ingredientRows || `
-            <div class="recipe-sheet-empty-state">
-              <strong>No ingredients added yet.</strong>
-              <span>Search an inventory item above, enter quantity and unit, then add it to the recipe card.</span>
-            </div>
-          `}
+          <div class="recipe-sheet-empty-state">
+            <strong>No ingredients added yet.</strong>
+            <span>Search an inventory item above, enter quantity and unit, then add it to the recipe card.</span>
+          </div>
+        `}
         </div>
-      </div>
-      <div class="recipe-cost-summary-grid">
-        <div class="recipe-cost-metric primary">
-          <span>Total</span>
-          <strong>$${baseCost.toFixed(2)}</strong>
-        </div>
-        <div class="recipe-cost-metric">
-          <span>Merma ${wastePercent.toFixed(0)}%</span>
-          <strong>$${wasteCost.toFixed(2)}</strong>
-        </div>
-        <div class="recipe-cost-metric">
-          <span>Unit Cost</span>
-          <strong>$${unitCost.toFixed(2)}</strong>
-        </div>
-        <div class="recipe-cost-metric">
-          <span>Ingredients</span>
-          <strong>${ingredientCount}</strong>
-        </div>
-        <button type="button" class="recipe-prep-sheet-btn view-current-ingredients-btn">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 3h9l3 3v15H6z" />
-            <path d="M14 3v4h4" />
-            <path d="M9 12h6" />
-            <path d="M9 16h6" />
-          </svg>
-          Prep Sheet
-        </button>
       </div>
     `;
-
-    const viewCurrentIngredientsBtn = selectedIngredientsList.querySelector(".view-current-ingredients-btn");
-
-    if (viewCurrentIngredientsBtn) {
-      viewCurrentIngredientsBtn.addEventListener("click", () => {
-        openCurrentIngredientsModal();
-      });
-    }
 
     selectedIngredientsList.querySelectorAll(".recipe-line-delete-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -4028,6 +4310,9 @@ ${staffSuggestion}
         renderSelectedIngredients();
       });
     });
+
+    renderRecipeCostSummary();
+    renderRecipeInfoDisplays();
   };
 
   const openCurrentIngredientsModal = () => {
@@ -4281,9 +4566,13 @@ ${staffSuggestion}
   const addRecipeIngredient = () => {
     const qty = recipeIngredientQtyInput ? Number(recipeIngredientQtyInput.value) : 0;
     const recipeUnit = recipeIngredientUnitInput ? recipeIngredientUnitInput.value : "lb";
+    const hasInventorySelection = Boolean(recipeIngredientItemInput && recipeIngredientItemInput.value);
 
     if (qty <= 0) {
-      alert("Please enter the quantity used for this recipe.");
+      if (recipeIngredientStatus) {
+        recipeIngredientStatus.textContent = "Please enter a quantity greater than 0.";
+        recipeIngredientStatus.style.color = "#b91c1c";
+      }
       return;
     }
 
@@ -4295,6 +4584,11 @@ ${staffSuggestion}
     const convertedQty = convertQuantity(qty, recipeUnit, inventoryUnit);
 
     if (!inventoryItemId) {
+      if (recipeIngredientStatus) {
+        recipeIngredientStatus.textContent = hasInventorySelection
+          ? "Selected ingredient is not available. Finish inventory fields or choose an item."
+          : "Choose an ingredient from inventory or fill quick-add fields.";
+      }
       return;
     }
 
@@ -4305,9 +4599,20 @@ ${staffSuggestion}
       originalUnit: recipeUnit
     });
     renderSelectedIngredients();
+    renderRecipeInfoDisplays();
+    clearIngredientPicker(recipeIngredientPicker);
 
     if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
-    clearIngredientPicker(recipeIngredientPicker);
+    if (recipeIngredientSearchInput) recipeIngredientSearchInput.value = "";
+    if (recipeIngredientStatus) recipeIngredientStatus.textContent = "Type to search inventory or create a new ingredient.";
+    if (recipeIngredientStatus) recipeIngredientStatus.style.color = "";
+    recipeIngredientQtyInput?.focus();
+  };
+
+  const handleRecipeIngredientEntryKeydown = (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    addRecipeIngredient();
   };
 
   const calculateSubRecipeIngredientCost = (ingredients = []) => calculateRecipeIngredientCost(ingredients);
@@ -4909,12 +5214,14 @@ ${staffSuggestion}
       const openRecipeDetails = () => openIngredientsModal(recipe);
       const editRecipe = () => {
         if (recipeNameInput) recipeNameInput.value = recipe.name || "";
+        if (recipeSheetNameInput) recipeSheetNameInput.value = recipe.sheet || "";
         if (recipeCategoryInput) recipeCategoryInput.value = recipe.category || "Entree";
         if (recipeCostInput) recipeCostInput.value = recipe.baseCost || recipe.cost || "";
         if (recipePortionsInput) recipePortionsInput.value = recipe.portions || "";
         if (recipeYieldInput) recipeYieldInput.value = recipe.wastePercent || 0;
         if (recipePreparationInput) recipePreparationInput.value = recipe.preparation || "";
         if (recipeNotesInput) recipeNotesInput.value = recipe.notes || "";
+        renderRecipeInfoDisplays();
         currentRecipePhotoDataUrl = recipe.photo || "";
         renderPhotoPreview(recipePhotoPreview, removeRecipePhotoBtn, currentRecipePhotoDataUrl);
         currentRecipeIngredients = [...(recipe.ingredients || [])];
@@ -4935,7 +5242,8 @@ ${staffSuggestion}
           currentRecipeIngredients = [];
           renderSelectedIngredients();
           resetRecipePhoto();
-          if (addRecipeBtn) addRecipeBtn.textContent = "Add Recipe";
+          if (addRecipeBtn) addRecipeBtn.textContent = "Save Recipe";
+          if (recipeSheetNameInput) recipeSheetNameInput.value = "";
           if (recipeNameInput) recipeNameInput.value = "";
           if (recipeCategoryInput) recipeCategoryInput.value = "";
           if (recipeCostInput) recipeCostInput.value = "";
@@ -5032,18 +5340,18 @@ ${staffSuggestion}
 
   const addRecipe = () => {
     const name = recipeNameInput ? recipeNameInput.value.trim() : "";
+    const sheet = recipeSheetNameInput ? recipeSheetNameInput.value.trim() : "";
     const category = recipeCategoryInput ? recipeCategoryInput.value.trim() || "Entree" : "Entree";
-    const ingredientCost = calculateRecipeIngredientCost(currentRecipeIngredients);
-    const manualCost = recipeCostInput ? Number(recipeCostInput.value) : 0;
-    const baseCost = ingredientCost > 0 ? ingredientCost : manualCost;
+    const summary = getRecipeCostSummaryMetrics();
+    const baseCost = summary.baseCost;
+    const cost = summary.totalCost;
     const wastePercent = recipeYieldInput ? Number(recipeYieldInput.value || 0) : 0;
-    const cost = applyWasteToCost(baseCost, wastePercent);
     const portions = recipePortionsInput ? Number(recipePortionsInput.value) : 0;
     const preparation = recipePreparationInput ? recipePreparationInput.value.trim() : "";
     const notes = recipeNotesInput ? recipeNotesInput.value.trim() : "";
 
     if (!name || cost <= 0 || portions <= 0) {
-      alert("Please complete the recipe information. Add a manual cost or add ingredients from inventory.");
+      alert("Please complete the recipe information. Add ingredients and portions before saving.");
       return;
     }
 
@@ -5055,6 +5363,7 @@ ${staffSuggestion}
         return {
           ...recipe,
           name,
+          sheet,
           category,
           baseCost,
           cost,
@@ -5068,11 +5377,12 @@ ${staffSuggestion}
       });
       saveRecipes(updatedRecipes);
       editingRecipeId = null;
-      if (addRecipeBtn) addRecipeBtn.textContent = "Add Recipe";
+      if (addRecipeBtn) addRecipeBtn.textContent = "Save Recipe";
     } else {
       recipes.push({
         id: Date.now().toString(),
         name,
+        sheet,
         category,
         baseCost,
         cost,
@@ -5093,15 +5403,18 @@ ${staffSuggestion}
     renderEvents();
 
     if (recipeNameInput) recipeNameInput.value = "";
+    if (recipeSheetNameInput) recipeSheetNameInput.value = "";
     if (recipeCategoryInput) recipeCategoryInput.value = "";
     if (recipeCostInput) recipeCostInput.value = "";
     if (recipePortionsInput) recipePortionsInput.value = "";
-    if (recipeYieldInput) recipeYieldInput.value = "0";
     if (recipePreparationInput) recipePreparationInput.value = "";
     if (recipeNotesInput) recipeNotesInput.value = "";
     resetRecipePhoto();
     currentRecipeIngredients = [];
     renderSelectedIngredients();
+    renderRecipeInfoDisplays();
+    if (recipeYieldInput) recipeYieldInput.value = "0";
+    if (addRecipeBtn) addRecipeBtn.textContent = "Save Recipe";
   };
 
   const renderSubRecipes = () => {
@@ -8490,9 +8803,21 @@ ${staffSuggestion}
     addRecipeBtn.addEventListener("click", addRecipe);
   }
 
+  if (recipePrintBtn) {
+    recipePrintBtn.addEventListener("click", printRecipeCard);
+  }
+
+  if (recipeResetBtn) {
+    recipeResetBtn.addEventListener("click", () => clearRecipeForm({ focusAfterReset: true }));
+  }
+
   if (addRecipeIngredientBtn) {
     addRecipeIngredientBtn.addEventListener("click", addRecipeIngredient);
   }
+
+  [recipeIngredientQtyInput].filter(Boolean).forEach((input) => {
+    input.addEventListener("keydown", handleRecipeIngredientEntryKeydown);
+  });
 
   [recipeYieldInput, recipePortionsInput].forEach((input) => {
     input?.addEventListener("input", renderSelectedIngredients);
