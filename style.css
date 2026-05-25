@@ -9428,6 +9428,12 @@ tbody tr:hover {
   height: 44px;
 }
 
+.recipe-ingredients-card > .recipe-section-heading .recipe-section-icon,
+.recipe-ingredients-card .field-label-icon,
+.recipe-ingredients-card .sheet-add-ingredient-btn span {
+  display: none;
+}
+
 .recipe-field-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
