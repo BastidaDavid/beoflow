@@ -517,6 +517,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const recipeIngredientItemInput = document.getElementById("recipeIngredientItem");
   const recipeIngredientMatches = document.getElementById("recipeIngredientMatches");
   const recipeIngredientStatus = document.getElementById("recipeIngredientStatus");
+  const recipeIngredientHelp = document.getElementById("recipe-ingredient-help");
   const recipeIngredientQtyInput = document.getElementById("recipeIngredientQty");
   const recipeIngredientUnitInput = document.getElementById("recipeIngredientUnit");
   const recipeQuickInventoryFields = document.getElementById("recipeQuickInventoryFields");
@@ -561,6 +562,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const ingredientsModalBody = document.getElementById("ingredients-modal-body");
   const closeIngredientsModalBtn = document.getElementById("close-ingredients-modal");
   let currentRecipeIngredients = [];
+  let editingRecipeIngredientIndex = null;
   let editingRecipeId = null;
   let currentRecipePhotoDataUrl = "";
   let currentSubRecipeIngredients = [];
@@ -2438,7 +2440,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     },
     recipes: {
       title: "Recipes",
-      subtitle: "Create production-ready recipes from inventory"
+      subtitle: "Create recipes from inventory, calculate ingredient cost automatically, and save recipe cards."
     },
     subRecipes: {
       title: "Prep Recipes",
@@ -2454,7 +2456,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     },
     staff: {
       title: "LineOps",
-      subtitle: "Import schedules, assign kitchen stations, and print the station sheet"
+      subtitle: "Download the mobile app for shift readiness, stations, and kitchen coordination"
     },
     lineOpsUsers: {
       title: "LineOps Users",
@@ -3971,6 +3973,23 @@ ${staffSuggestion}
     `).join("");
   };
 
+  const syncRecipeIngredientBuilderMode = () => {
+    const isEditingIngredient = Number.isInteger(editingRecipeIngredientIndex);
+    if (addRecipeIngredientBtn) {
+      addRecipeIngredientBtn.textContent = isEditingIngredient ? "Update Ingredient" : "Add Ingredient";
+    }
+    if (recipeIngredientHelp) {
+      recipeIngredientHelp.textContent = isEditingIngredient
+        ? "Edit the ingredient row, then press Update Ingredient."
+        : "Press Enter in Quantity to add the row.";
+    }
+  };
+
+  const resetRecipeIngredientEditMode = () => {
+    editingRecipeIngredientIndex = null;
+    syncRecipeIngredientBuilderMode();
+  };
+
   const clearRecipeForm = ({ focusAfterReset = false } = {}) => {
     if (recipeSheetNameInput) recipeSheetNameInput.value = "";
     if (recipeNameInput) recipeNameInput.value = "";
@@ -3981,6 +4000,7 @@ ${staffSuggestion}
     if (recipePreparationInput) recipePreparationInput.value = "";
     if (recipeNotesInput) recipeNotesInput.value = "";
     currentRecipeIngredients = [];
+    resetRecipeIngredientEditMode();
     editingRecipeId = null;
     currentRecipePhotoDataUrl = "";
     resetRecipePhoto();
@@ -4251,14 +4271,49 @@ ${staffSuggestion}
     `;
   };
 
+  const removeRecipeIngredientAt = (index) => {
+    if (!Number.isInteger(index) || index < 0 || index >= currentRecipeIngredients.length) return;
+
+    currentRecipeIngredients.splice(index, 1);
+    if (editingRecipeIngredientIndex === index) {
+      resetRecipeIngredientEditMode();
+      clearIngredientPicker(recipeIngredientPicker);
+      if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
+    } else if (Number.isInteger(editingRecipeIngredientIndex) && editingRecipeIngredientIndex > index) {
+      editingRecipeIngredientIndex -= 1;
+      syncRecipeIngredientBuilderMode();
+    }
+
+    renderSelectedIngredients();
+  };
+
+  const editRecipeIngredientAt = (index) => {
+    if (!Number.isInteger(index) || index < 0 || index >= currentRecipeIngredients.length) return;
+
+    const ingredient = currentRecipeIngredients[index];
+    const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
+    if (inventoryItem) selectIngredientPickerItem(recipeIngredientPicker, inventoryItem);
+    if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
+    if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || inventoryItem?.unit || "lb";
+    editingRecipeIngredientIndex = index;
+    syncRecipeIngredientBuilderMode();
+    if (recipeIngredientStatus) {
+      recipeIngredientStatus.textContent = `Editing ingredient row #${String(index + 1).padStart(2, "0")}.`;
+      recipeIngredientStatus.style.color = "";
+    }
+    renderSelectedIngredients();
+    recipeIngredientQtyInput?.focus();
+  };
+
   const renderSelectedIngredients = () => {
     if (!selectedIngredientsList) return;
 
     const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
       const line = getIngredientLine(ingredient);
       const isIncomplete = !line.itemName || line.usedQty <= 0 || !line.inventoryUnit;
+      const isEditingIngredient = editingRecipeIngredientIndex === index;
       return `
-        <div class="recipe-sheet-line${isIncomplete ? " is-incomplete" : ""}">
+        <div class="recipe-sheet-line${isIncomplete ? " is-incomplete" : ""}${isEditingIngredient ? " is-editing" : ""}">
           <span class="recipe-line-code" data-label="Code">#${String(index + 1).padStart(2, "0")}</span>
           <span class="recipe-sheet-number" data-label="Quantity">${line.usedQty.toFixed(2)} ${escapeHtml(line.usedUnit)}</span>
           <strong data-label="Ingredient">${escapeHtml(line.itemName)}</strong>
@@ -4266,21 +4321,8 @@ ${staffSuggestion}
           <span class="recipe-sheet-number" data-label="Presentation">${escapeHtml(line.presentation)}</span>
           <span class="recipe-sheet-number recipe-line-cost" data-label="Cost">${formatMoney(line.ingredientCost)}</span>
           <span class="recipe-line-actions" data-label="Actions">
-            <button type="button" class="icon-btn edit recipe-line-edit-btn" data-index="${index}" title="Edit ingredient" aria-label="Edit ${escapeHtml(line.itemName)}">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0 0-3L17.5 5.5a2.1 2.1 0 0 0-3 0L4 16z" />
-                <path d="M13.5 6.5l4 4" />
-              </svg>
-            </button>
-            <button type="button" class="icon-btn delete recipe-line-delete-btn" data-index="${index}" title="Remove ingredient" aria-label="Remove ${escapeHtml(line.itemName)}">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 7h12" />
-                <path d="M9 7V5h6v2" />
-                <path d="M9 10v8" />
-                <path d="M15 10v8" />
-                <path d="M8 7l1 13h6l1-13" />
-              </svg>
-            </button>
+            <button type="button" class="recipe-line-action-btn edit recipe-line-edit-btn" data-index="${index}" title="Edit ingredient" aria-label="Edit ${escapeHtml(line.itemName)}">Edit</button>
+            <button type="button" class="recipe-line-action-btn delete recipe-line-delete-btn" data-index="${index}" title="Remove ingredient" aria-label="Remove ${escapeHtml(line.itemName)}">Remove</button>
           </span>
         </div>
       `;
@@ -4310,26 +4352,13 @@ ${staffSuggestion}
 
     selectedIngredientsList.querySelectorAll(".recipe-line-delete-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const index = Number(btn.dataset.index);
-        if (!Number.isInteger(index) || index < 0) return;
-        currentRecipeIngredients.splice(index, 1);
-        renderSelectedIngredients();
+        removeRecipeIngredientAt(Number(btn.dataset.index));
       });
     });
 
     selectedIngredientsList.querySelectorAll(".recipe-line-edit-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const index = Number(btn.dataset.index);
-        const ingredient = currentRecipeIngredients[index];
-        if (!ingredient) return;
-
-        const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
-        if (inventoryItem) selectIngredientPickerItem(recipeIngredientPicker, inventoryItem);
-        if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
-        if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
-
-        currentRecipeIngredients.splice(index, 1);
-        renderSelectedIngredients();
+        editRecipeIngredientAt(Number(btn.dataset.index));
       });
     });
 
@@ -4453,26 +4482,15 @@ ${staffSuggestion}
 
     ingredientsModalBody.querySelectorAll(".ingredient-delete-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const index = Number(btn.dataset.index);
-        currentRecipeIngredients.splice(index, 1);
-        renderSelectedIngredients();
+        removeRecipeIngredientAt(Number(btn.dataset.index));
         openCurrentIngredientsModal();
       });
     });
 
     ingredientsModalBody.querySelectorAll(".ingredient-edit-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const index = Number(btn.dataset.index);
-        const ingredient = currentRecipeIngredients[index];
-
-        const inventoryItem = getInventory().find((item) => item.id === ingredient.inventoryItemId);
-        if (inventoryItem) selectIngredientPickerItem(recipeIngredientPicker, inventoryItem);
-        if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = ingredient.originalQty ?? ingredient.qty;
-        if (recipeIngredientUnitInput) recipeIngredientUnitInput.value = ingredient.originalUnit || "lb";
-
-        currentRecipeIngredients.splice(index, 1);
+        editRecipeIngredientAt(Number(btn.dataset.index));
         closeIngredientsModal();
-        renderSelectedIngredients();
       });
     });
 
@@ -4585,7 +4603,16 @@ ${staffSuggestion}
     populateIngredientPicker(recipeIngredientPicker);
   };
 
-  const addRecipeIngredient = () => {
+  const hasPendingRecipeIngredientDraft = () => {
+    const qty = recipeIngredientQtyInput ? Number(recipeIngredientQtyInput.value || 0) : 0;
+    const searchText = recipeIngredientSearchInput ? recipeIngredientSearchInput.value.trim() : "";
+    const selectedItemId = recipeIngredientItemInput ? recipeIngredientItemInput.value : "";
+
+    return Number.isInteger(editingRecipeIngredientIndex) || qty > 0 || Boolean(searchText || selectedItemId);
+  };
+
+  const addRecipeIngredient = (options = {}) => {
+    const { focusAfterAdd = true } = options;
     const qty = recipeIngredientQtyInput ? Number(recipeIngredientQtyInput.value) : 0;
     const recipeUnit = recipeIngredientUnitInput ? recipeIngredientUnitInput.value : "lb";
     const hasInventorySelection = Boolean(recipeIngredientItemInput && recipeIngredientItemInput.value);
@@ -4595,7 +4622,7 @@ ${staffSuggestion}
         recipeIngredientStatus.textContent = "Please enter a quantity greater than 0.";
         recipeIngredientStatus.style.color = "#b91c1c";
       }
-      return;
+      return false;
     }
 
     const inventoryItemId = recipeIngredientItemInput && recipeIngredientItemInput.value
@@ -4611,24 +4638,38 @@ ${staffSuggestion}
           ? "Selected ingredient is not available. Finish inventory fields or choose an item."
           : "Choose an ingredient from inventory or fill quick-add fields.";
       }
-      return;
+      return false;
     }
 
-    currentRecipeIngredients.push({
+    const nextIngredient = {
       inventoryItemId,
       qty: convertedQty,
       originalQty: qty,
       originalUnit: recipeUnit
-    });
+    };
+    const isEditingIngredient = Number.isInteger(editingRecipeIngredientIndex)
+      && currentRecipeIngredients[editingRecipeIngredientIndex];
+
+    if (isEditingIngredient) {
+      currentRecipeIngredients[editingRecipeIngredientIndex] = nextIngredient;
+    } else {
+      currentRecipeIngredients.push(nextIngredient);
+    }
+    resetRecipeIngredientEditMode();
     renderSelectedIngredients();
     renderRecipeInfoDisplays();
     clearIngredientPicker(recipeIngredientPicker);
 
     if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
     if (recipeIngredientSearchInput) recipeIngredientSearchInput.value = "";
-    if (recipeIngredientStatus) recipeIngredientStatus.textContent = "Type to search inventory or create a new ingredient.";
+    if (recipeIngredientStatus) {
+      recipeIngredientStatus.textContent = isEditingIngredient
+        ? "Ingredient row updated."
+        : "Type to search inventory or create a new ingredient.";
+    }
     if (recipeIngredientStatus) recipeIngredientStatus.style.color = "";
-    recipeIngredientQtyInput?.focus();
+    if (focusAfterAdd) recipeIngredientQtyInput?.focus();
+    return true;
   };
 
   const handleRecipeIngredientEntryKeydown = (event) => {
@@ -5247,6 +5288,9 @@ ${staffSuggestion}
         currentRecipePhotoDataUrl = recipe.photo || "";
         renderPhotoPreview(recipePhotoPreview, removeRecipePhotoBtn, currentRecipePhotoDataUrl);
         currentRecipeIngredients = [...(recipe.ingredients || [])];
+        resetRecipeIngredientEditMode();
+        clearIngredientPicker(recipeIngredientPicker);
+        if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
         editingRecipeId = recipe.id;
         renderSelectedIngredients();
         if (addRecipeBtn) addRecipeBtn.textContent = "Update Recipe";
@@ -5361,6 +5405,14 @@ ${staffSuggestion}
   };
 
   const addRecipe = () => {
+    if (hasPendingRecipeIngredientDraft()) {
+      const addedPendingIngredient = addRecipeIngredient({ focusAfterAdd: false });
+      if (!addedPendingIngredient) {
+        alert("Finish adding the ingredient row before saving the recipe.");
+        return;
+      }
+    }
+
     const name = recipeNameInput ? recipeNameInput.value.trim() : "";
     const sheet = recipeSheetNameInput ? recipeSheetNameInput.value.trim() : "";
     const category = recipeCategoryInput ? recipeCategoryInput.value.trim() || "Entree" : "Entree";
@@ -5372,8 +5424,13 @@ ${staffSuggestion}
     const preparation = recipePreparationInput ? recipePreparationInput.value.trim() : "";
     const notes = recipeNotesInput ? recipeNotesInput.value.trim() : "";
 
-    if (!name || cost <= 0 || portions <= 0) {
-      alert("Please complete the recipe information. Add ingredients and portions before saving.");
+    const missingRecipeFields = [];
+    if (!name) missingRecipeFields.push("Recipe Name");
+    if (portions <= 0) missingRecipeFields.push("PAX / Portions");
+    if (summary.ingredientCount <= 0 || cost <= 0) missingRecipeFields.push("at least one priced ingredient");
+
+    if (missingRecipeFields.length) {
+      alert(`Please complete: ${missingRecipeFields.join(", ")}.`);
       return;
     }
 
@@ -5433,6 +5490,9 @@ ${staffSuggestion}
     if (recipeNotesInput) recipeNotesInput.value = "";
     resetRecipePhoto();
     currentRecipeIngredients = [];
+    resetRecipeIngredientEditMode();
+    clearIngredientPicker(recipeIngredientPicker);
+    if (recipeIngredientQtyInput) recipeIngredientQtyInput.value = "";
     renderSelectedIngredients();
     renderRecipeInfoDisplays();
     if (recipeYieldInput) recipeYieldInput.value = "0";

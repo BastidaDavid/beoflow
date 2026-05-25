@@ -2424,6 +2424,185 @@ tbody tr:hover {
   color: var(--lineops-muted);
 }
 
+.lineops-download-hero {
+  min-height: 620px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 28px;
+  align-items: center;
+  padding: 34px;
+  overflow: hidden;
+  border: 1px solid var(--lineops-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #ecfdf5 100%);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+}
+
+.lineops-download-copy {
+  max-width: 720px;
+  display: grid;
+  gap: 18px;
+}
+
+.lineops-download-kicker {
+  width: fit-content;
+  padding: 7px 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: var(--lineops-blue);
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.lineops-download-copy h2 {
+  margin: 0;
+  color: var(--lineops-night);
+  font-family: var(--font-display);
+  font-size: 4rem;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.lineops-download-copy p {
+  max-width: 620px;
+  margin: 0;
+  color: #475569;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  font-weight: 650;
+}
+
+.lineops-download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.lineops-store-btn {
+  min-width: 184px;
+  min-height: 62px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 12px 18px;
+  border: 1px solid #d8dde5;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--lineops-night);
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+}
+
+.lineops-store-btn.primary {
+  border-color: var(--lineops-night);
+  background: var(--lineops-night);
+  color: #ffffff;
+}
+
+.lineops-store-btn span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  opacity: 0.72;
+}
+
+.lineops-store-btn strong {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+.lineops-download-note {
+  color: var(--lineops-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.lineops-phone-preview {
+  display: flex;
+  justify-content: center;
+}
+
+.lineops-phone-shell {
+  width: min(310px, 100%);
+  min-height: 560px;
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 22px;
+  border: 10px solid #111827;
+  border-radius: 34px;
+  background: #f8fafc;
+  box-shadow: 0 28px 55px rgba(15, 23, 42, 0.2);
+}
+
+.lineops-phone-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0 10px;
+  color: var(--lineops-night);
+  font-weight: 900;
+}
+
+.lineops-phone-status strong {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.72rem;
+}
+
+.lineops-phone-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.lineops-phone-card.active {
+  border-color: #86efac;
+  background: #ecfdf5;
+}
+
+.lineops-phone-card span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lineops-phone-card strong {
+  color: var(--lineops-night);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.lineops-phone-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 120px;
+}
+
+.lineops-phone-nav span {
+  width: 34px;
+  height: 5px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.lineops-phone-nav span:first-child {
+  background: var(--lineops-green);
+}
+
 .shift-day-toolbar {
   display: flex;
   align-items: center;
@@ -4525,6 +4704,29 @@ body.modal-open {
   .reports-summary-grid,
   .report-feedback-form {
     grid-template-columns: 1fr;
+  }
+
+  .lineops-download-hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    padding: 22px;
+  }
+
+  .lineops-download-copy h2 {
+    font-size: 2.35rem;
+  }
+
+  .lineops-download-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .lineops-store-btn {
+    width: 100%;
+  }
+
+  .lineops-phone-shell {
+    min-height: 430px;
   }
 
   .reports-panel-header,
@@ -9724,7 +9926,7 @@ tbody tr:hover {
 .recipe-sheet-table-head,
 .recipe-cost-sheet .recipe-sheet-line {
   display: grid;
-  grid-template-columns: 82px 118px minmax(180px, 1.2fr) minmax(140px, 0.9fr) minmax(140px, 0.9fr) 100px 78px;
+  grid-template-columns: 82px 118px minmax(180px, 1.2fr) minmax(140px, 0.9fr) minmax(140px, 0.9fr) 100px 134px;
   gap: 12px;
   align-items: center;
 }
@@ -9760,6 +9962,11 @@ tbody tr:hover {
 .recipe-sheet-line.is-incomplete .recipe-sheet-number,
 .recipe-sheet-line.is-incomplete strong {
   color: #92400e;
+}
+
+.recipe-sheet-line.is-editing {
+  background: #eff6ff;
+  border-left: 3px solid var(--accent);
 }
 
 .recipe-cost-sheet .recipe-sheet-line > span,
@@ -9804,6 +10011,33 @@ tbody tr:hover {
 .recipe-line-actions {
   justify-content: flex-end;
   gap: 6px;
+}
+
+.recipe-line-action-btn {
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid #d8e2ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.recipe-line-action-btn:hover,
+.recipe-line-action-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+  outline: none;
+}
+
+.recipe-line-action-btn.delete:hover,
+.recipe-line-action-btn.delete:focus-visible {
+  border-color: #fecaca;
+  background: #fff1f2;
+  color: var(--danger-text);
 }
 
 .recipe-line-actions .icon-btn {
