@@ -812,23 +812,36 @@
                     </div>
                   </div>
 
-                  <div class="recipe-sheet-notes-card">
-                    <div class="recipe-section-heading compact">
-                      <span class="recipe-section-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24">
-                          <path d="M5 4h14v16H5z" />
-                          <path d="M8 8h8" />
-                          <path d="M8 12h8" />
-                          <path d="M8 16h5" />
-                        </svg>
-                      </span>
-                      <div>
-                        <h4>Observations</h4>
-                        <p>Service notes, allergens, purchasing or production comments.</p>
+                  <div class="recipe-sheet-side-col">
+                    <details id="recipe-notes-popover" class="recipe-sheet-notes-card recipe-note-card">
+                      <summary class="recipe-note-summary" aria-label="Observations" title="Observations">
+                        <span class="recipe-note-icon" aria-hidden="true">📝</span>
+                        <span class="sr-only">Observations</span>
+                      </summary>
+                      <div class="recipe-note-editor">
+                        <label class="sr-only" for="recipeNotes">Observations</label>
+                        <textarea id="recipeNotes" class="sheet-textarea sheet-input" rows="8" placeholder="Service notes, allergens, purchasing or production comments..."></textarea>
                       </div>
-                    </div>
-                    <label class="sr-only" for="recipeNotes">Observations</label>
-                    <textarea id="recipeNotes" class="sheet-textarea sheet-input" rows="8" placeholder="Service notes, allergens, purchasing or production comments..."></textarea>
+                    </details>
+
+                    <section class="recipe-summary-card recipe-summary-mini">
+                      <div class="recipe-section-heading">
+                        <span class="recipe-section-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M4 3h16v18H4z" />
+                            <path d="M7 8h10" />
+                            <path d="M7 12h10" />
+                            <path d="M7 16h7" />
+                          </svg>
+                        </span>
+                        <div>
+                          <h4>Recipe Cost Summary</h4>
+                          <p>Compact summary rows with Excel-like visual lines.</p>
+                        </div>
+                      </div>
+
+                      <div id="recipe-cost-summary-grid" class="recipe-cost-summary-grid"></div>
+                    </section>
                   </div>
                 </div>
 
@@ -937,25 +950,6 @@
                     No ingredients added yet.
                   </div>
                 </div>
-
-                <section class="recipe-summary-card">
-                  <div class="recipe-section-heading">
-                    <span class="recipe-section-icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24">
-                        <path d="M4 3h16v18H4z" />
-                        <path d="M7 8h10" />
-                        <path d="M7 12h10" />
-                        <path d="M7 16h7" />
-                      </svg>
-                    </span>
-                    <div>
-                      <h4>Recipe Cost Summary</h4>
-                      <p>Compact summary rows with Excel-like visual lines.</p>
-                    </div>
-                  </div>
-
-                  <div id="recipe-cost-summary-grid" class="recipe-cost-summary-grid"></div>
-                </section>
 
                 <div class="recipe-sheet-lower-grid">
                   <div class="recipe-section-card recipe-prep-card">

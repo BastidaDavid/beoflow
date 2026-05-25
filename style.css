@@ -9381,9 +9381,16 @@ tbody tr:hover {
 .recipe-sheet-main-grid,
 .recipe-sheet-lower-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.55fr);
   gap: 16px;
   align-items: stretch;
+}
+
+.recipe-sheet-side-col {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 
 .recipe-sheet-info-card,
@@ -9485,7 +9492,104 @@ tbody tr:hover {
 
 .recipe-sheet-notes-card .sheet-textarea,
 .recipe-prep-card .sheet-preparation-textarea {
-  min-height: 178px;
+  min-height: 132px;
+}
+
+.recipe-note-card {
+  padding: 0;
+  background: linear-gradient(180deg, #ffffff 0%, #fffdfa 70%, #fff6eb 100%);
+}
+
+.recipe-note-summary {
+  min-height: 44px;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #334155;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 0.81rem;
+  font-weight: 860;
+  line-height: 1.2;
+}
+
+.recipe-note-summary::-webkit-details-marker,
+.recipe-note-summary::marker {
+  display: none;
+}
+
+.recipe-note-summary:focus-visible {
+  outline: none;
+}
+
+.recipe-note-summary:focus-visible,
+.recipe-note-summary:hover {
+  background: #f8fafc;
+}
+
+.recipe-note-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #c8dcff;
+  border-radius: 10px;
+  background: #eef4ff;
+  font-size: 0.9rem;
+}
+
+.recipe-note-editor {
+  padding: 12px;
+}
+
+.recipe-note-editor .sheet-textarea,
+.recipe-note-editor .sheet-input {
+  width: 100%;
+  height: auto;
+  min-height: 140px;
+}
+
+.recipe-note-card:not([open]) .recipe-note-editor {
+  display: none;
+}
+
+.recipe-summary-mini {
+  padding: 12px;
+  overflow: hidden;
+}
+
+.recipe-summary-mini .recipe-section-heading p {
+  max-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+
+.recipe-summary-mini .recipe-cost-summary-grid {
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.recipe-summary-mini .recipe-cost-metric {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+.recipe-summary-mini .recipe-cost-metric span {
+  font-size: 0.66rem;
+  line-height: 1.15;
+}
+
+.recipe-summary-mini .recipe-cost-metric strong {
+  font-size: 0.93rem;
+  line-height: 1.15;
 }
 
 .recipe-ingredient-builder {
