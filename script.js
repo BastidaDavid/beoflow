@@ -510,7 +510,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   const recipePhotoInput = document.getElementById("recipePhoto");
   const recipePhotoPreview = document.getElementById("recipePhotoPreview");
   const removeRecipePhotoBtn = document.getElementById("removeRecipePhoto");
-  const recipePrintBtn = document.getElementById("recipe-print-btn");
   const recipeResetBtn = document.getElementById("recipe-reset-btn");
   const recipeCategoryOptions = document.getElementById("recipe-category-options");
   const recipeIngredientSearchInput = document.getElementById("recipeIngredientSearch");
@@ -3915,9 +3914,16 @@ ${staffSuggestion}
     wastePercent: Number(recipeYieldInput ? recipeYieldInput.value || 0 : 0)
   });
 
-  const getRecipeCostSummaryMetrics = () => {
-    const values = getRecipeInputs();
-    const baseCost = calculateRecipeIngredientCost(currentRecipeIngredients);
+  const getRecipeCostSummaryMetrics = (recipe = null) => {
+    const values = recipe
+      ? {
+          portions: Number(recipe.portions || 0),
+          wastePercent: Number(recipe.wastePercent || 0)
+        }
+      : getRecipeInputs();
+    const ingredients = recipe ? recipe.ingredients || [] : currentRecipeIngredients;
+    const ingredientBaseCost = calculateRecipeIngredientCost(ingredients);
+    const baseCost = ingredientBaseCost > 0 ? ingredientBaseCost : Number(recipe?.baseCost || recipe?.cost || 0);
     const totalCost = applyWasteToCost(baseCost, values.wastePercent);
     const wasteCost = totalCost - baseCost;
     const unitCost = values.portions > 0 ? totalCost / values.portions : totalCost;
@@ -3944,7 +3950,7 @@ ${staffSuggestion}
       wasteCost,
       totalCost,
       unitCost,
-      ingredientCount: currentRecipeIngredients.length
+      ingredientCount: ingredients.length
     };
   };
 
@@ -4013,16 +4019,24 @@ ${staffSuggestion}
     }
   };
 
-  const getRecipePrintPayload = () => {
-    const values = getRecipeInputs();
-    const summary = getRecipeCostSummaryMetrics();
-    const ingredientRows = currentRecipeIngredients.map((ingredient, index) => {
-      const item = getInventory().find((inventoryItem) => inventoryItem.id === ingredient.inventoryItemId);
+  const getRecipePrintPayload = (recipe = null) => {
+    const values = recipe
+      ? {
+          name: recipe.name || "",
+          sheet: recipe.sheet || "",
+          category: recipe.category || "Entree",
+          portions: Number(recipe.portions || 0),
+          wastePercent: Number(recipe.wastePercent || 0)
+        }
+      : getRecipeInputs();
+    const summary = getRecipeCostSummaryMetrics(recipe);
+    const ingredients = recipe ? recipe.ingredients || [] : currentRecipeIngredients;
+    const ingredientRows = ingredients.map((ingredient, index) => {
       const line = getIngredientLine(ingredient);
       return {
         code: `#${String(index + 1).padStart(2, "0")}`,
         qty: `${line.usedQty.toFixed(2)} ${line.usedUnit}`,
-        ingredient: item?.name || "Unknown item",
+        ingredient: line.itemName,
         price: `${formatMoney(line.itemPrice)} / ${line.inventoryUnit}`,
         presentation: line.presentation,
         cost: formatMoney(line.ingredientCost)
@@ -4035,15 +4049,15 @@ ${staffSuggestion}
       category: values.category,
       portions: values.portions,
       wastePercent: values.wastePercent,
-      notes: recipeNotesInput ? recipeNotesInput.value.trim() : "",
-      preparation: recipePreparationInput ? recipePreparationInput.value.trim() : "",
+      notes: recipe ? recipe.notes || "" : recipeNotesInput ? recipeNotesInput.value.trim() : "",
+      preparation: recipe ? recipe.preparation || "" : recipePreparationInput ? recipePreparationInput.value.trim() : "",
       summaryRows: summary.rows,
       ingredients: ingredientRows
     };
   };
 
-  const printRecipeCard = () => {
-    const payload = getRecipePrintPayload();
+  const printRecipeCard = (recipe = null) => {
+    const payload = getRecipePrintPayload(recipe);
     const printWindow = window.open("", "_blank", "noopener,noreferrer");
     if (!printWindow) {
       alert("Popup was blocked by the browser. Please allow pop-ups to print the recipe card.");
@@ -5275,6 +5289,7 @@ ${staffSuggestion}
         ? `<img src="${escapeHtml(recipe.photo)}" alt="${escapeHtml(recipe.name || "Recipe photo")}" />`
         : `<span>${escapeHtml((recipe.name || "R").slice(0, 1).toUpperCase())}</span>`;
       const openRecipeDetails = () => openIngredientsModal(recipe);
+      const printSavedRecipe = () => printRecipeCard(recipe);
       const editRecipe = () => {
         if (recipeNameInput) recipeNameInput.value = recipe.name || "";
         if (recipeSheetNameInput) recipeSheetNameInput.value = recipe.sheet || "";
@@ -5345,12 +5360,14 @@ ${staffSuggestion}
             </div>
             <div class="recipe-book-actions">
               <button type="button" class="primary-btn recipe-card-open-btn">Open Recipe</button>
+              <button type="button" class="secondary-btn recipe-card-print-btn">Print</button>
               <button type="button" class="secondary-btn recipe-card-edit-btn">Edit</button>
               <button type="button" class="icon-btn delete recipe-card-delete-btn" title="Delete">×</button>
             </div>
           </div>
         `;
         card.querySelectorAll(".recipe-card-open-btn").forEach((button) => button.addEventListener("click", openRecipeDetails));
+        card.querySelector(".recipe-card-print-btn")?.addEventListener("click", printSavedRecipe);
         card.querySelector(".recipe-card-edit-btn")?.addEventListener("click", editRecipe);
         card.querySelector(".recipe-card-delete-btn")?.addEventListener("click", deleteRecipe);
         recipeCardGrid.appendChild(card);
@@ -5378,6 +5395,7 @@ ${staffSuggestion}
         <td>${escapeHtml(recipe.notes || "-")}</td>
         <td>
           <div class="icon-actions">
+            <button type="button" class="secondary-btn recipe-print-btn">Print</button>
             <button type="button" class="icon-btn edit recipe-edit-btn" title="Edit">✏️</button>
             <button type="button" class="icon-btn delete recipe-delete-btn" title="Delete">🗑️</button>
           </div>
@@ -5387,6 +5405,7 @@ ${staffSuggestion}
       const editBtn = newRow.querySelector(".recipe-edit-btn");
       const deleteBtn = newRow.querySelector(".recipe-delete-btn");
       const viewIngredientsBtn = newRow.querySelector(".view-ingredients-btn");
+      const printBtn = newRow.querySelector(".recipe-print-btn");
 
       if (viewIngredientsBtn) {
         viewIngredientsBtn.addEventListener("click", openRecipeDetails);
@@ -5394,6 +5413,10 @@ ${staffSuggestion}
 
       if (editBtn) {
         editBtn.addEventListener("click", editRecipe);
+      }
+
+      if (printBtn) {
+        printBtn.addEventListener("click", printSavedRecipe);
       }
 
       if (deleteBtn) {
@@ -8883,10 +8906,6 @@ ${staffSuggestion}
 
   if (addRecipeBtn) {
     addRecipeBtn.addEventListener("click", addRecipe);
-  }
-
-  if (recipePrintBtn) {
-    recipePrintBtn.addEventListener("click", printRecipeCard);
   }
 
   if (recipeResetBtn) {

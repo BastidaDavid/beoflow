@@ -5227,6 +5227,14 @@ body.modal-open {
   align-items: center;
 }
 
+.icon-actions .recipe-print-btn {
+  min-height: 34px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  box-shadow: none;
+}
+
 .icon-btn {
   width: 34px;
   height: 34px;
@@ -9551,6 +9559,11 @@ tbody tr:hover {
 
 .recipe-sheet-hero-tools > span:nth-child(3),
 .recipe-sheet-hero-tools .recipe-sheet-btn:nth-child(3) {
+  border-color: #fdba74;
+  background: #fff7ed;
+}
+
+.recipe-sheet-hero-tools #recipe-reset-btn {
   border-color: #fdba74;
   background: #fff7ed;
 }
