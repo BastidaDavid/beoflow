@@ -662,6 +662,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     element.hidden = !visible;
     element.style.display = visible ? "" : "none";
   };
+  const syncSmartSetupSurface = (moduleKey = activeModuleKey) => {
+    const shouldShow = canUseSmartSetup() && moduleKey === "dashboard";
+    setClientOnlyElementVisibility(smartSetupLauncher, shouldShow);
+
+    if (!smartSetupSection) return;
+    if (!shouldShow) {
+      smartSetupSection.hidden = true;
+      smartSetupSection.style.display = "none";
+      smartSetupLauncher?.setAttribute("aria-expanded", "false");
+      return;
+    }
+
+    smartSetupSection.style.display = "";
+  };
   const setModuleNavAccess = (moduleKey, navItem, available) => {
     if (!navItem) return;
 
@@ -766,8 +780,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(modules));
     if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Change area";
-    setClientOnlyElementVisibility(smartSetupLauncher, canUseSmartSetup() && Boolean(modules));
-    if (!canUseSmartSetup()) hideClientOnlyElement(smartSetupSection);
+    syncSmartSetupSurface(activeModuleKey);
   };
   const weekSizeIndicator = document.getElementById("week-size-indicator");
   const shiftReadinessBoard = document.getElementById("shift-readiness-board");
@@ -2240,7 +2253,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const openSmartSetupPanel = () => {
     if (!canUseSmartSetup()) return;
+    if (activeModuleKey !== "dashboard") return;
     if (!smartSetupSection) return;
+    smartSetupSection.style.display = "";
     smartSetupSection.hidden = false;
     smartSetupLauncher?.setAttribute("aria-expanded", "true");
     renderSmartSetup();
@@ -2259,6 +2274,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       hideClientOnlyElement(smartSetupLauncher);
       return;
     }
+    if (activeModuleKey !== "dashboard") {
+      syncSmartSetupSurface(activeModuleKey);
+      return;
+    }
+
+    syncSmartSetupSurface(activeModuleKey);
 
     const state = getSmartSetupState();
     const flow = smartSetupFlows[state.flow];
@@ -3279,6 +3300,7 @@ ${staffSuggestion}
     hideAllMainSections();
     activeModuleKey = moduleKey;
     updateTopbar(moduleKey);
+    syncSmartSetupSurface(moduleKey);
 
     if (moduleKey === "dashboard") {
       showSection(dashboardSection, "grid");
