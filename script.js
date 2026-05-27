@@ -3928,10 +3928,7 @@ ${staffSuggestion}
     const wasteCost = totalCost - baseCost;
     const unitCost = values.portions > 0 ? totalCost / values.portions : totalCost;
     const foodFactor = values.wastePercent > 0 ? ((100 + values.wastePercent) / 100) : 1;
-    const vatRate = 0.16;
-    const vatAmount = unitCost * vatRate;
-    const salePriceWithoutVat = unitCost;
-    const salePrice = salePriceWithoutVat + vatAmount;
+    const salePrice = unitCost;
     const costPercent = totalCost > 0 ? (baseCost / totalCost) * 100 : 0;
 
     return {
@@ -3941,8 +3938,6 @@ ${staffSuggestion}
         { label: "Total Unit Cost", value: formatMoney(unitCost), tone: "unitCost" },
         { label: "% Cost", value: `${costPercent.toFixed(0)}%`, tone: "costPercent" },
         { label: "Food Factor", value: foodFactor.toFixed(2), tone: "foodFactor" },
-        { label: "16% VAT", value: formatMoney(vatAmount), tone: "vat" },
-        { label: "Sale Price Without VAT", value: formatMoney(salePriceWithoutVat), tone: "salePriceWithoutVat" },
         { label: "Suggested Sale Price", value: formatMoney(salePrice), tone: "suggested" },
         { label: "Sale Price", value: formatMoney(salePrice), tone: "final" }
       ],

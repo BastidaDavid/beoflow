@@ -9058,16 +9058,8 @@ tbody tr:hover {
   background: #2da9df;
 }
 
-.recipe-sheet-total-row.vat {
-  background: #267bd6;
-}
-
 .recipe-sheet-total-row.suggested {
   background: #17b456;
-}
-
-.recipe-sheet-total-row.sale-vat {
-  background: #ffffff;
 }
 
 .recipe-sheet-total-row.sale-price {
@@ -10146,8 +10138,7 @@ tbody tr:hover {
   background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
 }
 
-.recipe-cost-metric.foodFactor,
-.recipe-cost-metric.vat {
+.recipe-cost-metric.foodFactor {
   border-color: #93c5fd;
   background: linear-gradient(135deg, #eff6ff, #dbeafe);
 }
@@ -10159,11 +10150,6 @@ tbody tr:hover {
 
 .recipe-cost-metric.primary strong {
   color: #17613b;
-}
-
-.recipe-cost-metric.salePriceWithoutVat {
-  border-color: #c7d2fe;
-  background: linear-gradient(135deg, #f8fafc, #eef2ff);
 }
 
 .recipe-cost-metric.suggested {
