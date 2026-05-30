@@ -134,15 +134,33 @@
       <div class="restaurant-select-heading">
         <img src="./img/logobeoflow.png" alt="BEOFlow Logo" class="restaurant-select-logo" />
         <span id="restaurant-select-client-label">Restaurant workspace</span>
-        <h1>Choose a restaurant</h1>
-        <p>Select the operation you want to run. BEOFlow will open the correct workspace after you choose one.</p>
+        <h1 id="restaurant-select-title">Choose a restaurant</h1>
+        <p id="restaurant-select-description">Select the operation you want to run. BEOFlow will open the correct workspace after you choose one.</p>
       </div>
 
       <div id="restaurant-select-options" class="restaurant-select-options" aria-label="Choose restaurant"></div>
       <div class="restaurant-select-add">
         <button type="button" id="restaurant-select-add-toggle" class="secondary-btn">Add restaurant</button>
         <div id="restaurant-select-add-form" class="restaurant-select-add-form" hidden>
-          <input type="text" id="restaurant-select-name" placeholder="Restaurant name" />
+          <label>
+            <span>Restaurant Name</span>
+            <input type="text" id="restaurant-select-name" autocomplete="organization" placeholder="Joe's Pizza" />
+          </label>
+          <label>
+            <span>Restaurant Type <small>(optional)</small></span>
+            <select id="restaurant-select-type">
+              <option value="restaurant">Restaurant</option>
+              <option value="coffee-shop">Coffee Shop</option>
+              <option value="bar">Bar</option>
+              <option value="catering">Catering</option>
+              <option value="hospitality">Hospitality</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label>
+            <span>Location <small>(optional)</small></span>
+            <input type="text" id="restaurant-select-location" autocomplete="street-address" placeholder="City, address, or venue" />
+          </label>
           <button type="button" id="restaurant-select-save" class="primary-btn">Save</button>
           <button type="button" id="restaurant-select-cancel" class="secondary-btn">Cancel</button>
         </div>

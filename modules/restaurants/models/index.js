@@ -28,6 +28,7 @@ async function initializeSchema(pool) {
     WHERE r.client_id = c.id
       AND r.business_id IS NULL;
   `);
+  await pool.query("ALTER TABLE restaurants ALTER COLUMN business_id SET NOT NULL;");
   await pool.query(`
     CREATE INDEX IF NOT EXISTS restaurants_business_active_idx
     ON restaurants (business_id, active_status, restaurant_name);
@@ -36,7 +37,7 @@ async function initializeSchema(pool) {
 
 async function listRestaurants(pool, clientId, filters = {}) {
   const params = [clientId];
-  const clauses = ["client_id = $1"];
+  const clauses = ["client_id = $1", "business_id = (SELECT business_id FROM clients WHERE id = $1)"];
 
   if (filters.activeOnly) {
     clauses.push("active_status = TRUE");
@@ -77,7 +78,9 @@ async function getRestaurant(pool, clientId, restaurantId) {
   const result = await pool.query(
     `SELECT *
      FROM restaurants
-     WHERE client_id = $1 AND restaurant_id = $2
+     WHERE client_id = $1
+       AND business_id = (SELECT business_id FROM clients WHERE id = $1)
+       AND restaurant_id = $2
      LIMIT 1`,
     [clientId, restaurantId]
   );
@@ -95,7 +98,9 @@ async function updateRestaurant(pool, clientId, restaurantId, payload) {
          service_modes = $5::jsonb,
          metadata = $6::jsonb,
          updated_at = NOW()
-     WHERE client_id = $7 AND restaurant_id = $8
+     WHERE client_id = $7
+       AND business_id = (SELECT business_id FROM clients WHERE id = $7)
+       AND restaurant_id = $8
      RETURNING *`,
     [
       payload.restaurant_name,

@@ -78,12 +78,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const bastidaModeLogoutBtn = document.getElementById("bastida-mode-logout");
   const restaurantSelectLogoutBtn = document.getElementById("restaurant-select-logout");
   const restaurantSelectClientLabel = document.getElementById("restaurant-select-client-label");
+  const restaurantSelectTitle = document.getElementById("restaurant-select-title");
+  const restaurantSelectDescription = document.getElementById("restaurant-select-description");
   const restaurantSelectOptions = document.getElementById("restaurant-select-options");
   const restaurantSelectStatus = document.getElementById("restaurant-select-status");
   const restaurantSelectAddToggleBtn = document.getElementById("restaurant-select-add-toggle");
   const restaurantSelectAddForm = document.getElementById("restaurant-select-add-form");
   const restaurantSelectNameInput = document.getElementById("restaurant-select-name");
   const restaurantSelectTypeInput = document.getElementById("restaurant-select-type");
+  const restaurantSelectLocationInput = document.getElementById("restaurant-select-location");
   const restaurantSelectSaveBtn = document.getElementById("restaurant-select-save");
   const restaurantSelectCancelBtn = document.getElementById("restaurant-select-cancel");
   const syncTimers = new Map();
@@ -1759,7 +1762,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   const fetchRestaurantsFromApi = async () => {
     const result = await requestJson("/api/restaurants");
     const restaurants = Array.isArray(result.restaurants) ? result.restaurants.map(mapRestaurantFromApi) : [];
-    const mergedRestaurants = restaurants.length ? mergeById(getRestaurants(), restaurants, getRestaurantId) : getRestaurants();
+    const mergedRestaurants = isRestaurantSelectionClient
+      ? restaurants
+      : restaurants.length
+        ? mergeById(getRestaurants(), restaurants, getRestaurantId)
+        : getRestaurants();
     saveRestaurants(mergedRestaurants);
     return mergedRestaurants;
   };
@@ -1816,18 +1823,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const { quiet = false } = options;
     try {
       await fetchRestaurantsFromApi();
-      await fetchKitchenStationsFromApi();
-      await fetchOrdersFromApi();
+      if (!isRestaurantSelectionClient) {
+        await fetchKitchenStationsFromApi();
+        await fetchOrdersFromApi();
+      }
       if (!quiet) {
         setOpsStatus(restaurantsStatus, "Operations data refreshed.", "success");
-        setOpsStatus(ordersStatus, "Orders refreshed.", "success");
-        setOpsStatus(kitchenStatus, "KDS refreshed.", "success");
+        if (!isRestaurantSelectionClient) {
+          setOpsStatus(ordersStatus, "Orders refreshed.", "success");
+          setOpsStatus(kitchenStatus, "KDS refreshed.", "success");
+        }
       }
     } catch (error) {
       if (!quiet) {
         setOpsStatus(restaurantsStatus, "Using local operation data until Render is updated.", "warning");
-        setOpsStatus(ordersStatus, "Using local order data until Render is updated.", "warning");
-        setOpsStatus(kitchenStatus, "Using local KDS data until Render is updated.", "warning");
+        if (!isRestaurantSelectionClient) {
+          setOpsStatus(ordersStatus, "Using local order data until Render is updated.", "warning");
+          setOpsStatus(kitchenStatus, "Using local KDS data until Render is updated.", "warning");
+        }
       }
     }
   };
@@ -1874,17 +1887,38 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
-  const setRestaurantSelectAddOpen = (isOpen) => {
+  const updateRestaurantSelectionCopy = (restaurantCount = 0) => {
+    if (restaurantCount <= 0) {
+      if (restaurantSelectTitle) restaurantSelectTitle.textContent = "Create Your First Restaurant";
+      if (restaurantSelectDescription) {
+        restaurantSelectDescription.textContent = "Add your first restaurant or business location to open the client dashboard.";
+      }
+      if (restaurantSelectAddToggleBtn) restaurantSelectAddToggleBtn.textContent = "Create restaurant";
+      return;
+    }
+
+    if (restaurantSelectTitle) restaurantSelectTitle.textContent = "Choose a restaurant";
+    if (restaurantSelectDescription) {
+      restaurantSelectDescription.textContent = "Select the operation you want to run. BEOFlow will open the correct workspace after you choose one.";
+    }
+    if (restaurantSelectAddToggleBtn) restaurantSelectAddToggleBtn.textContent = "Add restaurant";
+  };
+
+  const setRestaurantSelectAddOpen = (isOpen, options = {}) => {
     if (!restaurantSelectAddForm) return;
+    const { canCancel = true } = options;
     restaurantSelectAddForm.hidden = !isOpen;
     if (restaurantSelectAddToggleBtn) restaurantSelectAddToggleBtn.hidden = isOpen;
+    if (restaurantSelectCancelBtn) restaurantSelectCancelBtn.hidden = isOpen && !canCancel;
     if (isOpen) restaurantSelectNameInput?.focus();
   };
 
-  const loadRestaurantSelectionOptions = async () => {
+  const loadRestaurantSelectionOptions = async (options = {}) => {
+    const { autoSelectSingle = false } = options;
     if (restaurantSelectClientLabel) {
       restaurantSelectClientLabel.textContent = currentClient.displayName || "Restaurant workspace";
     }
+    updateRestaurantSelectionCopy(0);
     if (restaurantSelectStatus) {
       restaurantSelectStatus.textContent = "Loading restaurants...";
       restaurantSelectStatus.dataset.type = "info";
@@ -1893,21 +1927,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       const result = await requestJson("/api/restaurants?activeOnly=true");
       const restaurants = Array.isArray(result.restaurants) ? result.restaurants.map(mapRestaurantFromApi) : [];
-      if (restaurants.length) {
-        saveRestaurants(mergeById(getRestaurants(), restaurants, getRestaurantId));
+
+      saveRestaurants(restaurants);
+      if (restaurants.length === 1 && autoSelectSingle && !selectedRestaurantId) {
+        const restaurant = restaurants[0];
+        const restaurantName = restaurant.restaurant_name || restaurant.restaurantName || "Restaurant Workspace";
+        setRestaurantSelectStatus(`Opening ${restaurantName}...`, "info");
+        await selectRestaurantWorkspace(getRestaurantId(restaurant), restaurantName);
+        return;
       }
-      renderRestaurantSelectionOptions(restaurants.length ? restaurants : getRestaurants());
+
+      updateRestaurantSelectionCopy(restaurants.length);
+      renderRestaurantSelectionOptions(restaurants);
+      setRestaurantSelectAddOpen(restaurants.length === 0, { canCancel: restaurants.length > 0 });
       setRestaurantSelectStatus(
-        restaurants.length || getRestaurants().length ? "" : "Add your first restaurant to continue.",
-        restaurants.length || getRestaurants().length ? "" : "info"
+        restaurants.length ? "" : "Create your first restaurant to continue.",
+        restaurants.length ? "" : "info"
       );
     } catch (error) {
       console.warn("Could not load restaurants for selection:", error);
-      renderRestaurantSelectionOptions(getRestaurants());
-      if (restaurantSelectStatus) {
-        restaurantSelectStatus.textContent = "Using saved workspace options.";
-        restaurantSelectStatus.dataset.type = "warning";
-      }
+      renderRestaurantSelectionOptions([]);
+      setRestaurantSelectAddOpen(false);
+      setRestaurantSelectStatus(error.message || "Restaurants could not be loaded. Try again.", "error");
     }
   };
 
@@ -1921,8 +1962,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const payload = {
       restaurant_name: restaurantName,
-      category: "restaurant",
-      location: "Operations workspace",
+      category: restaurantSelectTypeInput?.value || "restaurant",
+      location: restaurantSelectLocationInput?.value.trim() || "",
       active_status: true
     };
 
@@ -1953,6 +1994,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderRestaurantSelectionOptions(getRestaurants());
     populateRestaurantOptions();
     if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
+    if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
+    if (restaurantSelectLocationInput) restaurantSelectLocationInput.value = "";
     setRestaurantSelectAddOpen(false);
     await selectRestaurantWorkspace(getRestaurantId(savedRestaurant), savedRestaurant.restaurant_name || restaurantName);
   };
@@ -8910,7 +8953,7 @@ ${staffSuggestion}
       applyClientModuleVisibility();
       if (isRestaurantSelectionClient) {
         showRestaurantSelectScreen();
-        loadRestaurantSelectionOptions();
+        loadRestaurantSelectionOptions({ autoSelectSingle: false });
       } else if (isBastidaClient) {
         showBastidaModeScreen();
       } else {
@@ -8937,6 +8980,7 @@ ${staffSuggestion}
   restaurantSelectCancelBtn?.addEventListener("click", () => {
     if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
     if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
+    if (restaurantSelectLocationInput) restaurantSelectLocationInput.value = "";
     setRestaurantSelectAddOpen(false);
     setRestaurantSelectStatus("");
   });
@@ -8954,8 +8998,16 @@ ${staffSuggestion}
       event.preventDefault();
       if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
       if (restaurantSelectTypeInput) restaurantSelectTypeInput.value = "restaurant";
+      if (restaurantSelectLocationInput) restaurantSelectLocationInput.value = "";
       setRestaurantSelectAddOpen(false);
       setRestaurantSelectStatus("");
+    }
+  });
+
+  restaurantSelectLocationInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addRestaurantFromSelection();
     }
   });
 
@@ -9791,7 +9843,7 @@ ${staffSuggestion}
     showBastidaModeScreen();
   } else if (needsRestaurantSelection()) {
     showRestaurantSelectScreen();
-    loadRestaurantSelectionOptions();
+    loadRestaurantSelectionOptions({ autoSelectSingle: true });
   } else {
     showApp();
     const initialModule = getDefaultModuleForClient();

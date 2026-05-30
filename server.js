@@ -92,6 +92,19 @@ const bastidaSystemsEmail = String(process.env.BASTIDA_SYSTEMS_EMAIL || "bastida
 const westgateAccountEmail = String(process.env.WESTGATE_ACCOUNT_EMAIL || "westgate@bastidasystems.io").trim().toLowerCase();
 const bastidaSyncSecret = String(process.env.BASTIDA_SYNC_SECRET || "").trim();
 const filtraCoreApiBaseURL = String(process.env.FILTRACORE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+const supabaseURL = String(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim().replace(/\/+$/, "");
+const supabaseServiceRoleKey = String(
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  ""
+).trim();
+const supabaseAnonKey = String(
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  ""
+).trim();
+const allowLocalAuthFallback = String(process.env.BEOFLOW_ALLOW_LOCAL_AUTH_FALLBACK || "").trim().toLowerCase() === "true";
 const resetConfiguredClientPasswords = String(process.env.BEOFLOW_RESET_CLIENT_PASSWORDS || "").trim().toLowerCase() === "true";
 const DISABLED_CLIENT_CODES = new Set([
   "strat01",
@@ -751,6 +764,252 @@ function httpError(statusCode, message) {
   return error;
 }
 
+function isSupabaseAuthConfigured() {
+  return Boolean(supabaseURL && supabaseServiceRoleKey);
+}
+
+function supabaseAuthURL(pathname = "") {
+  return `${supabaseURL}/auth/v1${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
+
+function supabaseAdminHeaders() {
+  return {
+    apikey: supabaseServiceRoleKey,
+    Authorization: `Bearer ${supabaseServiceRoleKey}`,
+    "Content-Type": "application/json"
+  };
+}
+
+async function readSupabaseBody(response) {
+  const rawBody = await response.text();
+  if (!rawBody) return {};
+
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return { message: rawBody };
+  }
+}
+
+function getSupabaseErrorMessage(body = {}, fallback = "Supabase Auth request failed.") {
+  return String(
+    body.msg ||
+    body.message ||
+    body.error_description ||
+    body.error ||
+    fallback
+  ).trim();
+}
+
+function normalizeSupabaseUser(body = {}) {
+  return body.user && typeof body.user === "object" ? body.user : body;
+}
+
+function requireSupabaseSignupConfig() {
+  if (isSupabaseAuthConfigured() || allowLocalAuthFallback) return;
+  throw httpError(
+    503,
+    "Supabase Auth is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before creating client accounts."
+  );
+}
+
+async function createSupabaseAuthUser(account) {
+  requireSupabaseSignupConfig();
+
+  if (!isSupabaseAuthConfigured()) {
+    return {
+      id: crypto.randomUUID(),
+      email: account.email,
+      localFallback: true
+    };
+  }
+
+  const response = await fetch(supabaseAuthURL("/admin/users"), {
+    method: "POST",
+    headers: supabaseAdminHeaders(),
+    body: JSON.stringify({
+      email: account.email,
+      password: account.password,
+      email_confirm: true,
+      user_metadata: {
+        business_name: account.businessName,
+        full_name: account.fullName,
+        business_type: account.businessType,
+        beoflow_account_type: "client"
+      }
+    })
+  });
+
+  const body = await readSupabaseBody(response);
+  if (!response.ok) {
+    const message = getSupabaseErrorMessage(body, "Supabase Auth user could not be created.");
+    if (response.status === 400 || response.status === 409 || response.status === 422) {
+      const normalizedMessage = message.toLowerCase();
+      if (normalizedMessage.includes("already") || normalizedMessage.includes("registered")) {
+        throw httpError(409, "An account already exists for this email. Sign in instead.");
+      }
+    }
+    if (response.status === 401 || response.status === 403) {
+      throw httpError(503, "Supabase Auth service-role credentials are invalid.");
+    }
+    throw httpError(502, message || "Supabase Auth user could not be created.");
+  }
+
+  const user = normalizeSupabaseUser(body);
+  if (!user.id) {
+    throw httpError(502, "Supabase Auth did not return a user id.");
+  }
+
+  return user;
+}
+
+async function deleteSupabaseAuthUser(authUserId) {
+  if (!isSupabaseAuthConfigured() || !authUserId) return;
+
+  for (const pathname of [`/admin/users/${encodeURIComponent(authUserId)}`, `/admin/user/${encodeURIComponent(authUserId)}`]) {
+    try {
+      const response = await fetch(supabaseAuthURL(pathname), {
+        method: "DELETE",
+        headers: supabaseAdminHeaders()
+      });
+      if (response.ok || response.status === 404) return;
+    } catch (error) {
+      console.warn("Supabase Auth cleanup failed:", error.message);
+      return;
+    }
+  }
+}
+
+async function signInSupabaseAuthUser(email, password) {
+  const signInKey = supabaseAnonKey || supabaseServiceRoleKey;
+  if (!supabaseURL || !signInKey) {
+    if (allowLocalAuthFallback) return null;
+    throw httpError(503, "Supabase Auth is not configured. Set SUPABASE_URL and SUPABASE_ANON_KEY.");
+  }
+
+  const response = await fetch(supabaseAuthURL("/token?grant_type=password"), {
+    method: "POST",
+    headers: {
+      apikey: signInKey,
+      Authorization: `Bearer ${signInKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
+
+  const body = await readSupabaseBody(response);
+  if (!response.ok) {
+    const message = getSupabaseErrorMessage(body, "Invalid client or password.");
+    if (response.status === 400 || response.status === 401 || response.status === 422) {
+      throw httpError(401, "Invalid client or password.");
+    }
+    throw httpError(502, message || "Supabase Auth sign in failed.");
+  }
+
+  const user = normalizeSupabaseUser(body);
+  if (!user.id) {
+    throw httpError(502, "Supabase Auth did not return a signed-in user.");
+  }
+
+  return {
+    session: body,
+    user
+  };
+}
+
+async function findClientByLoginIdentifier(rawIdentifier = "") {
+  const clientCode = resolveUnifiedAccountIdentifier(rawIdentifier);
+  const result = await pool.query(
+    `SELECT id, business_id, auth_user_id, client_code, display_name, password_hash
+     FROM clients
+     WHERE LOWER(client_code) = ANY($1::text[])
+     ORDER BY CASE WHEN LOWER(client_code) = LOWER($2) THEN 0 ELSE 1 END
+     LIMIT 1`,
+    [unifiedAccountCandidates(rawIdentifier), clientCode]
+  );
+  return result.rows[0] || null;
+}
+
+function isLegacyClientLoginAllowed(clientRecord = {}) {
+  if (!clientRecord.id) return false;
+  return !serializeClient(clientRecord).requiresRestaurantSelection;
+}
+
+async function findClientBySupabaseUser(authUserId, email = "") {
+  const normalizedEmail = normalizeEmail(email);
+  const result = await pool.query(
+    `SELECT c.id, c.business_id, c.auth_user_id, c.client_code, c.display_name
+     FROM clients c
+     LEFT JOIN user_profiles p ON p.client_id = c.id
+     WHERE c.auth_user_id = $1
+        OR p.auth_user_id = $1
+        OR ($2 <> '' AND LOWER(c.client_code) = LOWER($2))
+        OR ($2 <> '' AND LOWER(p.email) = LOWER($2))
+     ORDER BY
+       CASE
+         WHEN c.auth_user_id = $1 THEN 0
+         WHEN p.auth_user_id = $1 THEN 1
+         ELSE 2
+       END
+     LIMIT 1`,
+    [authUserId, normalizedEmail]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function ensureSupabaseProfileLink(clientRecord, authUser = {}) {
+  if (!clientRecord?.id || !authUser.id) {
+    throw httpError(403, "BEOFlow profile is missing for this Supabase account.");
+  }
+
+  if (clientRecord.auth_user_id && String(clientRecord.auth_user_id) !== String(authUser.id)) {
+    throw httpError(403, "This Supabase account is linked to a different BEOFlow profile.");
+  }
+
+  const updateResult = await pool.query(
+    `UPDATE clients
+     SET auth_user_id = $1,
+         updated_at = NOW()
+     WHERE id = $2
+       AND (auth_user_id IS NULL OR auth_user_id = $1)
+     RETURNING id, business_id, auth_user_id, client_code, display_name`,
+    [authUser.id, clientRecord.id]
+  );
+
+  if (!updateResult.rows.length) {
+    throw httpError(403, "This Supabase account is linked to a different BEOFlow profile.");
+  }
+
+  const linkedClient = updateResult.rows[0];
+  const metadata = authUser.user_metadata && typeof authUser.user_metadata === "object"
+    ? authUser.user_metadata
+    : {};
+  const profileEmail = normalizeEmail(authUser.email || clientRecord.client_code);
+  const fullName = String(metadata.full_name || metadata.name || linkedClient.display_name || profileEmail).trim();
+
+  await pool.query(
+    `INSERT INTO user_profiles (auth_user_id, client_id, business_id, email, full_name, account_type)
+     VALUES ($1, $2, $3, $4, $5, 'client')
+     ON CONFLICT (auth_user_id)
+     DO UPDATE SET
+       client_id = EXCLUDED.client_id,
+       business_id = EXCLUDED.business_id,
+       email = EXCLUDED.email,
+       full_name = EXCLUDED.full_name,
+       updated_at = NOW()`,
+    [
+      authUser.id,
+      linkedClient.id,
+      linkedClient.business_id,
+      profileEmail,
+      fullName || linkedClient.display_name || profileEmail
+    ]
+  );
+
+  return linkedClient;
+}
+
 function normalizeUnifiedAccountPayload(account = {}) {
   const email = resolveUnifiedAccountIdentifier(account.email || account.login || account.clientCode);
   return {
@@ -960,17 +1219,48 @@ function normalizePublicSignupPayload(body = {}) {
 }
 
 async function createPublicSignupAccount(account) {
-  const db = await pool.connect();
+  const existingResult = await pool.query(
+    `SELECT source
+     FROM (
+       SELECT 'client' AS source
+       FROM clients
+       WHERE LOWER(client_code) = LOWER($1)
+       UNION ALL
+       SELECT 'profile' AS source
+       FROM user_profiles
+       WHERE LOWER(email) = LOWER($1)
+       UNION ALL
+       SELECT 'lineops' AS source
+       FROM lineops_users
+       WHERE LOWER(email) = LOWER($1)
+         AND deleted_at IS NULL
+     ) existing_accounts
+     LIMIT 1`,
+    [account.email]
+  );
 
+  if (existingResult.rows.length) {
+    throw httpError(409, "An account already exists for this email. Sign in instead.");
+  }
+
+  const supabaseUser = await createSupabaseAuthUser(account);
+  const authUserId = supabaseUser.id;
+  const db = await pool.connect();
   try {
     await db.query("BEGIN");
 
-    const existingResult = await db.query(
+    const raceCheckResult = await db.query(
       `SELECT source
        FROM (
          SELECT 'client' AS source
          FROM clients
          WHERE LOWER(client_code) = LOWER($1)
+            OR auth_user_id = $2
+         UNION ALL
+         SELECT 'profile' AS source
+         FROM user_profiles
+         WHERE LOWER(email) = LOWER($1)
+            OR auth_user_id = $2
          UNION ALL
          SELECT 'lineops' AS source
          FROM lineops_users
@@ -978,54 +1268,48 @@ async function createPublicSignupAccount(account) {
            AND deleted_at IS NULL
        ) existing_accounts
        LIMIT 1`,
-      [account.email]
+      [account.email, authUserId]
     );
 
-    if (existingResult.rows.length) {
+    if (raceCheckResult.rows.length) {
       throw httpError(409, "An account already exists for this email. Sign in instead.");
     }
 
     const clientResult = await db.query(
-      `INSERT INTO clients (client_code, display_name, password_hash)
-       VALUES ($1, $2, $3)
-       RETURNING id, business_id, client_code, display_name`,
-      [account.email, account.businessName, hashPassword(account.password)]
-    );
-
-    const lineOpsResult = await db.query(
-      `INSERT INTO lineops_users (id, business_name, full_name, email, password_hash, business_type, onboarding_profile, workspace)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, '{}'::jsonb)
-       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      `INSERT INTO clients (auth_user_id, client_code, display_name, password_hash)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, business_id, auth_user_id, client_code, display_name`,
       [
-        crypto.randomUUID(),
-        account.businessName,
-        account.fullName,
+        authUserId,
         account.email,
-        hashLineOpsPassword(account.password),
-        account.businessType,
-        JSON.stringify(account.onboarding)
+        account.businessName,
+        supabaseUser.localFallback ? hashPassword(account.password) : hashPassword(crypto.randomUUID())
       ]
     );
 
-    const workspace = createLineOpsWorkspace(lineOpsResult.rows[0], account.onboarding);
-    const userResult = await db.query(
-      `UPDATE lineops_users
-       SET workspace = $1::jsonb,
-           onboarding_profile = $2::jsonb,
-           updated_at = NOW()
-       WHERE id = $3
-       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
-      [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), lineOpsResult.rows[0].id]
+    const clientRecord = clientResult.rows[0];
+    const profileResult = await db.query(
+      `INSERT INTO user_profiles (auth_user_id, client_id, business_id, email, full_name, account_type)
+       VALUES ($1, $2, $3, $4, $5, 'client')
+       RETURNING auth_user_id, client_id, business_id, email, full_name, account_type, created_at, updated_at`,
+      [
+        authUserId,
+        clientRecord.id,
+        clientRecord.business_id,
+        account.email,
+        account.fullName
+      ]
     );
 
     await db.query("COMMIT");
     return {
-      client: clientResult.rows[0],
-      user: userResult.rows[0],
-      workspace
+      client: clientRecord,
+      profile: profileResult.rows[0],
+      supabaseUser
     };
   } catch (error) {
     await db.query("ROLLBACK").catch(() => {});
+    await deleteSupabaseAuthUser(authUserId);
     if (error.statusCode) throw error;
     if (error.code === "23505") {
       throw httpError(409, "An account already exists for this email. Sign in instead.");
@@ -1228,7 +1512,14 @@ async function assertClientRestaurantAccess(clientId, restaurantId) {
   if (!normalizedRestaurantId) return "";
 
   const result = await pool.query(
-    "SELECT restaurant_id FROM restaurants WHERE client_id = $1 AND restaurant_id = $2 AND active_status = TRUE LIMIT 1",
+    `SELECT r.restaurant_id
+     FROM restaurants r
+     JOIN clients c ON c.id = $1
+     WHERE r.client_id = c.id
+       AND r.business_id = c.business_id
+       AND r.restaurant_id = $2
+       AND r.active_status = TRUE
+     LIMIT 1`,
     [clientId, normalizedRestaurantId]
   );
 
@@ -1237,6 +1528,16 @@ async function assertClientRestaurantAccess(clientId, restaurantId) {
   }
 
   return normalizedRestaurantId;
+}
+
+async function assertClientDataContextAccess(clientId, contextId) {
+  if (!String(contextId).startsWith("restaurant:")) return contextId;
+  const restaurantId = String(contextId).slice("restaurant:".length);
+  if (!normalizeRestaurantId(restaurantId)) {
+    throw httpError(400, "Restaurant client data context is invalid.");
+  }
+  await assertClientRestaurantAccess(clientId, restaurantId);
+  return contextId;
 }
 
 async function prepareVisionImage(imageBase64, mimeType = "") {
@@ -1370,6 +1671,7 @@ async function initDB() {
     );
   `);
   await pool.query("ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_id UUID;");
+  await pool.query("ALTER TABLE clients ADD COLUMN IF NOT EXISTS auth_user_id UUID;");
   await pool.query("UPDATE clients SET business_id = gen_random_uuid() WHERE business_id IS NULL;");
   await pool.query("ALTER TABLE clients ALTER COLUMN business_id SET DEFAULT gen_random_uuid();");
   await pool.query("ALTER TABLE clients ALTER COLUMN business_id SET NOT NULL;");
@@ -1377,6 +1679,54 @@ async function initDB() {
     CREATE UNIQUE INDEX IF NOT EXISTS clients_business_id_unique_idx
     ON clients (business_id);
   `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS clients_auth_user_id_unique_idx
+    ON clients (auth_user_id)
+    WHERE auth_user_id IS NOT NULL;
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_profiles (
+      auth_user_id UUID PRIMARY KEY,
+      client_id BIGINT NOT NULL UNIQUE REFERENCES clients(id) ON DELETE CASCADE,
+      business_id UUID NOT NULL,
+      email TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      account_type TEXT NOT NULL DEFAULT 'client',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS user_profiles_email_unique_idx
+    ON user_profiles (LOWER(email));
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS user_profiles_business_id_idx
+    ON user_profiles (business_id);
+  `);
+  if (isSupabaseAuthConfigured() && !allowLocalAuthFallback) {
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.tables
+          WHERE table_schema = 'auth'
+            AND table_name = 'users'
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'user_profiles_auth_user_id_fkey'
+        ) THEN
+          ALTER TABLE user_profiles
+          ADD CONSTRAINT user_profiles_auth_user_id_fkey
+          FOREIGN KEY (auth_user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS client_data (
@@ -1462,6 +1812,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS events (
       id SERIAL PRIMARY KEY,
       client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+      business_id UUID,
       restaurant_id BIGINT,
       event_name TEXT,
       client_name TEXT,
@@ -1476,11 +1827,20 @@ async function initDB() {
     );
   `);
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
+  await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS business_id UUID;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS restaurant_id BIGINT;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS menu_id TEXT;");
   if (defaultClientId) {
     await pool.query("UPDATE events SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
   }
+  await pool.query(`
+    UPDATE events e
+    SET business_id = c.business_id
+    FROM clients c
+    WHERE e.client_id = c.id
+      AND e.business_id IS NULL;
+  `);
+  await pool.query("ALTER TABLE events ALTER COLUMN business_id SET NOT NULL;");
   await pool.query(`
     CREATE INDEX IF NOT EXISTS events_client_created_idx
     ON events (client_id, created_at DESC);
@@ -1489,11 +1849,16 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS events_client_restaurant_created_idx
     ON events (client_id, restaurant_id, created_at DESC);
   `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS events_business_restaurant_created_idx
+    ON events (business_id, restaurant_id, created_at DESC);
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS inventory_items (
       id SERIAL PRIMARY KEY,
       client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+      business_id UUID,
       restaurant_id BIGINT,
       name TEXT NOT NULL,
       category TEXT,
@@ -1505,10 +1870,19 @@ async function initDB() {
     );
   `);
   await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
+  await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS business_id UUID;");
   await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS restaurant_id BIGINT;");
   if (defaultClientId) {
     await pool.query("UPDATE inventory_items SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
   }
+  await pool.query(`
+    UPDATE inventory_items i
+    SET business_id = c.business_id
+    FROM clients c
+    WHERE i.client_id = c.id
+      AND i.business_id IS NULL;
+  `);
+  await pool.query("ALTER TABLE inventory_items ALTER COLUMN business_id SET NOT NULL;");
   await pool.query(`
     CREATE INDEX IF NOT EXISTS inventory_items_client_created_idx
     ON inventory_items (client_id, created_at DESC);
@@ -1516,6 +1890,10 @@ async function initDB() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS inventory_items_client_restaurant_created_idx
     ON inventory_items (client_id, restaurant_id, created_at DESC);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS inventory_items_business_restaurant_created_idx
+    ON inventory_items (business_id, restaurant_id, created_at DESC);
   `);
 
   await initializeOrdersEngineSchema(pool);
@@ -1851,6 +2229,7 @@ function apiStatus() {
     service: "BEOFlow API",
     openai: Boolean(client),
     database: Boolean(pool),
+    supabaseAuth: isSupabaseAuthConfigured(),
     endpoints: {
       health: "GET /health",
       shiftSchedule: "POST /api/extract-shift-schedule",
@@ -1987,27 +2366,51 @@ app.post("/api/auth/login", async (req, res) => {
     requireDatabase();
 
     const rawClientCode = String(req.body.clientCode || req.body.client_id || "").trim();
-    const clientCode = resolveUnifiedAccountIdentifier(rawClientCode);
     const password = String(req.body.password || "");
 
     if (!rawClientCode || !password) {
       return res.status(400).json({ error: "Client and password are required." });
     }
 
-    const result = await pool.query(
-      `SELECT id, business_id, client_code, display_name, password_hash
-       FROM clients
-       WHERE LOWER(client_code) = ANY($1::text[])
-       ORDER BY CASE WHEN LOWER(client_code) = LOWER($2) THEN 0 ELSE 1 END
-       LIMIT 1`,
-      [unifiedAccountCandidates(rawClientCode), clientCode]
+    const legacyClient = await findClientByLoginIdentifier(rawClientCode);
+    const legacyPasswordMatches = Boolean(
+      legacyClient && timingSafeEqualText(legacyClient.password_hash, hashPassword(password))
     );
 
-    if (!result.rows.length || !timingSafeEqualText(result.rows[0].password_hash, hashPassword(password))) {
+    if (legacyPasswordMatches && isLegacyClientLoginAllowed(legacyClient)) {
+      return res.json({
+        ok: true,
+        token: createClientToken(legacyClient),
+        client: serializeClient(legacyClient)
+      });
+    }
+
+    if (legacyPasswordMatches && allowLocalAuthFallback) {
+      return res.json({
+        ok: true,
+        token: createClientToken(legacyClient),
+        client: serializeClient(legacyClient)
+      });
+    }
+
+    const email = normalizeEmail(rawClientCode);
+    if (!isValidEmail(email)) {
       return res.status(401).json({ error: "Invalid client or password." });
     }
 
-    const clientRecord = result.rows[0];
+    const supabaseAuth = await signInSupabaseAuthUser(email, password);
+    if (!supabaseAuth) {
+      return res.status(401).json({ error: "Invalid client or password." });
+    }
+
+    const foundClient = await findClientBySupabaseUser(supabaseAuth.user.id, supabaseAuth.user.email || email);
+    if (!foundClient) {
+      return res.status(403).json({
+        error: "BEOFlow profile is missing for this Supabase account. Contact Bastida Systems support."
+      });
+    }
+
+    const clientRecord = await ensureSupabaseProfileLink(foundClient, supabaseAuth.user);
     res.json({
       ok: true,
       token: createClientToken(clientRecord),
@@ -2289,7 +2692,7 @@ app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
 
 app.get("/api/client-data", requireClient, async (req, res) => {
   try {
-    const contextId = getClientDataContextId(req);
+    const contextId = await assertClientDataContextAccess(req.client.id, getClientDataContextId(req));
     const result = await pool.query(
       "SELECT data_key, data_value FROM client_data WHERE client_id = $1 AND context_id = $2 ORDER BY data_key",
       [req.client.id, contextId]
@@ -2309,7 +2712,7 @@ app.get("/api/client-data", requireClient, async (req, res) => {
 
 app.put("/api/client-data", requireClient, async (req, res) => {
   try {
-    const contextId = getClientDataContextId(req);
+    const contextId = await assertClientDataContextAccess(req.client.id, getClientDataContextId(req));
     const data = req.body.data && typeof req.body.data === "object" ? req.body.data : {};
     const entries = Object.entries(data).filter(([key]) => CLIENT_DATA_KEYS.has(key));
 
@@ -2336,7 +2739,7 @@ app.put("/api/client-data/:key", requireClient, async (req, res) => {
     if (!CLIENT_DATA_KEYS.has(key)) {
       return res.status(400).json({ error: "Unsupported client data key." });
     }
-    const contextId = getClientDataContextId(req);
+    const contextId = await assertClientDataContextAccess(req.client.id, getClientDataContextId(req));
 
     await pool.query(
       `INSERT INTO client_data (client_id, data_key, context_id, data_value, updated_at)
@@ -2391,11 +2794,12 @@ app.post("/events", requireClient, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO events 
-      (client_id, restaurant_id, event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      (client_id, business_id, restaurant_id, event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
       RETURNING *`,
       [
         req.client.id,
+        req.client.business_id,
         restaurantId || null,
         event_name,
         client_name,
@@ -2420,8 +2824,8 @@ app.post("/events", requireClient, async (req, res) => {
 app.get("/events", requireClient, async (req, res) => {
   try {
     const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
-    const params = [req.client.id];
-    const clauses = ["client_id = $1"];
+    const params = [req.client.id, req.client.business_id];
+    const clauses = ["client_id = $1", "business_id = $2"];
     if (restaurantId) {
       params.push(restaurantId);
       clauses.push(`restaurant_id = $${params.length}`);
@@ -2466,7 +2870,7 @@ app.put("/events/:id", requireClient, async (req, res) => {
         venue = $8,
         status = $9,
         restaurant_id = COALESCE($10, restaurant_id)
-      WHERE id = $11 AND client_id = $12
+      WHERE id = $11 AND client_id = $12 AND business_id = $13
       RETURNING *`,
       [
         event_name,
@@ -2480,7 +2884,8 @@ app.put("/events/:id", requireClient, async (req, res) => {
         status || "Draft",
         restaurantId || null,
         id,
-        req.client.id
+        req.client.id,
+        req.client.business_id
       ]
     );
 
@@ -2500,8 +2905,8 @@ app.delete("/events/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
     const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
-    const params = [id, req.client.id];
-    const clauses = ["id = $1", "client_id = $2"];
+    const params = [id, req.client.id, req.client.business_id];
+    const clauses = ["id = $1", "client_id = $2", "business_id = $3"];
     if (restaurantId) {
       params.push(restaurantId);
       clauses.push(`restaurant_id = $${params.length}`);
@@ -2535,11 +2940,12 @@ app.post("/inventory", requireClient, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO inventory_items
-      (client_id, restaurant_id, name, category, quantity, unit, total_cost, storage_area)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      (client_id, business_id, restaurant_id, name, category, quantity, unit, total_cost, storage_area)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
       RETURNING *`,
       [
         req.client.id,
+        req.client.business_id,
         restaurantId || null,
         name,
         category || "other",
@@ -2561,8 +2967,8 @@ app.post("/inventory", requireClient, async (req, res) => {
 app.get("/inventory", requireClient, async (req, res) => {
   try {
     const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
-    const params = [req.client.id];
-    const clauses = ["client_id = $1"];
+    const params = [req.client.id, req.client.business_id];
+    const clauses = ["client_id = $1", "business_id = $2"];
     if (restaurantId) {
       params.push(restaurantId);
       clauses.push(`restaurant_id = $${params.length}`);
@@ -2602,7 +3008,7 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
         total_cost = $5,
         storage_area = $6,
         restaurant_id = COALESCE($7, restaurant_id)
-      WHERE id = $8 AND client_id = $9
+      WHERE id = $8 AND client_id = $9 AND business_id = $10
       RETURNING *`,
       [
         name,
@@ -2613,7 +3019,8 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
         storage_area || "Refrigerated",
         restaurantId || null,
         id,
-        req.client.id
+        req.client.id,
+        req.client.business_id
       ]
     );
 
@@ -2633,8 +3040,8 @@ app.delete("/inventory/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
     const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
-    const params = [id, req.client.id];
-    const clauses = ["id = $1", "client_id = $2"];
+    const params = [id, req.client.id, req.client.business_id];
+    const clauses = ["id = $1", "client_id = $2", "business_id = $3"];
     if (restaurantId) {
       params.push(restaurantId);
       clauses.push(`restaurant_id = $${params.length}`);
