@@ -19,6 +19,11 @@
         <p>Operations access for authorized teams</p>
       </div>
 
+      <div class="auth-mode-toggle" role="tablist" aria-label="Account access">
+        <button type="button" id="auth-login-mode" class="auth-mode-btn active" role="tab" aria-selected="true" aria-controls="client-login-form">Sign In</button>
+        <button type="button" id="auth-signup-mode" class="auth-mode-btn" role="tab" aria-selected="false" aria-controls="client-signup-form">Create Account</button>
+      </div>
+
       <form id="client-login-form" class="client-login-form auth-form">
         <div class="form-group">
           <label for="loginClientCode">Email or client login</label>
@@ -43,8 +48,33 @@
           </div>
         </div>
         <button type="submit" class="primary-btn">Sign In</button>
-        <p id="login-status" class="login-status" role="status"></p>
       </form>
+
+      <form id="client-signup-form" class="client-login-form auth-form" hidden>
+        <div class="form-group">
+          <label for="signupBusinessName">Business name</label>
+          <input type="text" id="signupBusinessName" autocomplete="organization" placeholder="Your business" />
+        </div>
+        <div class="form-group">
+          <label for="signupFullName">Your name</label>
+          <input type="text" id="signupFullName" autocomplete="name" placeholder="Full name" />
+        </div>
+        <div class="form-group">
+          <label for="signupEmail">Email</label>
+          <input type="email" id="signupEmail" autocomplete="email" placeholder="you@company.com" />
+        </div>
+        <div class="form-group">
+          <label for="signupPassword">Password</label>
+          <input type="password" id="signupPassword" autocomplete="new-password" placeholder="At least 8 characters" />
+        </div>
+        <div class="form-group">
+          <label for="signupPasswordConfirm">Confirm password</label>
+          <input type="password" id="signupPasswordConfirm" autocomplete="new-password" placeholder="Confirm password" />
+        </div>
+        <button type="submit" class="primary-btn">Create Account</button>
+      </form>
+
+      <p id="login-status" class="login-status" role="status"></p>
 
       <div class="login-footer">
         <img src="./img/logo_bastida_sys.png" alt="" />

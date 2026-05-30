@@ -58,8 +58,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const appBrandSubtitle = document.getElementById("app-brand-subtitle");
   const mobileMenuPanel = document.getElementById("mobile-menu-panel");
   const loginForm = document.getElementById("client-login-form");
+  const signupForm = document.getElementById("client-signup-form");
+  const authLoginModeBtn = document.getElementById("auth-login-mode");
+  const authSignupModeBtn = document.getElementById("auth-signup-mode");
   const loginClientCodeInput = document.getElementById("loginClientCode");
   const loginPasswordInput = document.getElementById("loginPassword");
+  const signupBusinessNameInput = document.getElementById("signupBusinessName");
+  const signupFullNameInput = document.getElementById("signupFullName");
+  const signupEmailInput = document.getElementById("signupEmail");
+  const signupPasswordInput = document.getElementById("signupPassword");
+  const signupPasswordConfirmInput = document.getElementById("signupPasswordConfirm");
   const toggleLoginPasswordBtn = document.getElementById("toggle-login-password");
   const loginStatus = document.getElementById("login-status");
   const logoutBtn = document.getElementById("logout-btn");
@@ -172,6 +180,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
   });
 
+  const setAuthStatus = (message = "", type = "info") => {
+    if (!loginStatus) return;
+    loginStatus.textContent = message;
+    loginStatus.dataset.type = type;
+  };
+
+  const setAuthMode = (mode = "login") => {
+    const isSignup = mode === "signup";
+    if (loginForm) loginForm.hidden = isSignup;
+    if (signupForm) signupForm.hidden = !isSignup;
+    authLoginModeBtn?.classList.toggle("active", !isSignup);
+    authSignupModeBtn?.classList.toggle("active", isSignup);
+    authLoginModeBtn?.setAttribute("aria-selected", String(!isSignup));
+    authSignupModeBtn?.setAttribute("aria-selected", String(isSignup));
+    setAuthStatus();
+    (isSignup ? signupBusinessNameInput : loginClientCodeInput)?.focus();
+  };
+
   const showLogin = (message = "") => {
     closeMobileMenu();
     if (appContainer) appContainer.hidden = true;
@@ -179,8 +205,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (bastidaModeScreen) bastidaModeScreen.hidden = true;
     if (restaurantSelectScreen) restaurantSelectScreen.hidden = true;
     if (loginScreen) loginScreen.hidden = false;
-    if (loginStatus) loginStatus.textContent = message;
-    loginClientCodeInput?.focus();
+    setAuthStatus(message, message ? "error" : "info");
+    (signupForm && !signupForm.hidden ? signupBusinessNameInput : loginClientCodeInput)?.focus();
   };
 
   const showApp = () => {
@@ -328,7 +354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const handleLogin = async (event) => {
     event.preventDefault();
-    if (loginStatus) loginStatus.textContent = "Signing in...";
+    setAuthStatus("Signing in...", "info");
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -347,9 +373,63 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       applyAuthenticatedClient(result);
     } catch (error) {
-      if (loginStatus) loginStatus.textContent = error.message || "Sign in failed.";
+      setAuthStatus(error.message || "Sign in failed.", "error");
       if (loginPasswordInput) loginPasswordInput.value = "";
       loginPasswordInput?.focus();
+    }
+  };
+
+  const handleSignup = async (event) => {
+    event.preventDefault();
+
+    const businessName = signupBusinessNameInput?.value.trim() || "";
+    const fullName = signupFullNameInput?.value.trim() || "";
+    const email = signupEmailInput?.value.trim() || "";
+    const password = signupPasswordInput?.value || "";
+    const passwordConfirm = signupPasswordConfirmInput?.value || "";
+
+    if (!businessName || !fullName || !email || !password || !passwordConfirm) {
+      setAuthStatus("Fill in all account fields.", "error");
+      return;
+    }
+
+    if (password.length < 8) {
+      setAuthStatus("Password must be at least 8 characters.", "error");
+      signupPasswordInput?.focus();
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      setAuthStatus("Passwords do not match.", "error");
+      if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
+      signupPasswordConfirmInput?.focus();
+      return;
+    }
+
+    const submitButton = signupForm?.querySelector("button[type='submit']");
+    if (submitButton) submitButton.disabled = true;
+    setAuthStatus("Creating account...", "info");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessName, fullName, email, password })
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "Account could not be created.");
+      }
+
+      setAuthStatus("Account created. Opening BEOFlow...", "success");
+      applyAuthenticatedClient(result);
+    } catch (error) {
+      setAuthStatus(error.message || "Account could not be created.", "error");
+      if (signupPasswordInput) signupPasswordInput.value = "";
+      if (signupPasswordConfirmInput) signupPasswordConfirmInput.value = "";
+      signupPasswordInput?.focus();
+      if (submitButton) submitButton.disabled = false;
     }
   };
 
@@ -375,6 +455,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   loginForm?.addEventListener("submit", handleLogin);
+  signupForm?.addEventListener("submit", handleSignup);
+  authLoginModeBtn?.addEventListener("click", () => setAuthMode("login"));
+  authSignupModeBtn?.addEventListener("click", () => setAuthMode("signup"));
   toggleLoginPasswordBtn?.addEventListener("click", () => {
     setLoginPasswordVisible(loginPasswordInput?.type === "password");
     loginPasswordInput?.focus();

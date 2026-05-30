@@ -55,6 +55,7 @@ const SUPPORTED_VISION_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/j
 const AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 14;
 const LINEOPS_AUTH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const LINEOPS_PASSWORD_ITERATIONS = 120000;
+const PUBLIC_SIGNUP_PASSWORD_MIN_LENGTH = 8;
 const LINEOPS_BUSINESS_TYPES = new Set(["Restaurant", "Hospitality", "Casino", "Retail", "Warehouse", "Other"]);
 const LINEOPS_TEAM_SIZES = new Set(["1-10", "11-50", "51-200", "201+"]);
 const LINEOPS_DEPARTMENTS = new Set(["Operations", "Front of House", "Guest Services", "Fulfillment", "Facilities", "Safety"]);
@@ -927,6 +928,99 @@ async function ensureUnifiedBeoflowAccount(accountInput, options = {}) {
   return upsertLineOpsAccount(account, { resetPassword, candidates });
 }
 
+function normalizePublicSignupPayload(body = {}) {
+  return {
+    email: normalizeEmail(body.email || body.clientCode || body.login),
+    password: String(body.password || ""),
+    businessName: String(body.businessName || body.business_name || body.displayName || "").trim(),
+    fullName: String(body.fullName || body.full_name || body.name || "").trim(),
+    businessType: normalizeLineOpsBusinessType(body.businessType || body.business_type || "Other"),
+    onboarding: normalizeLineOpsOnboarding({
+      teamSize: body.teamSize,
+      department: body.department || "Operations",
+      goals: Array.isArray(body.goals) ? body.goals : ["Coordinate teams", "Improve visibility"],
+      isComplete: false
+    })
+  };
+}
+
+async function createPublicSignupAccount(account) {
+  const db = await pool.connect();
+
+  try {
+    await db.query("BEGIN");
+
+    const existingResult = await db.query(
+      `SELECT source
+       FROM (
+         SELECT 'client' AS source
+         FROM clients
+         WHERE LOWER(client_code) = LOWER($1)
+         UNION ALL
+         SELECT 'lineops' AS source
+         FROM lineops_users
+         WHERE LOWER(email) = LOWER($1)
+           AND deleted_at IS NULL
+       ) existing_accounts
+       LIMIT 1`,
+      [account.email]
+    );
+
+    if (existingResult.rows.length) {
+      throw httpError(409, "An account already exists for this email. Sign in instead.");
+    }
+
+    const clientResult = await db.query(
+      `INSERT INTO clients (client_code, display_name, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, client_code, display_name`,
+      [account.email, account.businessName, hashPassword(account.password)]
+    );
+
+    const lineOpsResult = await db.query(
+      `INSERT INTO lineops_users (id, business_name, full_name, email, password_hash, business_type, onboarding_profile, workspace)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, '{}'::jsonb)
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      [
+        crypto.randomUUID(),
+        account.businessName,
+        account.fullName,
+        account.email,
+        hashLineOpsPassword(account.password),
+        account.businessType,
+        JSON.stringify(account.onboarding)
+      ]
+    );
+
+    const workspace = createLineOpsWorkspace(lineOpsResult.rows[0], account.onboarding);
+    const userResult = await db.query(
+      `UPDATE lineops_users
+       SET workspace = $1::jsonb,
+           onboarding_profile = $2::jsonb,
+           updated_at = NOW()
+       WHERE id = $3
+       RETURNING id, business_name, full_name, email, business_type, onboarding_profile, workspace, created_at, updated_at, deleted_at`,
+      [JSON.stringify(workspace), JSON.stringify(workspace.onboarding), lineOpsResult.rows[0].id]
+    );
+
+    await db.query("COMMIT");
+    return {
+      client: clientResult.rows[0],
+      user: userResult.rows[0],
+      workspace
+    };
+  } catch (error) {
+    await db.query("ROLLBACK").catch(() => {});
+    if (error.statusCode) throw error;
+    if (error.code === "23505") {
+      throw httpError(409, "An account already exists for this email. Sign in instead.");
+    }
+    throw error;
+  } finally {
+    db.release();
+  }
+}
+
 async function seedUnifiedLineOpsAccounts() {
   for (const account of unifiedLineOpsSeedAccounts()) {
     if (!account.password && account.email === bastidaSystemsEmail) continue;
@@ -1674,6 +1768,7 @@ function apiStatus() {
       analytics: "GET /api/analytics/orders/summary",
       staff: "GET/POST /api/staff/roles",
       lineOpsAuth: "POST /api/lineops/auth/login",
+      signup: "POST /api/auth/signup",
       lineOpsAdminUsers: "GET /api/lineops/admin/users",
       realtime: "Socket.io orders engine gateway",
       adminApp: "GET /admin",
@@ -1748,6 +1843,46 @@ app.post("/api/sync/accounts", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(error.statusCode || 500).json({ error: error.message || "Account sync failed." });
+  }
+});
+
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    requireDatabase();
+
+    const account = normalizePublicSignupPayload(req.body || {});
+
+    if (!isValidEmail(account.email)) {
+      return res.status(400).json({ error: "Enter a valid email." });
+    }
+
+    if (isDisabledClientCode(account.email)) {
+      return res.status(400).json({ error: "This email cannot be used to create an account." });
+    }
+
+    if (!account.businessName || !account.fullName) {
+      return res.status(400).json({ error: "Business name and full name are required." });
+    }
+
+    if (account.password.length < PUBLIC_SIGNUP_PASSWORD_MIN_LENGTH) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    if (account.password.length > 128) {
+      return res.status(400).json({ error: "Password is too long." });
+    }
+
+    const createdAccount = await createPublicSignupAccount(account);
+    await syncAccountToFiltraCore(account);
+
+    res.status(201).json({
+      ok: true,
+      token: createClientToken(createdAccount.client),
+      client: serializeClient(createdAccount.client)
+    });
+  } catch (error) {
+    if (!error.statusCode || error.statusCode >= 500) console.error(error);
+    res.status(error.statusCode || 500).json({ error: error.message || "Account signup failed." });
   }
 });
 
