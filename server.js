@@ -325,11 +325,11 @@ async function migrateLegacyClients() {
 
     const targetId = targetResult.rows[0].id;
     await pool.query(
-      `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
-       SELECT $1, data_key, data_value, updated_at
+      `INSERT INTO client_data (client_id, data_key, context_id, data_value, updated_at)
+       SELECT $1, data_key, context_id, data_value, updated_at
        FROM client_data
        WHERE client_id = $2
-       ON CONFLICT (client_id, data_key) DO NOTHING`,
+       ON CONFLICT (client_id, data_key, context_id) DO NOTHING`,
       [targetId, legacyId]
     );
     await pool.query("DELETE FROM clients WHERE id = $1", [legacyId]);
@@ -423,11 +423,26 @@ function serializeClient(client) {
   const clientAccess = getConfiguredClients().find(
     (clientConfig) => clientConfig.code.toLowerCase() === String(client.client_code || "").toLowerCase()
   ) || {};
+  const clientCode = String(client.client_code || "");
+  const normalizedClientCode = resolveUnifiedAccountIdentifier(clientCode);
+  const isWestgateAccount = normalizedClientCode === westgateAccountEmail;
+  const isBastidaAccount = normalizedClientCode === bastidaSystemsEmail;
+  const isConfiguredSpecialAccount = Boolean(clientAccess.code);
+  const requiresRestaurantSelection = !isBastidaAccount && !isWestgateAccount && !isConfiguredSpecialAccount;
 
   return {
     id: client.id,
+    businessId: client.business_id,
     clientCode: client.client_code,
     displayName: client.display_name,
+    accountType: isBastidaAccount
+      ? "bastida"
+      : isWestgateAccount
+        ? "westgate"
+        : requiresRestaurantSelection
+          ? "client"
+          : "special",
+    requiresRestaurantSelection,
     modules: Array.isArray(clientAccess.modules) ? clientAccess.modules : undefined,
     defaultModule: clientAccess.defaultModule || undefined,
     brandTitle: clientAccess.brandTitle || undefined,
@@ -809,7 +824,7 @@ async function upsertBeoflowClientAccount(account, { resetPassword = false, skip
          ELSE clients.password_hash
        END,
        updated_at = NOW()
-     RETURNING id, client_code, display_name`,
+     RETURNING id, business_id, client_code, display_name`,
     [account.email, displayName, passwordHash || hashPassword(crypto.randomUUID()), Boolean(account.password && resetPassword)]
   );
 
@@ -973,7 +988,7 @@ async function createPublicSignupAccount(account) {
     const clientResult = await db.query(
       `INSERT INTO clients (client_code, display_name, password_hash)
        VALUES ($1, $2, $3)
-       RETURNING id, client_code, display_name`,
+       RETURNING id, business_id, client_code, display_name`,
       [account.email, account.businessName, hashPassword(account.password)]
     );
 
@@ -1069,7 +1084,7 @@ async function requireClient(req, res, next) {
     }
 
     const result = await pool.query(
-      "SELECT id, client_code, display_name FROM clients WHERE id = $1 AND client_code = $2",
+      "SELECT id, business_id, client_code, display_name FROM clients WHERE id = $1 AND client_code = $2",
       [payload.clientId, payload.clientCode]
     );
 
@@ -1172,6 +1187,56 @@ function requireDatabase() {
   const error = new Error("DATABASE_URL is missing. This API route is unavailable, but localStorage fallback can still be used.");
   error.statusCode = 503;
   throw error;
+}
+
+function normalizeClientDataContextId(value = "") {
+  const contextId = String(value || "").trim();
+  if (!contextId) return "global";
+  if (contextId.length > 128 || !/^[a-zA-Z0-9:._-]+$/.test(contextId)) {
+    throw httpError(400, "Client data context is invalid.");
+  }
+  return contextId;
+}
+
+function getClientDataContextId(req) {
+  return normalizeClientDataContextId(
+    req.body?.contextId ||
+    req.body?.context_id ||
+    req.query?.contextId ||
+    req.query?.context_id ||
+    req.get("x-beoflow-context-id")
+  );
+}
+
+function normalizeRestaurantId(value = "") {
+  const restaurantId = String(value || "").trim();
+  return /^\d+$/.test(restaurantId) ? restaurantId : "";
+}
+
+function getRequestedRestaurantId(req) {
+  return normalizeRestaurantId(
+    req.body?.restaurant_id ||
+    req.body?.restaurantId ||
+    req.query?.restaurantId ||
+    req.query?.restaurant_id ||
+    req.get("x-beoflow-restaurant-id")
+  );
+}
+
+async function assertClientRestaurantAccess(clientId, restaurantId) {
+  const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+  if (!normalizedRestaurantId) return "";
+
+  const result = await pool.query(
+    "SELECT restaurant_id FROM restaurants WHERE client_id = $1 AND restaurant_id = $2 AND active_status = TRUE LIMIT 1",
+    [clientId, normalizedRestaurantId]
+  );
+
+  if (!result.rows.length) {
+    throw httpError(404, "Restaurant not found for this client.");
+  }
+
+  return normalizedRestaurantId;
 }
 
 async function prepareVisionImage(imageBase64, mimeType = "") {
@@ -1291,9 +1356,12 @@ async function initDB() {
     return;
   }
 
+  await pool.query("CREATE EXTENSION IF NOT EXISTS pgcrypto;");
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS clients (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      business_id UUID NOT NULL DEFAULT gen_random_uuid(),
       client_code TEXT NOT NULL UNIQUE,
       display_name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
@@ -1301,16 +1369,28 @@ async function initDB() {
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+  await pool.query("ALTER TABLE clients ADD COLUMN IF NOT EXISTS business_id UUID;");
+  await pool.query("UPDATE clients SET business_id = gen_random_uuid() WHERE business_id IS NULL;");
+  await pool.query("ALTER TABLE clients ALTER COLUMN business_id SET DEFAULT gen_random_uuid();");
+  await pool.query("ALTER TABLE clients ALTER COLUMN business_id SET NOT NULL;");
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS clients_business_id_unique_idx
+    ON clients (business_id);
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS client_data (
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       data_key TEXT NOT NULL,
+      context_id TEXT NOT NULL DEFAULT 'global',
       data_value JSONB NOT NULL DEFAULT 'null'::jsonb,
       updated_at TIMESTAMPTZ DEFAULT NOW(),
-      PRIMARY KEY (client_id, data_key)
+      PRIMARY KEY (client_id, data_key, context_id)
     );
   `);
+  await pool.query("ALTER TABLE client_data ADD COLUMN IF NOT EXISTS context_id TEXT NOT NULL DEFAULT 'global';");
+  await pool.query("ALTER TABLE client_data DROP CONSTRAINT IF EXISTS client_data_pkey;");
+  await pool.query("ALTER TABLE client_data ADD PRIMARY KEY (client_id, data_key, context_id);");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lineops_users (
@@ -1373,11 +1453,16 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS client_data_client_updated_idx
     ON client_data (client_id, updated_at DESC);
   `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS client_data_client_context_updated_idx
+    ON client_data (client_id, context_id, updated_at DESC);
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS events (
       id SERIAL PRIMARY KEY,
       client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+      restaurant_id BIGINT,
       event_name TEXT,
       client_name TEXT,
       event_date DATE,
@@ -1391,6 +1476,7 @@ async function initDB() {
     );
   `);
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
+  await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS restaurant_id BIGINT;");
   await pool.query("ALTER TABLE events ADD COLUMN IF NOT EXISTS menu_id TEXT;");
   if (defaultClientId) {
     await pool.query("UPDATE events SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
@@ -1399,11 +1485,16 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS events_client_created_idx
     ON events (client_id, created_at DESC);
   `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS events_client_restaurant_created_idx
+    ON events (client_id, restaurant_id, created_at DESC);
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS inventory_items (
       id SERIAL PRIMARY KEY,
       client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE,
+      restaurant_id BIGINT,
       name TEXT NOT NULL,
       category TEXT,
       quantity NUMERIC,
@@ -1414,12 +1505,17 @@ async function initDB() {
     );
   `);
   await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS client_id BIGINT REFERENCES clients(id) ON DELETE CASCADE;");
+  await pool.query("ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS restaurant_id BIGINT;");
   if (defaultClientId) {
     await pool.query("UPDATE inventory_items SET client_id = $1 WHERE client_id IS NULL", [defaultClientId]);
   }
   await pool.query(`
     CREATE INDEX IF NOT EXISTS inventory_items_client_created_idx
     ON inventory_items (client_id, created_at DESC);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS inventory_items_client_restaurant_created_idx
+    ON inventory_items (client_id, restaurant_id, created_at DESC);
   `);
 
   await initializeOrdersEngineSchema(pool);
@@ -1899,7 +1995,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT id, client_code, display_name, password_hash
+      `SELECT id, business_id, client_code, display_name, password_hash
        FROM clients
        WHERE LOWER(client_code) = ANY($1::text[])
        ORDER BY CASE WHEN LOWER(client_code) = LOWER($2) THEN 0 ELSE 1 END
@@ -2193,9 +2289,10 @@ app.patch("/api/lineops/admin/users/:id", requireClient, async (req, res) => {
 
 app.get("/api/client-data", requireClient, async (req, res) => {
   try {
+    const contextId = getClientDataContextId(req);
     const result = await pool.query(
-      "SELECT data_key, data_value FROM client_data WHERE client_id = $1 ORDER BY data_key",
-      [req.client.id]
+      "SELECT data_key, data_value FROM client_data WHERE client_id = $1 AND context_id = $2 ORDER BY data_key",
+      [req.client.id, contextId]
     );
 
     const data = result.rows.reduce((acc, row) => {
@@ -2203,32 +2300,33 @@ app.get("/api/client-data", requireClient, async (req, res) => {
       return acc;
     }, {});
 
-    res.json({ ok: true, client: serializeClient(req.client), data });
+    res.json({ ok: true, client: serializeClient(req.client), contextId, data });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to load client data." });
+    res.status(error.statusCode || 500).json({ error: error.message || "Failed to load client data." });
   }
 });
 
 app.put("/api/client-data", requireClient, async (req, res) => {
   try {
+    const contextId = getClientDataContextId(req);
     const data = req.body.data && typeof req.body.data === "object" ? req.body.data : {};
     const entries = Object.entries(data).filter(([key]) => CLIENT_DATA_KEYS.has(key));
 
     for (const [key, value] of entries) {
       await pool.query(
-        `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
-         VALUES ($1, $2, $3::jsonb, NOW())
-         ON CONFLICT (client_id, data_key)
+        `INSERT INTO client_data (client_id, data_key, context_id, data_value, updated_at)
+         VALUES ($1, $2, $3, $4::jsonb, NOW())
+         ON CONFLICT (client_id, data_key, context_id)
          DO UPDATE SET data_value = EXCLUDED.data_value, updated_at = NOW()`,
-        [req.client.id, key, JSON.stringify(value)]
+        [req.client.id, key, contextId, JSON.stringify(value)]
       );
     }
 
-    res.json({ ok: true, saved: entries.map(([key]) => key) });
+    res.json({ ok: true, contextId, saved: entries.map(([key]) => key) });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to save client data." });
+    res.status(error.statusCode || 500).json({ error: error.message || "Failed to save client data." });
   }
 });
 
@@ -2238,19 +2336,20 @@ app.put("/api/client-data/:key", requireClient, async (req, res) => {
     if (!CLIENT_DATA_KEYS.has(key)) {
       return res.status(400).json({ error: "Unsupported client data key." });
     }
+    const contextId = getClientDataContextId(req);
 
     await pool.query(
-      `INSERT INTO client_data (client_id, data_key, data_value, updated_at)
-       VALUES ($1, $2, $3::jsonb, NOW())
-       ON CONFLICT (client_id, data_key)
+      `INSERT INTO client_data (client_id, data_key, context_id, data_value, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, NOW())
+       ON CONFLICT (client_id, data_key, context_id)
        DO UPDATE SET data_value = EXCLUDED.data_value, updated_at = NOW()`,
-      [req.client.id, key, JSON.stringify(req.body.value ?? null)]
+      [req.client.id, key, contextId, JSON.stringify(req.body.value ?? null)]
     );
 
-    res.json({ ok: true, key });
+    res.json({ ok: true, key, contextId });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Failed to save client data." });
+    res.status(error.statusCode || 500).json({ error: error.message || "Failed to save client data." });
   }
 });
 
@@ -2277,6 +2376,7 @@ registerOrdersEngineSockets({
 // Create Event
 app.post("/events", requireClient, async (req, res) => {
   try {
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
     const {
       event_name,
       client_name,
@@ -2291,11 +2391,12 @@ app.post("/events", requireClient, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO events 
-      (client_id, event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (client_id, restaurant_id, event_name, client_name, event_date, start_time, end_time, guests, menu_id, venue, status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
       RETURNING *`,
       [
         req.client.id,
+        restaurantId || null,
         event_name,
         client_name,
         event_date,
@@ -2311,20 +2412,28 @@ app.post("/events", requireClient, async (req, res) => {
     res.json({ ok: true, event: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to save event" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to save event" });
   }
 });
 
 // Get Events
 app.get("/events", requireClient, async (req, res) => {
   try {
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
+    const params = [req.client.id];
+    const clauses = ["client_id = $1"];
+    if (restaurantId) {
+      params.push(restaurantId);
+      clauses.push(`restaurant_id = $${params.length}`);
+    }
+
     const result = await pool.query(
-      "SELECT * FROM events WHERE client_id = $1 ORDER BY created_at DESC",
-      [req.client.id]
+      `SELECT * FROM events WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC`,
+      params
     );
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch events" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to fetch events" });
   }
 });
 
@@ -2332,6 +2441,7 @@ app.get("/events", requireClient, async (req, res) => {
 app.put("/events/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
     const {
       event_name,
       client_name,
@@ -2354,8 +2464,9 @@ app.put("/events/:id", requireClient, async (req, res) => {
         guests = $6,
         menu_id = $7,
         venue = $8,
-        status = $9
-      WHERE id = $10 AND client_id = $11
+        status = $9,
+        restaurant_id = COALESCE($10, restaurant_id)
+      WHERE id = $11 AND client_id = $12
       RETURNING *`,
       [
         event_name,
@@ -2367,6 +2478,7 @@ app.put("/events/:id", requireClient, async (req, res) => {
         menu_id || null,
         venue,
         status || "Draft",
+        restaurantId || null,
         id,
         req.client.id
       ]
@@ -2379,7 +2491,7 @@ app.put("/events/:id", requireClient, async (req, res) => {
     res.json({ ok: true, event: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update event" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to update event" });
   }
 });
 
@@ -2387,19 +2499,27 @@ app.put("/events/:id", requireClient, async (req, res) => {
 app.delete("/events/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
+    const params = [id, req.client.id];
+    const clauses = ["id = $1", "client_id = $2"];
+    if (restaurantId) {
+      params.push(restaurantId);
+      clauses.push(`restaurant_id = $${params.length}`);
+    }
 
-    await pool.query("DELETE FROM events WHERE id = $1 AND client_id = $2", [id, req.client.id]);
+    await pool.query(`DELETE FROM events WHERE ${clauses.join(" AND ")}`, params);
 
     res.json({ ok: true, message: "Event deleted" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to delete event" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to delete event" });
   }
 });
 
 // Create Inventory Item
 app.post("/inventory", requireClient, async (req, res) => {
   try {
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
     const {
       name,
       category,
@@ -2415,11 +2535,12 @@ app.post("/inventory", requireClient, async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO inventory_items
-      (client_id, name, category, quantity, unit, total_cost, storage_area)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
+      (client_id, restaurant_id, name, category, quantity, unit, total_cost, storage_area)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       RETURNING *`,
       [
         req.client.id,
+        restaurantId || null,
         name,
         category || "other",
         quantity || 0,
@@ -2432,21 +2553,29 @@ app.post("/inventory", requireClient, async (req, res) => {
     res.json({ ok: true, item: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to save inventory item" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to save inventory item" });
   }
 });
 
 // Get Inventory
 app.get("/inventory", requireClient, async (req, res) => {
   try {
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
+    const params = [req.client.id];
+    const clauses = ["client_id = $1"];
+    if (restaurantId) {
+      params.push(restaurantId);
+      clauses.push(`restaurant_id = $${params.length}`);
+    }
+
     const result = await pool.query(
-      "SELECT * FROM inventory_items WHERE client_id = $1 ORDER BY created_at DESC",
-      [req.client.id]
+      `SELECT * FROM inventory_items WHERE ${clauses.join(" AND ")} ORDER BY created_at DESC`,
+      params
     );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to fetch inventory" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to fetch inventory" });
   }
 });
 
@@ -2454,6 +2583,7 @@ app.get("/inventory", requireClient, async (req, res) => {
 app.put("/inventory/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
     const {
       name,
       category,
@@ -2470,8 +2600,9 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
         quantity = $3,
         unit = $4,
         total_cost = $5,
-        storage_area = $6
-      WHERE id = $7 AND client_id = $8
+        storage_area = $6,
+        restaurant_id = COALESCE($7, restaurant_id)
+      WHERE id = $8 AND client_id = $9
       RETURNING *`,
       [
         name,
@@ -2480,6 +2611,7 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
         unit || "units",
         total_cost || 0,
         storage_area || "Refrigerated",
+        restaurantId || null,
         id,
         req.client.id
       ]
@@ -2492,7 +2624,7 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
     res.json({ ok: true, item: result.rows[0] });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to update inventory item" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to update inventory item" });
   }
 });
 
@@ -2500,13 +2632,20 @@ app.put("/inventory/:id", requireClient, async (req, res) => {
 app.delete("/inventory/:id", requireClient, async (req, res) => {
   try {
     const { id } = req.params;
+    const restaurantId = await assertClientRestaurantAccess(req.client.id, getRequestedRestaurantId(req));
+    const params = [id, req.client.id];
+    const clauses = ["id = $1", "client_id = $2"];
+    if (restaurantId) {
+      params.push(restaurantId);
+      clauses.push(`restaurant_id = $${params.length}`);
+    }
 
-    await pool.query("DELETE FROM inventory_items WHERE id = $1 AND client_id = $2", [id, req.client.id]);
+    await pool.query(`DELETE FROM inventory_items WHERE ${clauses.join(" AND ")}`, params);
 
     res.json({ ok: true, message: "Inventory item deleted" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to delete inventory item" });
+    res.status(err.statusCode || 500).json({ error: err.message || "Failed to delete inventory item" });
   }
 });
 

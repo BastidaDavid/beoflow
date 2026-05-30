@@ -559,6 +559,28 @@ body {
   gap: 16px;
 }
 
+.restaurant-select-empty {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  background: var(--surface-2);
+  text-align: center;
+}
+
+.restaurant-select-empty strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.restaurant-select-empty span {
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .restaurant-select-card {
   display: grid;
   gap: 12px;
@@ -674,6 +696,10 @@ body {
 
 .restaurant-select-status[data-type="warning"] {
   color: var(--warning-text);
+}
+
+.restaurant-select-status[data-type="error"] {
+  color: var(--danger-text);
 }
 
 .restaurant-select-logout {

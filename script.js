@@ -27,6 +27,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     banquets: new Set(["dashboard", "events", "menus", "recipes", "subRecipes", "inventory", "production", "staff", "reports", "eventForm"]),
     pizzaMkt: new Set(["restaurants", "orders", "kitchen"])
   };
+  const CLIENT_WORKSPACE_MODULES = new Set(["dashboard", "events", "menus", "recipes", "subRecipes", "inventory", "production", "staff", "reports", "eventForm"]);
   const WESTGATE_DEFAULT_MODULES = {
     banquets: "dashboard",
     pizzaMkt: "restaurants"
@@ -116,14 +117,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   const currentClientCodeKey = String(currentClientCode).trim().toLowerCase();
   const westgateClientCodes = new Set(["westgate", "westgate@bastidasystems.io"]);
   const isWestgateClient = westgateClientCodes.has(currentClientCodeKey);
-  const restaurantSelectionClientCodes = new Set();
-  const isRestaurantSelectionClient = restaurantSelectionClientCodes.has(currentClientCodeKey);
   const bastidaClientCodes = new Set(["bastida01", "bastidasystems@gmail.com"]);
   const isBastidaClient = bastidaClientCodes.has(currentClientCodeKey);
+  const isSpecialConfiguredClient = hasConfiguredClientModules || Boolean(currentClient.accountType === "special");
+  const isRestaurantSelectionClient = Boolean(currentClient.requiresRestaurantSelection) || (!isBastidaClient && !isWestgateClient && !isSpecialConfiguredClient);
+  const getClientScopedStorageKey = (key) => currentClientCodeKey ? `${key}:${currentClientCodeKey}` : key;
   let westgateMode = isWestgateClient ? localStorage.getItem(WESTGATE_MODE_KEY) || "" : "";
   let bastidaMode = isBastidaClient ? localStorage.getItem(BASTIDA_MODE_KEY) || "" : "";
-  let selectedRestaurantId = isRestaurantSelectionClient ? localStorage.getItem(RESTAURANT_SELECTION_ID_KEY) || "" : "";
-  let selectedRestaurantName = isRestaurantSelectionClient ? localStorage.getItem(RESTAURANT_SELECTION_NAME_KEY) || "" : "";
+  let selectedRestaurantId = isRestaurantSelectionClient ? localStorage.getItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY)) || "" : "";
+  let selectedRestaurantName = isRestaurantSelectionClient ? localStorage.getItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY)) || "" : "";
   const isKnownWestgateMode = (mode) => Boolean(WESTGATE_MODE_MODULES[mode]);
   const needsWestgateModeSelection = () => isWestgateClient && !isKnownWestgateMode(westgateMode);
   const needsBastidaModeSelection = () => isBastidaClient && bastidaMode !== BASTIDA_CEO_MODE;
@@ -155,6 +157,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
+    if (isRestaurantSelectionClient) {
+      if (appBrandLogo) {
+        appBrandLogo.src = BEOFLOW_LOGO_SRC;
+        appBrandLogo.alt = "BEOFlow Logo";
+      }
+      if (appBrandTitle) appBrandTitle.textContent = currentClient.brandTitle || "Beoflow";
+      if (appBrandSubtitle) {
+        appBrandSubtitle.textContent = selectedRestaurantName || currentClient.displayName || "Restaurant workspace";
+      }
+      return;
+    }
+
     if (hasConfiguredClientModules) {
       if (appBrandLogo) {
         appBrandLogo.src = BEOFLOW_LOGO_SRC;
@@ -175,8 +189,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (appBrandSubtitle) appBrandSubtitle.textContent = "Bastida Systems";
   };
 
+  const getClientDataContextId = () =>
+    isRestaurantSelectionClient && selectedRestaurantId ? `restaurant:${selectedRestaurantId}` : "global";
+
+  const getSelectedRestaurantHeaders = () =>
+    isRestaurantSelectionClient && selectedRestaurantId
+      ? {
+          "X-BEOFlow-Restaurant-Id": selectedRestaurantId,
+          "X-BEOFlow-Context-Id": getClientDataContextId()
+        }
+      : {};
+
   const getAuthHeaders = (headers = {}) => ({
     ...headers,
+    ...getSelectedRestaurantHeaders(),
     ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
   });
 
@@ -270,19 +296,87 @@ document.addEventListener("DOMContentLoaded", async () => {
       return snapshot;
     }, {});
 
-  const saveClientDataNow = async (data) => {
+  const clearClientDataSnapshot = () => {
+    CLIENT_DATA_KEYS.forEach((key) => localStorage.removeItem(key));
+  };
+
+  const refreshAuthenticatedClient = async () => {
     if (!authToken) return;
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_CLIENT_KEY);
+      authToken = "";
+      throw new Error("Session expired. Sign in again.");
+    }
+
+    if (!response.ok) {
+      throw new Error("Client session could not be loaded.");
+    }
+
+    const result = await response.json();
+    const refreshedClient = result.client && typeof result.client === "object" ? result.client : null;
+    if (refreshedClient) {
+      const currentClientSnapshot = localStorage.getItem(AUTH_CLIENT_KEY) || "";
+      const nextClientSnapshot = JSON.stringify(refreshedClient);
+      if (currentClientSnapshot !== nextClientSnapshot) {
+        localStorage.setItem(AUTH_CLIENT_KEY, nextClientSnapshot);
+        window.location.reload();
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const validateSelectedRestaurantSession = async () => {
+    if (!isRestaurantSelectionClient || !selectedRestaurantId) return true;
+    if (!/^\d+$/.test(String(selectedRestaurantId))) {
+      localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY));
+      localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY));
+      selectedRestaurantId = "";
+      selectedRestaurantName = "";
+      return false;
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/restaurants/${encodeURIComponent(selectedRestaurantId)}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.status === 401) {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_CLIENT_KEY);
+      authToken = "";
+      throw new Error("Session expired. Sign in again.");
+    }
+
+    if (response.ok) return true;
+    localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY));
+    localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY));
+    selectedRestaurantId = "";
+    selectedRestaurantName = "";
+    return false;
+  };
+
+  const saveClientDataNow = async (data) => {
+    if (!authToken || (isRestaurantSelectionClient && !selectedRestaurantId)) return;
 
     await fetch(`${API_BASE_URL}/api/client-data`, {
       method: "PUT",
       headers: getAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ data })
+      body: JSON.stringify({ data, contextId: getClientDataContextId() })
     });
   };
 
-  const hydrateClientData = async () => {
+  const hydrateClientData = async (options = {}) => {
+    const { seedEmptyRemote = true } = options;
     const localSnapshot = readClientDataSnapshot();
-    const response = await fetch(`${API_BASE_URL}/api/client-data`, {
+    const contextId = getClientDataContextId();
+    const response = await fetch(`${API_BASE_URL}/api/client-data?contextId=${encodeURIComponent(contextId)}`, {
       headers: getAuthHeaders()
     });
 
@@ -313,10 +407,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     const hasRemoteData = Object.keys(remoteData).length > 0;
 
     if (!hasRemoteData) {
-      await saveClientDataNow(localSnapshot);
+      if (seedEmptyRemote) {
+        await saveClientDataNow(localSnapshot);
+      } else {
+        clearClientDataSnapshot();
+      }
       return true;
     }
 
+    if (!seedEmptyRemote) clearClientDataSnapshot();
     Object.entries(remoteData).forEach(([key, value]) => {
       if (!CLIENT_DATA_KEY_SET.has(key)) return;
       localStorage.setItem(key, JSON.stringify(value));
@@ -326,7 +425,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const syncClientDataKey = (key, value) => {
-    if (!authToken || !CLIENT_DATA_KEY_SET.has(key)) return;
+    if (!authToken || !CLIENT_DATA_KEY_SET.has(key) || (isRestaurantSelectionClient && !selectedRestaurantId)) return;
 
     if (syncTimers.has(key)) clearTimeout(syncTimers.get(key));
     syncTimers.set(
@@ -336,7 +435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           await fetch(`${API_BASE_URL}/api/client-data/${encodeURIComponent(key)}`, {
             method: "PUT",
             headers: getAuthHeaders({ "Content-Type": "application/json" }),
-            body: JSON.stringify({ value })
+            body: JSON.stringify({ value, contextId: getClientDataContextId() })
           });
         } catch (error) {
           console.warn(`Could not sync ${key}:`, error);
@@ -451,6 +550,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     localStorage.removeItem(BASTIDA_MODE_KEY);
     localStorage.removeItem(RESTAURANT_SELECTION_ID_KEY);
     localStorage.removeItem(RESTAURANT_SELECTION_NAME_KEY);
+    localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY));
+    localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY));
     window.location.reload();
   };
 
@@ -471,8 +572,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    const didHydrate = await hydrateClientData();
-    if (!didHydrate) return;
+    const isSelectedRestaurantValid = await validateSelectedRestaurantSession();
+    if (!isSelectedRestaurantValid) {
+      const didRefresh = await refreshAuthenticatedClient();
+      if (!didRefresh) return;
+    } else if (isRestaurantSelectionClient && !selectedRestaurantId) {
+      const didRefresh = await refreshAuthenticatedClient();
+      if (!didRefresh) return;
+    } else {
+      const didHydrate = await hydrateClientData({
+        seedEmptyRemote: !isRestaurantSelectionClient
+      });
+      if (!didHydrate) return;
+    }
   } catch (error) {
     console.warn(error);
     showLogin(error.message || "Sign in again.");
@@ -787,6 +899,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const getWestgateModeModules = () => WESTGATE_MODE_MODULES[westgateMode] || null;
   const getDefaultModuleForClient = () => {
     if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE ? "dashboard" : null;
+    if (isRestaurantSelectionClient) return selectedRestaurantId ? "dashboard" : null;
     if (hasConfiguredClientModules) {
       if (clientDefaultModule && configuredClientModules.has(clientDefaultModule)) return clientDefaultModule;
       return configuredClientModules.values().next().value || "dashboard";
@@ -797,6 +910,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const isModuleAvailableForClient = (moduleKey) => {
     if (moduleKey === "lineOpsUsers") return isBastidaClient && bastidaMode === BASTIDA_CEO_MODE;
     if (isBastidaClient) return bastidaMode === BASTIDA_CEO_MODE;
+    if (isRestaurantSelectionClient) return Boolean(selectedRestaurantId && CLIENT_WORKSPACE_MODULES.has(moduleKey));
     if (hasConfiguredClientModules) return configuredClientModules.has(moduleKey);
     if (!isWestgateClient) return true;
     return Boolean(getWestgateModeModules()?.has(moduleKey));
@@ -829,17 +943,27 @@ document.addEventListener("DOMContentLoaded", async () => {
       clientNavItems.forEach(([moduleKey, navItem]) => {
         setModuleNavAccess(moduleKey, navItem, isModuleAvailableForClient(moduleKey));
       });
-      setClientOnlyElementVisibility(westgateModeSwitchBtn, isRestaurantSelectionClient && Boolean(selectedRestaurantId));
-      if (westgateModeSwitchBtn && isRestaurantSelectionClient) {
-        westgateModeSwitchBtn.textContent = "Change operation";
-      }
+      hideClientOnlyElement(navLineOpsUsers);
+      hideClientOnlyElement(westgateModeSwitchBtn);
       hideClientOnlyElement(smartSetupSection);
       hideClientOnlyElement(smartSetupLauncher);
       return;
     }
 
+    if (isRestaurantSelectionClient) {
+      clientNavItems.forEach(([moduleKey, navItem]) => {
+        setModuleNavAccess(moduleKey, navItem, isModuleAvailableForClient(moduleKey));
+      });
+      hideClientOnlyElement(navLineOpsUsers);
+      setClientOnlyElementVisibility(westgateModeSwitchBtn, Boolean(selectedRestaurantId));
+      if (westgateModeSwitchBtn) westgateModeSwitchBtn.textContent = "Change area";
+      syncSmartSetupSurface(activeModuleKey);
+      return;
+    }
+
     if (!isWestgateClient) {
       clientNavItems.forEach(([, navItem]) => setModuleNavAccess("", navItem, true));
+      hideClientOnlyElement(navLineOpsUsers);
       hideClientOnlyElement(westgateModeSwitchBtn);
       return;
     }
@@ -1120,6 +1244,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const mapApiEventToUiEvent = (event) => ({
     id: event.id,
+    restaurantId: normalizeId(event.restaurant_id ?? event.restaurantId),
     name: event.event_name || "",
     client: event.client_name || "",
     date: event.event_date ? String(event.event_date).split("T")[0] : "",
@@ -1192,6 +1317,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         end_time: eventData.endTime,
         guests: eventData.guests ? Number(eventData.guests) : null,
         menu_id: eventData.menuId || null,
+        restaurant_id: selectedRestaurantId || eventData.restaurantId || null,
         venue: eventData.venue,
         status: eventData.status || "Draft"
       })
@@ -1227,6 +1353,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         end_time: eventData.endTime,
         guests: eventData.guests ? Number(eventData.guests) : null,
         menu_id: eventData.menuId || null,
+        restaurant_id: selectedRestaurantId || eventData.restaurantId || null,
         venue: eventData.venue,
         status: eventData.status || "Draft"
       })
@@ -1269,6 +1396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return {
       id: item.id != null ? String(item.id) : Date.now().toString(),
       apiId: item.id,
+      restaurantId: normalizeId(item.restaurant_id ?? item.restaurantId),
       name: item.name || "",
       category: item.category || "other",
       quantity,
@@ -1282,6 +1410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 
   const mapUiInventoryItemToApiItem = (item = {}) => ({
+    restaurant_id: selectedRestaurantId || item.restaurantId || null,
     name: item.name || "",
     category: item.category || inferInventoryCategoryId(item),
     quantity: Number(item.quantity || 0),
@@ -1703,31 +1832,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   };
 
-  const fallbackRestaurantSelection = () => ({
-    id: `workspace-${currentClientCodeKey || "restaurant"}`,
-    restaurant_id: `workspace-${currentClientCodeKey || "restaurant"}`,
-    restaurant_name: currentClient.brandSubtitle || currentClient.displayName || "Primary Restaurant",
-    category: "restaurant",
-    location: "Primary workspace",
-    active_status: true
-  });
-
   const renderRestaurantSelectionOptions = (restaurants = []) => {
     if (!restaurantSelectOptions) return;
 
     const activeRestaurants = restaurants.filter((restaurant) => restaurant.active_status !== false);
-    const fallbackRestaurant = fallbackRestaurantSelection();
-    const hasFallbackRestaurant = activeRestaurants.some((restaurant) => {
-      const restaurantId = getRestaurantId(restaurant);
-      const restaurantName = String(restaurant.restaurant_name || restaurant.restaurantName || "").trim().toLowerCase();
-      return restaurantId === getRestaurantId(fallbackRestaurant)
-        || restaurantName === String(fallbackRestaurant.restaurant_name || "").trim().toLowerCase();
-    });
-    const items = [
-      ...(isRestaurantSelectionClient && !hasFallbackRestaurant ? [fallbackRestaurant] : []),
-      ...activeRestaurants
-    ];
-    const visibleItems = items.length ? items : [fallbackRestaurant];
+    const visibleItems = activeRestaurants;
+
+    if (!visibleItems.length) {
+      restaurantSelectOptions.innerHTML = `
+        <div class="restaurant-select-empty">
+          <strong>No restaurant yet</strong>
+          <span>Add your first restaurant or business location to open the client dashboard.</span>
+        </div>
+      `;
+      return;
+    }
 
     restaurantSelectOptions.innerHTML = visibleItems.map((restaurant, index) => {
       const restaurantId = getRestaurantId(restaurant) || `restaurant-${index + 1}`;
@@ -1778,7 +1897,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         saveRestaurants(mergeById(getRestaurants(), restaurants, getRestaurantId));
       }
       renderRestaurantSelectionOptions(restaurants.length ? restaurants : getRestaurants());
-      if (restaurantSelectStatus) restaurantSelectStatus.textContent = "";
+      setRestaurantSelectStatus(
+        restaurants.length || getRestaurants().length ? "" : "Add your first restaurant to continue.",
+        restaurants.length || getRestaurants().length ? "" : "info"
+      );
     } catch (error) {
       console.warn("Could not load restaurants for selection:", error);
       renderRestaurantSelectionOptions(getRestaurants());
@@ -1810,13 +1932,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     let savedRestaurant;
     try {
       savedRestaurant = await createRestaurantInApi(payload);
-      setRestaurantSelectStatus(`${savedRestaurant.restaurant_name || restaurantName} saved. Select it to open.`, "success");
+      setRestaurantSelectStatus(`${savedRestaurant.restaurant_name || restaurantName} saved. Opening dashboard...`, "success");
     } catch (error) {
+      if (isRestaurantSelectionClient) {
+        console.error("Restaurant could not be saved for client workspace:", error);
+        setRestaurantSelectStatus(error.message || "Restaurant could not be saved. Try again.", "error");
+        if (restaurantSelectSaveBtn) restaurantSelectSaveBtn.disabled = false;
+        return;
+      }
       savedRestaurant = mapRestaurantFromApi({
         ...payload,
         restaurant_id: makeLocalId("restaurant")
       });
-      setRestaurantSelectStatus(`${restaurantName} saved locally. Select it to open.`, "warning");
+      setRestaurantSelectStatus(`${restaurantName} saved locally. Opening dashboard...`, "warning");
     } finally {
       if (restaurantSelectSaveBtn) restaurantSelectSaveBtn.disabled = false;
     }
@@ -1826,16 +1954,48 @@ document.addEventListener("DOMContentLoaded", async () => {
     populateRestaurantOptions();
     if (restaurantSelectNameInput) restaurantSelectNameInput.value = "";
     setRestaurantSelectAddOpen(false);
+    await selectRestaurantWorkspace(getRestaurantId(savedRestaurant), savedRestaurant.restaurant_name || restaurantName);
   };
 
-  const selectRestaurantWorkspace = (restaurantId, restaurantName) => {
+  const selectRestaurantWorkspace = async (restaurantId, restaurantName) => {
     if (!restaurantId) return;
     selectedRestaurantId = restaurantId;
     selectedRestaurantName = restaurantName || "Restaurant Workspace";
-    localStorage.setItem(RESTAURANT_SELECTION_ID_KEY, selectedRestaurantId);
-    localStorage.setItem(RESTAURANT_SELECTION_NAME_KEY, selectedRestaurantName);
+    localStorage.setItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY), selectedRestaurantId);
+    localStorage.setItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY), selectedRestaurantName);
+    setRestaurantSelectStatus("Loading workspace...", "info");
+    try {
+      await hydrateClientData({ seedEmptyRemote: false });
+      await Promise.allSettled([
+        loadOperationsData({ quiet: true }),
+        fetchEventsFromApi(),
+        fetchInventoryFromApi()
+      ]);
+    } catch (error) {
+      console.warn("Could not hydrate selected restaurant workspace:", error);
+      clearClientDataSnapshot();
+    }
     applyClientModuleVisibility();
     showApp();
+    populateRecipeIngredientOptions();
+    populateSubRecipeIngredientOptions();
+    refreshRecipeOptionLists();
+    refreshMenuTypeOptions();
+    refreshInventoryOptionLists();
+    renderSelectedIngredients();
+    renderSelectedSubRecipeIngredients();
+    populateMenuRecipeOptions();
+    populateEventMenuOptions();
+    renderMenus();
+    renderRecipes();
+    renderSubRecipes();
+    renderInventory();
+    setDefaultAssignmentPresetDate();
+    renderStaff();
+    renderAssignmentPresets();
+    renderProduction();
+    renderReports();
+    renderSmartSetup();
 
     const defaultModule = getDefaultModuleForClient();
     if (defaultModule) showModuleByKey(defaultModule, { scroll: false });
@@ -6161,6 +6321,7 @@ ${staffSuggestion}
     const inventory = getInventory();
     const inventoryItem = {
       id: editingInventoryItemId || Date.now().toString(),
+      restaurantId: selectedRestaurantId || "",
       name,
       category: category || inferInventoryCategoryId({ name, storageArea, unit }),
       quantity,
@@ -8735,8 +8896,9 @@ ${staffSuggestion}
       if (isRestaurantSelectionClient) {
         selectedRestaurantId = "";
         selectedRestaurantName = "";
-        localStorage.removeItem(RESTAURANT_SELECTION_ID_KEY);
-        localStorage.removeItem(RESTAURANT_SELECTION_NAME_KEY);
+        localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_ID_KEY));
+        localStorage.removeItem(getClientScopedStorageKey(RESTAURANT_SELECTION_NAME_KEY));
+        clearClientDataSnapshot();
       } else if (isBastidaClient) {
         bastidaMode = "";
         localStorage.removeItem(BASTIDA_MODE_KEY);
@@ -8761,10 +8923,10 @@ ${staffSuggestion}
   bastidaModeLogoutBtn?.addEventListener("click", logout);
   restaurantSelectLogoutBtn?.addEventListener("click", logout);
 
-  restaurantSelectOptions?.addEventListener("click", (event) => {
+  restaurantSelectOptions?.addEventListener("click", async (event) => {
     const card = event.target.closest("[data-restaurant-id]");
     if (!card) return;
-    selectRestaurantWorkspace(card.dataset.restaurantId, card.dataset.restaurantName);
+    await selectRestaurantWorkspace(card.dataset.restaurantId, card.dataset.restaurantName);
   });
 
   restaurantSelectAddToggleBtn?.addEventListener("click", () => {
@@ -9579,6 +9741,7 @@ ${staffSuggestion}
       e.preventDefault();
 
       const eventData = {
+        restaurantId: selectedRestaurantId || "",
         name: eventNameInput ? eventNameInput.value.trim() : "",
         client: clientNameInput ? clientNameInput.value.trim() : "",
         date: eventDateInput ? eventDateInput.value : "",
@@ -9635,43 +9798,47 @@ ${staffSuggestion}
     if (initialModule) showModuleByKey(initialModule, { scroll: false });
   }
 
-  loadOperationsData({ quiet: true })
-    .catch((error) => {
-      console.warn("Using local operations data because API is unavailable:", error);
-    })
-    .finally(() => {
-      populateRestaurantOptions();
-      populateStationOptions();
-      renderRestaurants();
-      renderOrders();
-      renderKds();
-    });
+  const shouldRenderWorkspaceData = !isRestaurantSelectionClient || Boolean(selectedRestaurantId);
 
-  populateRecipeIngredientOptions();
-  populateSubRecipeIngredientOptions();
-  refreshRecipeOptionLists();
-  refreshMenuTypeOptions();
-  refreshInventoryOptionLists();
-  renderPhotoPreview(recipePhotoPreview, removeRecipePhotoBtn, currentRecipePhotoDataUrl);
-  renderPhotoPreview(subRecipePhotoPreview, removeSubRecipePhotoBtn, currentSubRecipePhotoDataUrl);
-  renderSelectedIngredients();
-  renderSelectedSubRecipeIngredients();
-  populateMenuRecipeOptions();
-  populateEventMenuOptions();
-  renderEvents().then(renderKpis);
-  renderMenus();
-  renderRecipes();
-  renderSubRecipes();
-  fetchInventoryFromApi()
-    .catch((error) => {
-      console.warn("Using local inventory because API is unavailable:", error);
-    })
-    .finally(renderInventory);
-  setDefaultAssignmentPresetDate();
-  renderStaff();
-  renderAssignmentPresets();
-  setInterval(renderStaff, 60000);
-  renderProduction();
-  renderSmartSetup();
-  if (!needsClientModeSelection()) openSmartSetupIfIncomplete();
+  if (shouldRenderWorkspaceData) {
+    loadOperationsData({ quiet: true })
+      .catch((error) => {
+        console.warn("Using local operations data because API is unavailable:", error);
+      })
+      .finally(() => {
+        populateRestaurantOptions();
+        populateStationOptions();
+        renderRestaurants();
+        renderOrders();
+        renderKds();
+      });
+
+    populateRecipeIngredientOptions();
+    populateSubRecipeIngredientOptions();
+    refreshRecipeOptionLists();
+    refreshMenuTypeOptions();
+    refreshInventoryOptionLists();
+    renderPhotoPreview(recipePhotoPreview, removeRecipePhotoBtn, currentRecipePhotoDataUrl);
+    renderPhotoPreview(subRecipePhotoPreview, removeSubRecipePhotoBtn, currentSubRecipePhotoDataUrl);
+    renderSelectedIngredients();
+    renderSelectedSubRecipeIngredients();
+    populateMenuRecipeOptions();
+    populateEventMenuOptions();
+    renderEvents().then(renderKpis);
+    renderMenus();
+    renderRecipes();
+    renderSubRecipes();
+    fetchInventoryFromApi()
+      .catch((error) => {
+        console.warn("Using local inventory because API is unavailable:", error);
+      })
+      .finally(renderInventory);
+    setDefaultAssignmentPresetDate();
+    renderStaff();
+    renderAssignmentPresets();
+    setInterval(renderStaff, 60000);
+    renderProduction();
+    renderSmartSetup();
+    if (!needsClientModeSelection()) openSmartSetupIfIncomplete();
+  }
 });

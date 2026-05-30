@@ -97,7 +97,7 @@ function registerOrdersEngineSockets({ io, pool, verifyClientToken }) {
       }
 
       const result = await pool.query(
-        "SELECT id, client_code, display_name FROM clients WHERE id = $1 AND client_code = $2",
+        "SELECT id, business_id, client_code, display_name FROM clients WHERE id = $1 AND client_code = $2",
         [payload.clientId, payload.clientCode]
       );
 

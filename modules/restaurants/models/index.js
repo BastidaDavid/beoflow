@@ -3,6 +3,7 @@ async function initializeSchema(pool) {
     CREATE TABLE IF NOT EXISTS restaurants (
       restaurant_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       client_id BIGINT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      business_id UUID,
       restaurant_name TEXT NOT NULL,
       category TEXT NOT NULL DEFAULT 'restaurant',
       location TEXT,
@@ -17,6 +18,19 @@ async function initializeSchema(pool) {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS restaurants_client_active_idx
     ON restaurants (client_id, active_status, restaurant_name);
+  `);
+
+  await pool.query("ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS business_id UUID;");
+  await pool.query(`
+    UPDATE restaurants r
+    SET business_id = c.business_id
+    FROM clients c
+    WHERE r.client_id = c.id
+      AND r.business_id IS NULL;
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS restaurants_business_active_idx
+    ON restaurants (business_id, active_status, restaurant_name);
   `);
 }
 
@@ -42,8 +56,8 @@ async function listRestaurants(pool, clientId, filters = {}) {
 async function createRestaurant(pool, clientId, payload) {
   const result = await pool.query(
     `INSERT INTO restaurants
-      (client_id, restaurant_name, category, location, active_status, service_modes, metadata)
-     VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb)
+      (client_id, business_id, restaurant_name, category, location, active_status, service_modes, metadata)
+     VALUES ($1,(SELECT business_id FROM clients WHERE id = $1),$2,$3,$4,$5,$6::jsonb,$7::jsonb)
      RETURNING *`,
     [
       clientId,
